@@ -8,12 +8,7 @@
 #define PCH_H
 
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
-#define PHNT_MODE 1
-#define PHNT_VERSION PHNT_THRESHOLD
 #define _HAS_EXCEPTIONS 0
-
-#include <phnt_windows.h>
-#include <phnt.h>
 
 #include <strsafe.h>
 #include <string>
@@ -26,5 +21,6 @@
 #include <array>
 #include <assert.h>
 #include <unordered_map>
+#include "WinSys.h"
 
 #endif //PCH_H

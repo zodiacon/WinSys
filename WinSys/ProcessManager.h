@@ -3,6 +3,8 @@
 #include <memory>
 #include <vector>
 #include <type_traits>
+#include <unordered_map>
+#include <wil\resource.h>
 #include "Keys.h"
 #include "ProcessInfo.h"
 #include "ThreadInfo.h"
@@ -23,14 +25,14 @@ namespace WinSys {
 #endif
 	template<typename TProcessInfo = ProcessInfo, typename TThreadInfo = ThreadInfo>
 	class ProcessManager {
-		static_assert(std::is_base_of<ProcessInfo, TProcessInfo>);
-		static_assert(std::is_base_of<ThreadInfo, TThreadInfo>);
+		static_assert(std::is_base_of_v<ProcessInfo, TProcessInfo>);
+		static_assert(std::is_base_of_v<ThreadInfo, TThreadInfo>);
 	public:
 		ProcessManager(const ProcessManager&) = delete;
 		ProcessManager& operator=(const ProcessManager&) = delete;
 
 		size_t EnumProcesses() {
-			return EnumProcesses(false);
+			return EnumProcesses(false, 0);
 		}
 		size_t EnumProcessesAndThreads(uint32_t pid = 0) {
 			return EnumProcesses(true, pid);
@@ -53,7 +55,7 @@ namespace WinSys {
 		ProcessManager() {
 			if (s_totalProcessors == 0) {
 				s_totalProcessors = ::GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
-				s_isElevated = Process::OpenById(::GetCurrentProcessId())->IsElevated();
+				s_isElevated = Process::GetCurrent()->IsElevated();
 			}
 		}
 
@@ -111,13 +113,15 @@ namespace WinSys {
 							// new process
 							pi = BuildProcessInfo(p, includeThreads, threadsByKey, delta, pi, extended);
 							_newProcesses.push_back(pi);
-							pi->CPU = 0;
+							pi->CPU = pi->KernelCPU = 0;
 						}
 						else {
 							const auto& pi2 = it->second;
+							auto kcpu = delta == 0 ? 0 : (int32_t)((p->KernelTime.QuadPart - pi2->KernelTime) * 1000000 / delta / s_totalProcessors);
 							auto cpu = delta == 0 ? 0 : (int32_t)((p->KernelTime.QuadPart + p->UserTime.QuadPart - pi2->UserTime - pi2->KernelTime) * 1000000 / delta / s_totalProcessors);
 							pi = BuildProcessInfo(p, includeThreads, threadsByKey, delta, pi2, extended);
 							pi->CPU = cpu;
+							pi->KernelCPU = kcpu;
 
 							// remove from known processes
 							_processesByKey.erase(key);

@@ -45,8 +45,6 @@
 
 #include <windows.h>
 #include <windowsx.h>
-#undef WIN32_NO_STATUS
-#include <ntstatus.h>
 #include <winioctl.h>
 
 typedef double DOUBLE;
