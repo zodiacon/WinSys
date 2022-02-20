@@ -10,6 +10,7 @@
 #include "ThreadInfo.h"
 #include "Processes.h"
 #include "Enums.h"
+#include "SecurityHelper.h"
 
 #ifdef __cplusplus
 #if _MSC_VER >= 1300
@@ -39,10 +40,10 @@ namespace WinSys {
 		}
 
 		[[nodiscard]] std::vector<std::shared_ptr<TProcessInfo>> const& GetTerminatedProcesses() const {
-			return _terminatedProcesses;
+			return m_terminatedProcesses;
 		}
 		[[nodiscard]] std::vector<std::shared_ptr<TProcessInfo>> const& GetNewProcesses() const {
-			return _newProcesses;
+			return m_newProcesses;
 		}
 
 		[[nodiscard]] std::wstring GetProcessNameById(uint32_t pid) const {
@@ -55,28 +56,28 @@ namespace WinSys {
 		ProcessManager() {
 			if (s_totalProcessors == 0) {
 				s_totalProcessors = ::GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
-				s_isElevated = Process::GetCurrent()->IsElevated();
+				s_isElevated = SecurityHelper::IsRunningElevated();
 			}
 		}
 
 		size_t EnumProcesses(bool includeThreads, uint32_t pid) {
 			std::vector<std::shared_ptr<TProcessInfo>> processes;
-			processes.reserve(_processes.empty() ? 512 : _processes.size() + 10);
+			processes.reserve(m_processes.empty() ? 512 : m_processes.size() + 10);
 			ProcessMap processesByKey;
-			processesByKey.reserve(_processes.size() == 0 ? 512 : _processes.size() + 10);
-			_processesById.clear();
-			_processesById.reserve(_processes.capacity());
+			processesByKey.reserve(m_processes.size() == 0 ? 512 : m_processes.size() + 10);
+			m_processesById.clear();
+			m_processesById.reserve(m_processes.capacity());
 
-			_newProcesses.clear();
+			m_newProcesses.clear();
 
 			ThreadMap threadsByKey;
 			if (includeThreads) {
 				threadsByKey.reserve(4096);
-				_newThreads.clear();
-				if (_threads.empty())
-					_newThreads.reserve(4096);
-				_threads.clear();
-				_threadsById.clear();
+				m_newThreads.clear();
+				if (m_threads.empty())
+					m_newThreads.reserve(4096);
+				m_threads.clear();
+				m_threadsById.clear();
 			}
 
 			int size = 1 << 22;
@@ -90,7 +91,7 @@ namespace WinSys {
 
 			LARGE_INTEGER ticks;
 			::QueryPerformanceCounter(&ticks);
-			auto delta = ticks.QuadPart - _prevTicks.QuadPart;
+			auto delta = ticks.QuadPart - m_prevTicks.QuadPart;
 
 			NTSTATUS status;
 			bool extended;
@@ -109,10 +110,10 @@ namespace WinSys {
 					if (pid == 0 || pid == HandleToULong(p->UniqueProcessId)) {
 						ProcessOrThreadKey key = { p->CreateTime.QuadPart, HandleToULong(p->UniqueProcessId) };
 						std::shared_ptr<TProcessInfo> pi;
-						if (auto it = _processesByKey.find(key); it == _processesByKey.end()) {
+						if (auto it = m_processesByKey.find(key); it == m_processesByKey.end()) {
 							// new process
 							pi = BuildProcessInfo(p, includeThreads, threadsByKey, delta, pi, extended);
-							_newProcesses.push_back(pi);
+							m_newProcesses.push_back(pi);
 							pi->CPU = pi->KernelCPU = 0;
 						}
 						else {
@@ -124,91 +125,91 @@ namespace WinSys {
 							pi->KernelCPU = kcpu;
 
 							// remove from known processes
-							_processesByKey.erase(key);
+							m_processesByKey.erase(key);
 						}
 						processes.push_back(pi);
 						//
 						// add process to maps
 						//
 						processesByKey.insert({ key, pi });
-						_processesById.insert({ pi->Id, pi });
+						m_processesById.insert({ pi->Id, pi });
 					}
 					if (p->NextEntryOffset == 0)
 						break;
 					p = reinterpret_cast<SYSTEM_PROCESS_INFORMATION*>((BYTE*)p + p->NextEntryOffset);
 				}
 			}
-			_processes = std::move(processes);
+			m_processes = std::move(processes);
 
 			//
 			// remaining processes are terminated ones
 			//
-			_terminatedProcesses.clear();
-			_terminatedProcesses.reserve(_processesByKey.size());
-			for (const auto& [key, pi] : _processesByKey)
-				_terminatedProcesses.push_back(pi);
+			m_terminatedProcesses.clear();
+			m_terminatedProcesses.reserve(m_processesByKey.size());
+			for (const auto& [key, pi] : m_processesByKey)
+				m_terminatedProcesses.push_back(pi);
 
-			_processesByKey = std::move(processesByKey);
+			m_processesByKey = std::move(processesByKey);
 
 			if (includeThreads) {
-				_terminatedThreads.clear();
-				_terminatedThreads.reserve(_threadsByKey.size());
-				for (const auto& [key, ti] : _threadsByKey)
-					_terminatedThreads.push_back(ti);
+				m_terminatedThreads.clear();
+				m_terminatedThreads.reserve(m_threadsByKey.size());
+				for (const auto& [key, ti] : m_threadsByKey)
+					m_terminatedThreads.push_back(ti);
 
-				_threadsByKey = std::move(threadsByKey);
+				m_threadsByKey = std::move(threadsByKey);
 			}
 
-			_prevTicks = ticks;
+			m_prevTicks = ticks;
 
-			return static_cast<uint32_t>(_processes.size());
+			return static_cast<uint32_t>(m_processes.size());
 		}
 
 		[[nodiscard]] std::vector<std::shared_ptr<TProcessInfo>> const& GetProcesses() const {
-			return _processes;
+			return m_processes;
 		}
 
 		[[nodiscard]] std::shared_ptr<TProcessInfo> GetProcessInfo(int index) const {
-			return _processes[index];
+			return m_processes[index];
 		}
 
 		[[nodiscard]] std::shared_ptr<TProcessInfo> GetProcessById(uint32_t pid) const {
-			auto it = _processesById.find(pid);
-			return it == _processesById.end() ? nullptr : it->second;
+			auto it = m_processesById.find(pid);
+			return it == m_processesById.end() ? nullptr : it->second;
 		}
 
 		[[nodiscard]] std::shared_ptr<TProcessInfo> GetProcessByKey(const ProcessOrThreadKey& key) const {
-			auto it = _processesByKey.find(key);
-			return it == _processesByKey.end() ? nullptr : it->second;
+			auto it = m_processesByKey.find(key);
+			return it == m_processesByKey.end() ? nullptr : it->second;
 		}
 
 		std::vector<std::shared_ptr<TThreadInfo>> const& GetThreads() const {
-			return _threads;
+			return m_threads;
 		}
 
 		[[nodiscard]] size_t GetProcessCount() const {
-			return _processes.size();
+			return m_processes.size();
 		}
 
 		[[nodiscard]] std::shared_ptr<TThreadInfo> GetThreadInfo(int index) const {
-			return _threads[index];
+			return m_threads[index];
 		}
 
 		[[nodiscard]] std::shared_ptr<TThreadInfo> GetThreadByKey(const ProcessOrThreadKey& key) const {
-			auto it = _threadsByKey.find(key);
-			return it == _threadsByKey.end() ? nullptr : it->second;
+			auto it = m_threadsByKey.find(key);
+			return it == m_threadsByKey.end() ? nullptr : it->second;
 		}
 
 		[[nodiscard]] const std::vector<std::shared_ptr<TThreadInfo>>& GetTerminatedThreads() const {
-			return _terminatedThreads;
+			return m_terminatedThreads;
 		}
 
 		[[nodiscard]] const std::vector<std::shared_ptr<TThreadInfo>>& GetNewThreads() const {
-			return _newThreads;
+			return m_newThreads;
 		}
 
 		[[nodiscard]] size_t GetThreadCount() const {
-			return _threads.size();
+			return m_threads.size();
 		}
 
 		[[nodiscard]] std::vector<std::pair<std::shared_ptr<TProcessInfo>, int>> BuildProcessTree() {
@@ -216,10 +217,10 @@ namespace WinSys {
 			auto count = EnumProcesses(false, 0);
 			tree.reserve(count);
 
-			auto map = _processesById;
-			for (auto& p : _processes) {
-				auto it = _processesById.find(p->ParentId);
-				if (p->ParentId == 0 || it == _processesById.end() || (it != _processesById.end() && it->second->CreateTime > p->CreateTime)) {
+			auto map = m_processesById;
+			for (auto& p : m_processes) {
+				auto it = m_processesById.find(p->ParentId);
+				if (p->ParentId == 0 || it == m_processesById.end() || (it != m_processesById.end() && it->second->CreateTime > p->CreateTime)) {
 					// root
 					DbgPrint((PSTR)"Root: %ws (%u) (Parent: %u)\n", p->GetImageName().c_str(), p->Id, p->ParentId);
 					tree.push_back(std::make_pair(p, 0));
@@ -228,7 +229,7 @@ namespace WinSys {
 						continue;
 					auto children = FindChildren(map, p.get(), 1);
 					for (auto& child : children)
-						tree.push_back(std::make_pair(_processesById[child.first], child.second));
+						tree.push_back(std::make_pair(m_processesById[child.first], child.second));
 				}
 			}
 			return tree;
@@ -236,7 +237,7 @@ namespace WinSys {
 
 		std::vector<std::pair<uint32_t, int>> FindChildren(std::unordered_map<uint32_t, std::shared_ptr<TProcessInfo>>& map, TProcessInfo* parent, int indent) {
 			std::vector<std::pair<uint32_t, int>> children;
-			for (auto& p : _processes) {
+			for (auto& p : m_processes) {
 				if (p->ParentId == parent->Id && p->CreateTime > parent->CreateTime) {
 					children.push_back(std::make_pair(p->Id, indent));
 					map.erase(p->Id);
@@ -269,14 +270,14 @@ namespace WinSys {
 						pi->JobObjectId = ext->JobObjectId;
 						auto index = name.rfind(L'\\');
 						::memcpy(pi->UserSid, (BYTE*)info + ext->UserSidOffset, sizeof(pi->UserSid));
-						pi->_processName = index == std::wstring::npos ? name : name.substr(index + 1);
-						pi->_nativeImagePath = name;
+						pi->m_processName = index == std::wstring::npos ? name : name.substr(index + 1);
+						pi->m_nativeImagePath = name;
 						if (ext->PackageFullNameOffset > 0) {
-							pi->_packageFullName = (const wchar_t*)((BYTE*)ext + ext->PackageFullNameOffset);
+							pi->m_packageFullName = (const wchar_t*)((BYTE*)ext + ext->PackageFullNameOffset);
 						}
 					}
 					else {
-						pi->_processName = name;
+						pi->m_processName = name;
 						pi->JobObjectId = 0;
 					}
 				}
@@ -318,14 +319,14 @@ namespace WinSys {
 						std::shared_ptr<TThreadInfo> ti2;
 						bool newobject = true;
 						int64_t cpuTime;
-						if (auto it = _threadsByKey.find(key); it != _threadsByKey.end()) {
+						if (auto it = m_threadsByKey.find(key); it != m_threadsByKey.end()) {
 							thread = it->second;
 							cpuTime = thread->UserTime + thread->KernelTime;
 							newobject = false;
 						}
 						if (newobject) {
 							thread = std::make_shared<TThreadInfo>();
-							thread->_processName = pi->GetImageName();
+							thread->m_processName = pi->GetImageName();
 							thread->Id = HandleToULong(baseInfo.ClientId.UniqueThread);
 							thread->ProcessId = HandleToULong(baseInfo.ClientId.UniqueProcess);
 							thread->CreateTime = baseInfo.CreateTime.QuadPart;
@@ -347,18 +348,18 @@ namespace WinSys {
 
 						pi->AddThread(thread);
 
-						_threads.push_back(thread);
+						m_threads.push_back(thread);
 						if (newobject) {
 							// new thread
 							thread->CPU = 0;
-							_newThreads.push_back(thread);
+							m_newThreads.push_back(thread);
 						}
 						else {
 							thread->CPU = delta == 0 ? 0 : (int32_t)((thread->KernelTime + thread->UserTime - cpuTime) * 1000000LL / delta / 1/*_totalProcessors*/);
-							_threadsByKey.erase(thread->Key);
+							m_threadsByKey.erase(thread->Key);
 						}
 						threadsByKey.insert(std::make_pair(thread->Key, thread));
-						_threadsById.insert(std::make_pair(thread->Id, thread));
+						m_threadsById.insert(std::make_pair(thread->Id, thread));
 					}
 				}
 				return pi;
@@ -366,21 +367,21 @@ namespace WinSys {
 
 			// processes
 
-			std::unordered_map<uint32_t, std::shared_ptr<TProcessInfo>> _processesById;
-			std::vector<std::shared_ptr<TProcessInfo>> _processes;
-			std::vector<std::shared_ptr<TProcessInfo>> _terminatedProcesses;
-			std::vector<std::shared_ptr<TProcessInfo>> _newProcesses;
-			ProcessMap _processesByKey;
+			std::unordered_map<uint32_t, std::shared_ptr<TProcessInfo>> m_processesById;
+			std::vector<std::shared_ptr<TProcessInfo>> m_processes;
+			std::vector<std::shared_ptr<TProcessInfo>> m_terminatedProcesses;
+			std::vector<std::shared_ptr<TProcessInfo>> m_newProcesses;
+			ProcessMap m_processesByKey;
 
 			// threads
 
-			std::vector<std::shared_ptr<TThreadInfo>> _threads;
-			std::vector<std::shared_ptr<TThreadInfo>> _newThreads;
-			std::vector<std::shared_ptr<TThreadInfo>> _terminatedThreads;
-			std::unordered_map<uint32_t, std::shared_ptr<TThreadInfo>> _threadsById;
-			ThreadMap _threadsByKey;
+			std::vector<std::shared_ptr<TThreadInfo>> m_threads;
+			std::vector<std::shared_ptr<TThreadInfo>> m_newThreads;
+			std::vector<std::shared_ptr<TThreadInfo>> m_terminatedThreads;
+			std::unordered_map<uint32_t, std::shared_ptr<TThreadInfo>> m_threadsById;
+			ThreadMap m_threadsByKey;
 
-			LARGE_INTEGER _prevTicks{};
+			LARGE_INTEGER m_prevTicks{};
 			inline static uint32_t s_totalProcessors;
 			inline static bool s_isElevated;
 

@@ -3,7 +3,9 @@
 #include <vector>
 #include <memory>
 
+#ifdef WINSYS_NAMESPACE
 namespace WinSys {
+#endif
 	enum class MapType {
 		Image,
 		Data
@@ -23,7 +25,12 @@ namespace WinSys {
 		ControlFlowGuard = 0x4000,
 		TerminalServerAware = 0x8000
 	};
+#ifdef WINSYS_NAMESPACE
 	DEFINE_ENUM_FLAG_OPERATORS(WinSys::DllCharacteristics);
+#else
+	DEFINE_ENUM_FLAG_OPERATORS(DllCharacteristics);
+#endif
+
 
 	struct ModuleInfo {
 		std::wstring Name;
@@ -52,4 +59,6 @@ namespace WinSys {
 		struct Impl;
 		std::unique_ptr<Impl> _impl;
 	};
+#ifdef WINSYS_NAMESPACE
 }
+#endif

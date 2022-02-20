@@ -14,9 +14,9 @@ namespace WinSys {
 		template<typename TProcessInfo, typename TThreadInfo>
 		friend class ProcessManager;
 
-		const std::wstring& GetImageName() const { return _processName; }
-		const std::wstring& GetPackageFullName() const { return _packageFullName; }
-		const std::wstring& GetNativeImagePath() const { return _nativeImagePath; }
+		const std::wstring& GetImageName() const { return m_processName; }
+		const std::wstring& GetPackageFullName() const { return m_packageFullName; }
+		const std::wstring& GetNativeImagePath() const { return m_nativeImagePath; }
 		const std::vector<std::shared_ptr<ThreadInfo>>& GetThreads() const;
 		const std::wstring& GetUserName() const;
 
@@ -62,11 +62,11 @@ namespace WinSys {
 		void ClearThreads();
 
 	private:
-		std::wstring _processName;
-		std::wstring _nativeImagePath;
-		std::wstring _packageFullName;
-		mutable std::wstring _userName;
-		std::vector<std::shared_ptr<ThreadInfo>> _threads;
+		std::wstring m_processName;
+		std::wstring m_nativeImagePath;
+		std::wstring m_packageFullName;
+		mutable std::wstring m_userName;
+		std::vector<std::shared_ptr<ThreadInfo>> m_threads;
 	};
 #ifdef WINSYS_NAMESPACE
 }

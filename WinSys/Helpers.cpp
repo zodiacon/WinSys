@@ -1,12 +1,15 @@
 #include "pch.h"
 #include "Helpers.h"
 
+#ifdef WINSYS_NAMESPACE
 using namespace WinSys;
+#endif
 
-std::wstring Helpers::GetDosNameFromNtName(PCWSTR name) {
+std::wstring Helpers::GetDosNameFromNtName(PCWSTR name, bool refresh) {
 	static std::vector<std::pair<std::wstring, std::wstring>> deviceNames;
 	static bool first = true;
-	if (first) {
+	if (first || refresh) {
+		deviceNames.clear();
 		auto drives = ::GetLogicalDrives();
 		int drive = 0;
 		while (drives) {
@@ -32,7 +35,7 @@ std::wstring Helpers::GetDosNameFromNtName(PCWSTR name) {
 	return L"";
 }
 
-std::wstring WinSys::Helpers::GetErrorText(DWORD error) {
+std::wstring Helpers::GetErrorText(DWORD error) {
 	PWSTR buffer;
 	std::wstring text;
 	if (::FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,

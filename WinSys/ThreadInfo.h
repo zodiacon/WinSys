@@ -67,7 +67,7 @@ namespace WinSys {
 		friend class ProcessManager;
 	public:
 		const std::wstring& GetProcessImageName() const {
-			return _processName;
+			return m_processName;
 		}
 
 		uint64_t KernelTime;
@@ -89,7 +89,7 @@ namespace WinSys {
 		ProcessOrThreadKey Key;
 
 	private:
-		std::wstring _processName;
+		std::wstring m_processName;
 	};
 #ifdef WINSYS_NAMESPACE
 }

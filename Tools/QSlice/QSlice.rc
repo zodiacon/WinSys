@@ -53,7 +53,27 @@ IDR_MAINFRAME MENU
 BEGIN
     POPUP "&File"
     BEGIN
+        MENUITEM "&Run As Administrator",       ID_FILE_RUNASADMINISTRATOR
+        MENUITEM SEPARATOR
         MENUITEM "E&xit",                       ID_APP_EXIT
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Pause",                      ID_VIEW_PAUSE
+        MENUITEM SEPARATOR
+        POPUP "&Update Speed"
+        BEGIN
+            MENUITEM "&Fast",                       ID_UPDATESPEED_FAST
+            MENUITEM "&Normal",                     ID_UPDATESPEED_NORMAL
+            MENUITEM "&Slow",                       ID_UPDATESPEED_SLOW
+            MENUITEM "&Very Slow",                  ID_UPDATESPEED_VERYSLOW
+        END
+    END
+    POPUP "&Opions"
+    BEGIN
+        MENUITEM "&Always On Top",              ID_OPIONS_ALWAYSONTOP
+        MENUITEM "&Font...",                    ID_OPIONS_FONT
+        MENUITEM "&Dark Mode",                  ID_OPIONS_DARKMODE
     END
     POPUP "&Help"
     BEGIN

@@ -7,7 +7,9 @@
 
 #pragma comment(lib, "imagehlp")
 
+#ifdef WINSYS_NAMESPACE
 using namespace WinSys;
+#endif
 
 struct ProcessModuleTracker::Impl {
 	std::vector<std::shared_ptr<ModuleInfo>> _modules, _newModules, _unloadedModules;
@@ -183,27 +185,27 @@ struct ProcessModuleTracker::Impl {
 	}
 };
 
-WinSys::ProcessModuleTracker::~ProcessModuleTracker() = default;
+ProcessModuleTracker::~ProcessModuleTracker() = default;
 
-WinSys::ProcessModuleTracker::ProcessModuleTracker(DWORD pid) : _impl(new Impl(pid)) {
+ProcessModuleTracker::ProcessModuleTracker(DWORD pid) : _impl(new Impl(pid)) {
 }
 
-WinSys::ProcessModuleTracker::ProcessModuleTracker(HANDLE hProcess) : _impl(new Impl(hProcess)) {
+ProcessModuleTracker::ProcessModuleTracker(HANDLE hProcess) : _impl(new Impl(hProcess)) {
 }
 
-uint32_t WinSys::ProcessModuleTracker::EnumModules() {
+uint32_t ProcessModuleTracker::EnumModules() {
 	return _impl->EnumModules();
 }
 
-const std::vector<std::shared_ptr<ModuleInfo>>& WinSys::ProcessModuleTracker::GetModules() const {
+const std::vector<std::shared_ptr<ModuleInfo>>& ProcessModuleTracker::GetModules() const {
 	return _impl->GetModules();
 }
 
-const std::vector<std::shared_ptr<ModuleInfo>>& WinSys::ProcessModuleTracker::GetNewModules() const {
+const std::vector<std::shared_ptr<ModuleInfo>>& ProcessModuleTracker::GetNewModules() const {
 	return _impl->GetNewModules();
 }
 
-const std::vector<std::shared_ptr<ModuleInfo>>& WinSys::ProcessModuleTracker::GetUnloadedModules() const {
+const std::vector<std::shared_ptr<ModuleInfo>>& ProcessModuleTracker::GetUnloadedModules() const {
 	return _impl->GetUnloadedModules();
 }
 

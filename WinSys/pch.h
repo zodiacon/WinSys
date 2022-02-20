@@ -21,6 +21,8 @@
 #include <array>
 #include <assert.h>
 #include <unordered_map>
+#include <shellapi.h>
+#include <sddl.h>
 #include "WinSys.h"
 
 #endif //PCH_H
