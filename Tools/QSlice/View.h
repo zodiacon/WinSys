@@ -14,6 +14,8 @@ class CView :
 public:
 	DECLARE_WND_CLASS(NULL)
 
+	bool ToggleRunning();
+
 	BOOL PreTranslateMessage(MSG* pMsg);
 
 	CString GetColumnText(HWND, int row, int col) const;
@@ -54,5 +56,7 @@ private:
 	CListViewCtrl m_List;
 	ProcessManager<ProcessInfoEx> m_pm;
 	std::vector<std::shared_ptr<ProcessInfoEx>> m_Items;
+	int m_Interval{ 1000 };
+	bool m_Running{ true };
 	//std::vector<std::shared_ptr<ProcessInfoEx>> m_Deleted;
 };

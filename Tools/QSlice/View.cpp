@@ -11,6 +11,15 @@
 #include <concepts>
 #include <format>
 
+bool CView::ToggleRunning() {
+	m_Running = !m_Running;
+	if (m_Running)
+		SetTimer(1, m_Interval);
+	else
+		KillTimer(1);
+	return m_Running;
+}
+
 BOOL CView::PreTranslateMessage(MSG* pMsg) {
 	pMsg;
 	return FALSE;
@@ -25,9 +34,9 @@ CString CView::GetColumnText(HWND, int row, int col) const {
 	switch (col) {
 		case 0: return p->GetImageName().c_str();
 		case 1: return std::to_wstring(p->Id).c_str();
-		case 2: return p->CPU > 0 ? std::format(L"{:6.2f}", p->CPU / 10000.0f).c_str() : L"";
+		case 2: return p->CPU > 0 && !p->Deleted ? std::format(L"{:6.2f}", p->CPU / 10000.0f).c_str() : L"";
 	}
-	return CString();
+	return L"";
 }
 
 int CView::GetRowImage(HWND, int row, int col) const {
@@ -96,14 +105,18 @@ DWORD CView::OnSubItemPrePaint(int, LPNMCUSTOMDRAW cd) {
 	if (row >= m_Items.size())
 		return CDRF_SKIPDEFAULT;
 
+	auto p = m_Items[row].get();
+	if (p->Deleted)
+		return CDRF_SKIPDEFAULT;
+
 	CDCHandle dc(cd->hdc);
 	CRect rc(cd->rc);
 	rc.DeflateRect(0, 1);
-	int len = rc.Width() * m_Items[row]->CPU / 10000 / 100;
-	int klen = rc.Width() * m_Items[row]->KernelCPU / 10000 / 100;
+	int len = rc.Width() * p->CPU / 10000 / 100;
+	int klen = rc.Width() * p->KernelCPU / 10000 / 100;
 	ATLASSERT(len >= klen);
 	rc.right = rc.left + klen;
-	dc.FillSolidRect(&rc, RGB(255, 0, 0));
+	dc.FillSolidRect(&rc, p->Id ? RGB(255, 0, 0) : RGB(128, 128, 128));
 	rc.left = rc.right;
 	rc.right = rc.left + len - klen;
 	dc.FillSolidRect(&rc, RGB(0, 0, 255));

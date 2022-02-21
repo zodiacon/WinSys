@@ -69,11 +69,11 @@ BEGIN
             MENUITEM "&Very Slow",                  ID_UPDATESPEED_VERYSLOW
         END
     END
-    POPUP "&Opions"
+    POPUP "&Options"
     BEGIN
-        MENUITEM "&Always On Top",              ID_OPIONS_ALWAYSONTOP
-        MENUITEM "&Font...",                    ID_OPIONS_FONT
-        MENUITEM "&Dark Mode",                  ID_OPIONS_DARKMODE
+        MENUITEM "&Always On Top",              ID_OPTIONS_ALWAYSONTOP
+        MENUITEM "&Font...",                    ID_OPTIONS_FONT
+        MENUITEM "&Dark Mode",                  ID_OPTIONS_DARKMODE
     END
     POPUP "&Help"
     BEGIN
@@ -90,6 +90,10 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDR_MAINFRAME           ICON                    "res\\QSlice.ico"
+
+IDI_CHECK               ICON                    "res\\check.ico"
+
+IDI_RADIO               ICON                    "res\\radio.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////
