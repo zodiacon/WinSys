@@ -15,13 +15,15 @@ public:
 	DECLARE_WND_CLASS(NULL)
 
 	bool ToggleRunning();
+	void SetUpdateInterval(int interval);
 
 	BOOL PreTranslateMessage(MSG* pMsg);
 
 	CString GetColumnText(HWND, int row, int col) const;
 	int GetRowImage(HWND, int row, int col) const;
-
 	void DoSort(SortInfo const* si);
+	void PreSort(HWND);
+	void PostSort(HWND);
 
 	DWORD OnPrePaint(int, LPNMCUSTOMDRAW cd);
 	DWORD OnItemPrePaint(int, LPNMCUSTOMDRAW cd);
@@ -34,9 +36,11 @@ protected:
 		MESSAGE_HANDLER(WM_CREATE, OnCreate)
 		CHAIN_MSG_MAP(CCustomDraw<CView>)
 		CHAIN_MSG_MAP(CVirtualListView<CView>)
+	ALT_MSG_MAP(1)
 	END_MSG_MAP()
 
 private:
+	void SelectPid(DWORD pid);
 	struct ProcessInfoEx : ProcessInfo {
 		DWORD64 TargetTime;
 		int Image{ -1 };
@@ -56,7 +60,8 @@ private:
 	CListViewCtrl m_List;
 	ProcessManager<ProcessInfoEx> m_pm;
 	std::vector<std::shared_ptr<ProcessInfoEx>> m_Items;
+	std::set<int> m_Deleted;
+	DWORD m_SelectedPid = -1;
 	int m_Interval{ 1000 };
 	bool m_Running{ true };
-	//std::vector<std::shared_ptr<ProcessInfoEx>> m_Deleted;
 };

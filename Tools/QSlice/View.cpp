@@ -7,6 +7,7 @@
 #include "View.h"
 #include "SortHelper.h"
 #include "ImageIconCache.h"
+#include "ThemeHelper.h"
 #define __cpp_lib_format
 #include <concepts>
 #include <format>
@@ -18,6 +19,12 @@ bool CView::ToggleRunning() {
 	else
 		KillTimer(1);
 	return m_Running;
+}
+
+void CView::SetUpdateInterval(int interval) {
+	m_Interval = interval;
+	if (m_Running)
+		SetTimer(1, interval);
 }
 
 BOOL CView::PreTranslateMessage(MSG* pMsg) {
@@ -66,7 +73,26 @@ void CView::DoSort(SortInfo const* si) {
 		}
 		return false;
 	};
+
 	std::sort(m_Items.begin(), m_Items.end(), compare);
+}
+
+void CView::PreSort(HWND) {
+	if (m_SelectedPid != -1)
+		return;
+
+	int selected = m_List.GetSelectedIndex();
+	if (selected >= 0 && selected < m_Items.size())
+		m_SelectedPid = m_Items[selected]->Id;
+	else
+		m_SelectedPid = -1;
+}
+
+void CView::PostSort(HWND) {
+	if (m_SelectedPid != -1) {
+		SelectPid(m_SelectedPid);
+		m_SelectedPid = -1;
+	}
 }
 
 DWORD CView::OnPrePaint(int, LPNMCUSTOMDRAW cd) {
@@ -84,12 +110,11 @@ DWORD CView::OnItemPrePaint(int, LPNMCUSTOMDRAW cd) {
 	if (p->Deleted) {
 		lv->clrTextBk = RGB(255, 64, 0);
 		if (tick >= p->TargetTime) {
-			//m_Deleted.push_back(p);
-			m_Items.erase(m_Items.begin() + cd->dwItemSpec);
+			m_Deleted.insert(row);
 		}
 	}
 	else if (p->New) {
-		lv->clrTextBk = RGB(0, 255, 64);
+		lv->clrTextBk = ThemeHelper::IsDefault() ? RGB(0, 255, 64) : RGB(0, 160, 64);
 		if (tick >= p->TargetTime)
 			p->New = false;
 	}
@@ -123,8 +148,20 @@ DWORD CView::OnSubItemPrePaint(int, LPNMCUSTOMDRAW cd) {
 	return CDRF_SKIPDEFAULT;
 }
 
+void CView::SelectPid(DWORD pid) {
+	int count = (int)m_Items.size();
+	for (int i = 0; i < count; i++)
+		if (m_Items[i]->Id == pid) {
+			m_List.SetItemState(i, LVIS_SELECTED, LVIS_SELECTED);
+			ATLTRACE(L"Selecting PID: %u (%i)\n", pid, i);
+			break;
+		}
+}
+
 LRESULT CView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
-	m_List.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_OWNERDATA | LVS_SINGLESEL | LVS_SHOWSELALWAYS);
+	m_List.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS |
+		LVS_REPORT | LVS_OWNERDATA | LVS_SINGLESEL | LVS_SHOWSELALWAYS);
+
 	m_List.SetExtendedListViewStyle(LVS_EX_DOUBLEBUFFER | LVS_EX_FULLROWSELECT);
 	CImageList images;
 	images.Create(16, 16, ILC_COLOR32 | ILC_MASK, 64, 64);
@@ -157,6 +194,9 @@ LRESULT CView::OnSize(UINT, WPARAM, LPARAM lp, BOOL&) {
 
 LRESULT CView::OnTimer(UINT, WPARAM id, LPARAM, BOOL&) {
 	if (id == 1) {
+		int selected = m_List.GetSelectedIndex();
+		if (selected >= 0 && selected < m_Items.size())
+			m_SelectedPid = m_Items[selected]->Id;
 
 		auto count = m_pm.EnumProcesses();
 		auto tick = GetTickCount64();
@@ -170,10 +210,18 @@ LRESULT CView::OnTimer(UINT, WPARAM id, LPARAM, BOOL&) {
 			p->TargetTime = tick + 2000;
 		}
 
+		if (!m_Deleted.empty()) {
+			int offset = 0;
+			for (auto& i : m_Deleted) {
+				m_Items.erase(m_Items.begin() + i - offset);
+				offset++;
+			}
+			m_Deleted.clear();
+		}
+		m_List.SetItemCountEx((int)m_Items.size(), LVSICF_NOSCROLL | LVSICF_NOINVALIDATEALL);
 		auto si = GetSortInfo(m_List);
 		if (si)
 			Sort(si);
-		m_List.SetItemCountEx((int)m_Items.size(), LVSICF_NOSCROLL | LVSICF_NOINVALIDATEALL);
 		m_List.RedrawItems(m_List.GetTopIndex(), m_List.GetTopIndex() + m_List.GetCountPerPage());
 	}
 	return 0;

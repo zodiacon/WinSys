@@ -32,6 +32,7 @@ extern CAppModule _Module;
 #include <string>
 #include <unordered_map>
 #include <strsafe.h>
+#include <set>
 #include "WinSys.h"
 
 

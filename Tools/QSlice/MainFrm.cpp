@@ -41,7 +41,7 @@ void CMainFrame::InitDarkTheme() {
 }
 
 LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
-	m_hWndClient = m_view.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
+	m_hWndClient = m_view.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, WS_EX_STATICEDGE);
 	InitDarkTheme();
 
 	// register object for message filtering and idle updates
@@ -59,6 +59,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	UIAddMenu(menu);
 	AddMenu(menu);
 	AddCommand(ID_FILE_RUNASADMINISTRATOR, IconHelper::GetShieldIcon());
+	UISetRadioMenuItem(ID_UPDATESPEED_FAST + m_IntervalIndex, ID_UPDATESPEED_FAST, ID_UPDATESPEED_VERYSLOW);
 
 	return 0;
 }
@@ -114,3 +115,12 @@ LRESULT CMainFrame::OnToggleDarkMode(WORD, WORD, HWND, BOOL& handled) {
 
 	return 0;
 }
+
+LRESULT CMainFrame::OnUpdateInterval(WORD /*wNotifyCode*/, WORD id, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
+	m_IntervalIndex = id - ID_UPDATESPEED_FAST;
+	UISetRadioMenuItem(ID_UPDATESPEED_FAST + m_IntervalIndex, ID_UPDATESPEED_FAST, ID_UPDATESPEED_VERYSLOW);
+	m_view.SetUpdateInterval(s_Intervals[m_IntervalIndex]);
+
+	return 0;
+}
+
