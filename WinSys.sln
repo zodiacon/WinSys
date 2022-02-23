@@ -13,7 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Modules", "Modules", "{CAF0
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WTLHelper", "WTLHelper\WTLHelper\WTLHelper.vcxproj", "{AE53419F-A769-4548-8E15-E311904DF7DF}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TaskMgrX", "TaskMgrX\TaskMgrX.vcxproj", "{2C92379E-D3D3-4CBE-A8B3-E7D8F80978FA}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TaskMgrX", "Tools\TaskMgrX\TaskMgrX.vcxproj", "{2C92379E-D3D3-4CBE-A8B3-E7D8F80978FA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

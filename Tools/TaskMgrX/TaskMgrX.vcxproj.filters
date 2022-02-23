@@ -42,6 +42,9 @@
     <ClCompile Include="PerfView.cpp">
       <Filter>Views</Filter>
     </ClCompile>
+    <ClCompile Include="ProcessInfoEx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -56,9 +59,6 @@
     <ClInclude Include="resource.h">
       <Filter>Resource Files</Filter>
     </ClInclude>
-    <ClInclude Include="ViewBase.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Interfaces.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -70,6 +70,12 @@
     </ClInclude>
     <ClInclude Include="PerfView.h">
       <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="ViewBase.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessInfoEx.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

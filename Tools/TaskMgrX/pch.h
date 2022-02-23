@@ -6,12 +6,10 @@
 #pragma once
 
 // Change these values to use different versions
-#define WINVER		0x0601
-#define _WIN32_WINNT	0x0601
+#define WINVER		0x0A01
+#define _WIN32_WINNT	0x0A01
 #define _WIN32_IE	0x0700
 #define _RICHEDIT_VER	0x0500
-// prevent <windowsx.h> from being included
-#define _INC_WINDOWSX
 
 #include <atlbase.h>
 #include <atlapp.h>

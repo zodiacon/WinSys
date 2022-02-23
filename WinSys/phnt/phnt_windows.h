@@ -32,9 +32,9 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#ifndef WIN32_NO_STATUS
-#define WIN32_NO_STATUS
-#endif
+//#ifndef WIN32_NO_STATUS
+//#define WIN32_NO_STATUS
+//#endif
 
 #ifndef __cplusplus
 // This is needed to workaround C17 preprocessor errors when using legacy versions of the Windows SDK. (dmex)
@@ -44,8 +44,10 @@
 #endif
 
 #include <windows.h>
-#include <windowsx.h>
+//#include <windowsx.h>
 #include <winioctl.h>
+//#undef WIN32_NO_STATUS
+//#include <ntstatus.h>
 
 typedef double DOUBLE;
 typedef GUID *PGUID;

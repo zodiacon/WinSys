@@ -1,9 +1,22 @@
 #pragma once
 
-#define PHNT_MODE 1
-#define PHNT_VERSION PHNT_THRESHOLD
+#include <phnt_windows.h>
+#include <phnt.h>
 
-#include "phnt_windows.h"
-#include "phnt.h"
+#define STATUS_BUFFER_TOO_SMALL (0xC0000023)
 
-#define STATUS_BUFFER_TOO_SMALL          ((NTSTATUS)0xC0000023L)
+#include <shellscalingapi.h>
+#include <strsafe.h>
+#include <string>
+#include <vector>
+#include <memory>
+
+#include <optional>
+#include <Psapi.h>
+#include <VersionHelpers.h>
+#include <array>
+#include <assert.h>
+#include <unordered_map>
+#include <shellapi.h>
+#include <sddl.h>
+#include <wil\resource.h>

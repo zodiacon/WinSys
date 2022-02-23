@@ -8,8 +8,9 @@
 #include "VirtualListView.h"
 #include "ProcessInfo.h"
 #include <set>
-#include <ProcessManager.h>
 #include "IListView.h"
+#include <ProcessManager.h>
+#include "ProcessInfoEx.h"
 
 class CProcessesView : 
 	public CViewBase<CProcessesView>,
@@ -32,8 +33,6 @@ protected:
 	END_MSG_MAP()
 
 private:
-	struct ProcessInfoEx : ProcessInfo {
-	};
 
 	// Handler prototypes (uncomment arguments if needed):
 	//	LRESULT MessageHandler(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)

@@ -218,6 +218,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="PerfView.cpp" />
+    <ClCompile Include="ProcessInfoEx.cpp" />
     <ClCompile Include="ServicesView.cpp" />
     <ClCompile Include="TaskMgrX.cpp" />
     <ClCompile Include="ProcessesView.cpp" />
@@ -227,6 +228,7 @@
     <ClInclude Include="Interfaces.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="PerfView.h" />
+    <ClInclude Include="ProcessInfoEx.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="ProcessesView.h" />
