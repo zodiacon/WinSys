@@ -5,6 +5,7 @@
 #pragma once
 
 #include "VirtualListView.h"
+#include <WinSys.h>
 #include "ProcessManager.h"
 
 class CView : 

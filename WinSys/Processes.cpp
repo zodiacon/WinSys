@@ -292,6 +292,17 @@ HANDLE Process::GetNextThread(HANDLE hThread, ThreadAccessMask access) {
 	return hNewThread;
 }
 
+DpiAwareness Process::GetDpiAwareness() const {
+	static const auto pGetProcessDpiAware = (decltype(::GetProcessDpiAwareness)*)::GetProcAddress(::GetModuleHandle(L"shcore"), "GetProcessDpiAwareness");
+
+	if (!m_handle || pGetProcessDpiAware == nullptr)
+		return DpiAwareness::None;
+
+	DpiAwareness da = DpiAwareness::None;
+	pGetProcessDpiAware(m_handle.get(), reinterpret_cast<PROCESS_DPI_AWARENESS*>(&da));
+	return da;
+}
+
 std::wstring Process::GetCurrentDirectory() const {
 	wil::unique_handle h;
 	if (!::DuplicateHandle(::GetCurrentProcess(), m_handle.get(), ::GetCurrentProcess(), h.addressof(), PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, 0))

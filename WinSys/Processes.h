@@ -5,6 +5,7 @@
 #include <optional>
 #include <vector>
 #include "Enums.h"
+#include <wil\resource.h>
 
 #ifdef WINSYS_NAMESPACE
 namespace WinSys {
@@ -29,6 +30,13 @@ namespace WinSys {
 		PayloadRestrictionPolicy,
 		ChildProcessPolicy,
 		SideChannelIsolationPolicy,
+	};
+
+	enum class DpiAwareness {
+		Unknown = -1,
+		None = DPI_AWARENESS_UNAWARE,
+		System = DPI_AWARENESS_SYSTEM_AWARE,
+		PerMonitor = DPI_AWARENESS_PER_MONITOR_AWARE,
 	};
 
 	struct ProcessProtection {
@@ -90,7 +98,8 @@ namespace WinSys {
 		uint32_t GetUserObjectCount() const;
 		uint32_t GetPeakUserObjectCount() const;
 		HANDLE GetNextThread(HANDLE hThread = nullptr, ThreadAccessMask access = ThreadAccessMask::QueryLimitedInformation);
-		
+		DpiAwareness GetDpiAwareness() const;
+
 		uint32_t GetId() const;
 		HANDLE Handle() const;
 

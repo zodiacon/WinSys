@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "SecurityHelper.h"
 #include <shellapi.h>
+#include <wil\resource.h>
 
 bool SecurityHelper::IsRunningElevated() {
 	static bool runningElevated = false;
