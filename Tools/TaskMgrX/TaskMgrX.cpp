@@ -3,8 +3,6 @@
 
 #include "pch.h"
 #include "resource.h"
-#include "View.h"
-#include "AboutDlg.h"
 #include "MainFrm.h"
 
 CAppModule _Module;

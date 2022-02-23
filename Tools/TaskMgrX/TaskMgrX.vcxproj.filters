@@ -13,6 +13,12 @@
       <UniqueIdentifier>{a372bd5b-5d49-48a5-9f26-ad595873d634}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;jpg;jpeg;jpe;manifest</Extensions>
     </Filter>
+    <Filter Include="Resource Files\Icons">
+      <UniqueIdentifier>{341449a3-704a-4171-84d9-e8cfb4cbc0bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Views">
+      <UniqueIdentifier>{4fbe48ac-b2cc-4f37-8f76-6b6788d9c831}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -24,11 +30,17 @@
     <ClCompile Include="MainFrm.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="View.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="AboutDlg.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessesView.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="ServicesView.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="PerfView.cpp">
+      <Filter>Views</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -38,14 +50,26 @@
     <ClInclude Include="MainFrm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="View.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="AboutDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="resource.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ViewBase.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Interfaces.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessesView.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="ServicesView.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="PerfView.h">
+      <Filter>Views</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -55,7 +79,28 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\TaskMgrX.ico">
-      <Filter>Resource Files</Filter>
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\check.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\perf.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\pin.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\Processes.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\radio.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\refresh.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\services.ico">
+      <Filter>Resource Files\Icons</Filter>
     </Image>
   </ItemGroup>
   <ItemGroup>
