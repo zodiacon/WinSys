@@ -2,8 +2,6 @@
 #include "Thread.h"
 #include "Processes.h"
 
-#pragma comment(lib, "ntdll")
-
 #ifdef WINSYS_NAMESPACE
 namespace WinSys {
 #endif
@@ -133,6 +131,11 @@ Process::Process(HANDLE handle) : m_handle(handle) {
 std::unique_ptr<Process> Process::OpenById(uint32_t pid, ProcessAccessMask access) {
 	auto handle = ::OpenProcess(static_cast<ACCESS_MASK>(access), FALSE, pid);
 	return handle ? std::make_unique<Process>(handle) : nullptr;
+}
+
+bool Process::Open(uint32_t pid, ProcessAccessMask access) {
+	m_handle.reset(::OpenProcess(static_cast<ACCESS_MASK>(access), FALSE, pid));
+	return m_handle != nullptr;
 }
 
 bool Process::IsValid() const {

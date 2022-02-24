@@ -89,7 +89,7 @@
       <PreprocessorDefinitions>_WINDOWS;STRICT;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\..\WTLHelper\WTLHelper;..\..\WinSys;..\..\WinSys\phnt</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\WTLHelper\WTLHelper;..\..\WinSys;..\..\WinSys\phnt;..\</AdditionalIncludeDirectories>
       <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>
@@ -123,7 +123,7 @@
       <PreprocessorDefinitions>WIN32;_WINDOWS;STRICT;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\..\WTLHelper\WTLHelper;..\..\WinSys;..\..\WinSys\phnt</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\WTLHelper\WTLHelper;..\..\WinSys;..\..\WinSys\phnt;..\</AdditionalIncludeDirectories>
       <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>
@@ -157,7 +157,7 @@
       <PreprocessorDefinitions>WIN32;_WINDOWS;STRICT;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\..\WTLHelper\WTLHelper;..\..\WinSys;..\..\WinSys\phnt</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\WTLHelper\WTLHelper;..\..\WinSys;..\..\WinSys\phnt;..\</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -189,7 +189,7 @@
       <PreprocessorDefinitions>_WINDOWS;STRICT;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\..\WTLHelper\WTLHelper;..\..\WinSys;..\..\WinSys\phnt</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\WTLHelper\WTLHelper;..\..\WinSys;..\..\WinSys\phnt;..\</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -211,8 +211,8 @@
     </Midl>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\ImageIconCache.cpp" />
     <ClCompile Include="AboutDlg.cpp" />
-    <ClCompile Include="ImageIconCache.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="QSlice.cpp" />
     <ClCompile Include="pch.cpp">
@@ -224,8 +224,8 @@
     <ClCompile Include="View.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ImageIconCache.h" />
     <ClInclude Include="AboutDlg.h" />
-    <ClInclude Include="ImageIconCache.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="pch.h" />

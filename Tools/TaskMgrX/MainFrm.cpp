@@ -10,6 +10,7 @@
 #include "ServicesView.h"
 #include "PerfView.h"
 #include "IconHelper.h"
+#include "SecurityHelper.h"
 
 const int WINDOW_MENU_POSITION = 4;
 
@@ -33,6 +34,9 @@ void CMainFrame::InitMenu() {
 		{ ID_FILE_RUNASADMINISTRATOR, 0, IconHelper::GetShieldIcon() },
 		{ ID_OPTIONS_ALWAYSONTOP, IDI_PIN },
 		{ ID_VIEW_REFRESH, IDI_REFRESH },
+		{ ID_TAB_PROCESSES, IDI_PROCESSES },
+		{ ID_TAB_PERFORMANCE, IDI_PERF },
+		{ ID_TAB_SERVICES, IDI_SERVICES },
 	};
 
 	for (auto& icon : icons) {
@@ -61,12 +65,25 @@ void CMainFrame::CreateTabs() {
 	}
 }
 
+void CMainFrame::ActivatePage(int page) {
+	if (m_CurrentTab >= 0)
+		((IView*)m_view.GetPageData(m_CurrentTab))->PageActivated(false);
+	m_CurrentTab = page;
+	UISetRadioMenuItem(ID_TAB_PROCESSES + page, ID_TAB_PROCESSES, ID_TAB_SERVICES);
+	((IView*)m_view.GetPageData(m_CurrentTab))->PageActivated(true);
+}
+
+LRESULT CMainFrame::OnTimer(UINT, WPARAM, LPARAM, BOOL&) {
+	return 0;
+}
+
 LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
 	CreateSimpleStatusBar();
 	m_sb.SubclassWindow(m_hWndStatusBar);
 
 	m_view.m_bTabCloseButton = false;
-	m_hWndClient = m_view.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, WS_EX_CLIENTEDGE);
+	m_hWndClient = m_view.Create(m_hWnd, rcDefault, nullptr, 
+		WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
 
 	// register object for message filtering and idle updates
 	auto pLoop = _Module.GetMessageLoop();
@@ -75,15 +92,19 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	pLoop->AddIdleHandler(this);
 
 	CMenuHandle menuMain = GetMenu();
-	m_view.SetWindowMenu(menuMain.GetSubMenu(WINDOW_MENU_POSITION));
+	if (SecurityHelper::IsRunningElevated()) {
+		menuMain.GetSubMenu(0).DeleteMenu(0, MF_BYPOSITION);
+		menuMain.GetSubMenu(0).DeleteMenu(0, MF_BYPOSITION);
+	}
 	SetCheckIcon(AtlLoadIconImage(IDI_CHECK, 0, 16, 16), AtlLoadIconImage(IDI_RADIO, 0, 16, 16));
 	AddMenu(menuMain);
 	UIAddMenu(menuMain);
-	InitMenu();
 
 	UISetCheck(ID_VIEW_STATUS_BAR, 1);
 
 	CreateTabs();
+	InitMenu();
+	m_view.SetActivePage(0);
 
 	return 0;
 }
@@ -105,7 +126,7 @@ LRESULT CMainFrame::OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 }
 
 LRESULT CMainFrame::OnViewStatusBar(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
-	BOOL bVisible = !::IsWindowVisible(m_hWndStatusBar);
+	bool bVisible = !::IsWindowVisible(m_hWndStatusBar);
 	::ShowWindow(m_hWndStatusBar, bVisible ? SW_SHOWNOACTIVATE : SW_HIDE);
 	UISetCheck(ID_VIEW_STATUS_BAR, bVisible);
 	UpdateLayout();
@@ -118,26 +139,18 @@ LRESULT CMainFrame::OnAppAbout(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 	return 0;
 }
 
-LRESULT CMainFrame::OnWindowClose(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
-	int nActivePage = m_view.GetActivePage();
-	if (nActivePage != -1)
-		m_view.RemovePage(nActivePage);
-	else
-		::MessageBeep((UINT)-1);
-
-	return 0;
-}
-
-LRESULT CMainFrame::OnWindowCloseAll(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
-	m_view.RemoveAllPages();
-
-	return 0;
-}
-
 LRESULT CMainFrame::OnWindowActivate(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
-	int nPage = wID - ID_WINDOW_TABFIRST;
+	int nPage = wID - ID_TAB_PROCESSES;
 	m_view.SetActivePage(nPage);
+	ActivatePage(nPage);
 
+	return 0;
+}
+
+LRESULT CMainFrame::OnPageActivated(int, LPNMHDR, BOOL&) {
+	if (m_view.GetActivePage() >= 0) {
+		ActivatePage(m_view.GetActivePage());
+	}
 	return 0;
 }
 
@@ -151,4 +164,28 @@ BOOL CMainFrame::TrackPopupMenu(HMENU hMenu, DWORD flags, int x, int y) {
 
 CUpdateUIBase& CMainFrame::GetUI() {
 	return *this;
+}
+
+LRESULT CMainFrame::OnRunAsAdmin(WORD, WORD, HWND, BOOL&) {
+	if (SecurityHelper::RunElevated())
+		SendMessage(WM_CLOSE);
+	return 0;
+}
+
+void CMainFrame::InitDarkTheme() {
+	m_DarkTheme.BackColor = m_DarkTheme.SysColors[COLOR_WINDOW] = RGB(32, 32, 32);
+	m_DarkTheme.TextColor = m_DarkTheme.SysColors[COLOR_WINDOWTEXT] = RGB(248, 248, 248);
+	m_DarkTheme.SysColors[COLOR_HIGHLIGHT] = RGB(32, 32, 255);
+	m_DarkTheme.SysColors[COLOR_HIGHLIGHTTEXT] = RGB(240, 240, 240);
+	m_DarkTheme.SysColors[COLOR_MENUTEXT] = m_DarkTheme.TextColor;
+	m_DarkTheme.SysColors[COLOR_CAPTIONTEXT] = m_DarkTheme.TextColor;
+	m_DarkTheme.SysColors[COLOR_BTNFACE] = RGB(16, 16, 96);
+	m_DarkTheme.SysColors[COLOR_BTNTEXT] = m_DarkTheme.TextColor;
+	m_DarkTheme.SysColors[COLOR_3DLIGHT] = RGB(192, 192, 192);
+	m_DarkTheme.SysColors[COLOR_BTNHIGHLIGHT] = RGB(192, 192, 192);
+	m_DarkTheme.SysColors[COLOR_CAPTIONTEXT] = m_DarkTheme.TextColor;
+	m_DarkTheme.SysColors[COLOR_3DSHADOW] = m_DarkTheme.TextColor;
+	m_DarkTheme.Name = L"Dark";
+	m_DarkTheme.Menu.BackColor = m_DarkTheme.BackColor;
+	m_DarkTheme.Menu.TextColor = m_DarkTheme.TextColor;
 }

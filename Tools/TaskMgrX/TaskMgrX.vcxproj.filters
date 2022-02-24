@@ -45,6 +45,12 @@
     <ClCompile Include="ProcessInfoEx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\ImageIconCache.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StringHelper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -75,6 +81,12 @@
       <Filter>Views</Filter>
     </ClInclude>
     <ClInclude Include="ProcessInfoEx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ImageIconCache.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StringHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

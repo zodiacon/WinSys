@@ -20,3 +20,5 @@
 #include <shellapi.h>
 #include <sddl.h>
 #include <wil\resource.h>
+
+#pragma comment(lib, "ntdll")

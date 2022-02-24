@@ -45,3 +45,15 @@ std::wstring Helpers::GetErrorText(DWORD error) {
 	}
 	return text;
 }
+
+int Helpers::PriorityClassToPriority(PriorityClass pc) {
+	switch (pc) {
+		case PriorityClass::Normal: return 8;
+		case PriorityClass::AboveNormal: return 10;
+		case PriorityClass::BelowNormal: return 6;
+		case PriorityClass::High: return 13;
+		case PriorityClass::Idle: return 4;
+		case PriorityClass::Realtime: return 24;
+	}
+	return 0;
+}

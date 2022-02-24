@@ -56,7 +56,8 @@ int CView::GetRowImage(HWND, int row, int col) const {
 		Process process(::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, p->Id));
 		if (process) {
 			auto path = process.GetFullImageName();
-			p->Image = ImageIconCache::Get().GetIcon(path);
+			if (!path.empty())
+				p->Image = ImageIconCache::Get().GetIcon(path);
 		}
 	}
 	return p->Image;

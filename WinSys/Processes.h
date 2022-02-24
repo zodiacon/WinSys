@@ -59,7 +59,8 @@ namespace WinSys {
 	public:
 		static std::unique_ptr<Process> OpenById(uint32_t pid, ProcessAccessMask access = ProcessAccessMask::QueryLimitedInformation);
 		static std::unique_ptr<Process> GetCurrent();
-		explicit Process(HANDLE handle);
+		explicit Process(HANDLE handle = nullptr);
+		bool Open(uint32_t pid, ProcessAccessMask access);
 
 		operator bool() const {
 			return IsValid();

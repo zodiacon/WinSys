@@ -21,6 +21,10 @@
 	FIELD_OFFSET( struct { char x; t test; }, test )
 #endif
 
+#ifdef EnumProcesses
+#undef EnumProcesses
+#endif
+
 #ifdef WINSYS_NAMESPACE
 namespace WinSys {
 #endif

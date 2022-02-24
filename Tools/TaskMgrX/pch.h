@@ -10,6 +10,7 @@
 #define _WIN32_WINNT	0x0A01
 #define _WIN32_IE	0x0700
 #define _RICHEDIT_VER	0x0500
+#define WIN32_LEAN_AND_MEAN
 
 #include <atlbase.h>
 #include <atlapp.h>
@@ -29,6 +30,8 @@ extern CAppModule _Module;
 #include <unordered_map>
 #include <strsafe.h>
 #include <dontuse.h>
+#define __cpp_lib_format
+#include <format>
 #include <WinSys.h>
 
 #if defined _M_IX86

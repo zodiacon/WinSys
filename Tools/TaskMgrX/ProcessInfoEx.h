@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ProcessInfo.h>
+#include <Processes.h>
 
 enum class ProcessAttributes : DWORD {
 	None =			0,
@@ -29,5 +30,19 @@ DEFINE_ENUM_FLAG_OPERATORS(ProcessFlags);
 struct ProcessInfoEx : ProcessInfo {
 	ProcessFlags Flags{ ProcessFlags::None };
 	ProcessAttributes Attributes{ ProcessAttributes::None };
+	int Image{ -1 };
+	DWORD64 TargetTime;
+
+	CString const& GetFullImagePath() const;
+	PriorityClass GetPriorityClass() const;
+	int GetMemoryPriority() const;
+	IoPriorityHint GetIoPriority() const;
+	CString const& GetCommandLine() const;
+
+private:
+	bool OpenProcess() const;
+
+	mutable CString m_imagePath, m_commandLine;
+	mutable Process m_process;
 };
 
