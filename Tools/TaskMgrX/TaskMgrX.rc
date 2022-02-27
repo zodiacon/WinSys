@@ -101,6 +101,11 @@ BEGIN
         MENUITEM "&Columns...",                 ID_PROCESS_COLUMNS
         MENUITEM "Colors...",                   ID_PROCESS_COLORS
     END
+    POPUP "Header"
+    BEGIN
+        MENUITEM "&Hide Column",                ID_HEADER_HIDECOLUMN
+        MENUITEM "&Columns...",                 ID_PROCESS_COLUMNS
+    END
 END
 
 
@@ -133,6 +138,8 @@ IDI_COLUMNS             ICON                    "res\\columns.ico"
 
 IDI_DELETE              ICON                    "res\\delete.ico"
 
+IDI_OK                  ICON                    "res\\ok.ico"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -149,14 +156,14 @@ BEGIN
     ICON            IDR_MAINFRAME,IDC_STATIC,7,7,20,20
 END
 
-IDD_COLUMNS DIALOGEX 0, 0, 309, 216
+IDD_COLUMNS DIALOGEX 0, 0, 269, 216
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "Select Columns"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,96,195,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,162,195,50,14
-    CONTROL         "",IDC_COLUMNS,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | LVS_OWNERDATA | WS_BORDER | WS_TABSTOP,7,7,295,168
+    DEFPUSHBUTTON   "OK",IDOK,76,195,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,142,195,50,14
+    CONTROL         "",IDC_COLUMNS,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | LVS_OWNERDATA | WS_BORDER | WS_TABSTOP,7,7,255,168
 END
 
 
@@ -179,7 +186,7 @@ BEGIN
     IDD_COLUMNS, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 302
+        RIGHTMARGIN, 262
         TOPMARGIN, 7
         BOTTOMMARGIN, 209
     END

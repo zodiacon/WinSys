@@ -138,6 +138,9 @@
     <Image Include="res\delete.ico">
       <Filter>Resource Files\Icons</Filter>
     </Image>
+    <Image Include="res\ok.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

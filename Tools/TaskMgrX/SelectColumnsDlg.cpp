@@ -40,6 +40,7 @@ void CSelectColumnsDlg::DoSort(const SortInfo* si) {
 
 LRESULT CSelectColumnsDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
 	InitDynamicLayout();
+	AdjustOKCancelButtons(IDI_OK, IDI_DELETE);
 	SetDialogIcon(IDI_COLUMNS);
 	m_List.Attach(GetDlgItem(IDC_COLUMNS));
 	m_List.SetExtendedListViewStyle(LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_LABELTIP);

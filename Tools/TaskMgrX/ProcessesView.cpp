@@ -36,7 +36,7 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	CreateAndInitToolBar(buttons, _countof(buttons));
 
 	m_hWndClient = m_List.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS |
-		LVS_OWNERDATA | LVS_SINGLESEL | LVS_REPORT);
+		LVS_OWNERDATA | LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
 	m_List.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_INFOTIP | LVS_EX_HEADERDRAGDROP);
 	m_spList = ListViewHelper::GetIListView(m_List);
 	ATLASSERT(m_spList);
@@ -152,43 +152,52 @@ void CProcessesView::DoSort(const SortInfo* si) {
 			case ColumnType::PeakThreads: return SortHelper::Sort(p1->PeakThreads, p2->PeakThreads, asc);
 			case ColumnType::VirtualSize: return SortHelper::Sort(p1->VirtualSize, p2->VirtualSize, asc);
 			case ColumnType::PeakWorkingSet: return SortHelper::Sort(p1->PeakWorkingSetSize, p2->PeakWorkingSetSize, asc);
-			//case ColumnType::Attributes: return SortHelper::Sort(p1->GetAttributes(m_pm), p2->GetAttributes(m_pm), asc);
+				//case ColumnType::Attributes: return SortHelper::Sort(p1->GetAttributes(m_pm), p2->GetAttributes(m_pm), asc);
 			case ColumnType::PagedPool: return SortHelper::Sort(p1->PagedPoolUsage, p2->PagedPoolUsage, asc);
 			case ColumnType::PeakPagedPool: return SortHelper::Sort(p1->PeakPagedPoolUsage, p2->PeakPagedPoolUsage, asc);
 			case ColumnType::NonPagedPool: return SortHelper::Sort(p1->NonPagedPoolUsage, p2->NonPagedPoolUsage, asc);
 			case ColumnType::PeakNonPagedPool: return SortHelper::Sort(p1->PeakNonPagedPoolUsage, p2->PeakNonPagedPoolUsage, asc);
 			case ColumnType::MemoryPriority: return SortHelper::Sort(p1->GetMemoryPriority(), p2->GetMemoryPriority(), asc);
-			//case ColumnType::IoPriority: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetIoPriority(), GetProcessInfoEx(p2.get()).GetIoPriority(), asc);
-			//case ColumnType::CommandLine: return SortHelper::Sort(p1->GetCommandLine(), p2->GetCommandLine(), asc);
+				//case ColumnType::IoPriority: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetIoPriority(), GetProcessInfoEx(p2.get()).GetIoPriority(), asc);
+				//case ColumnType::CommandLine: return SortHelper::Sort(p1->GetCommandLine(), p2->GetCommandLine(), asc);
 			case ColumnType::ReadBytes: return SortHelper::Sort(p1->ReadTransferCount, p2->ReadTransferCount, asc);
 			case ColumnType::WriteBytes: return SortHelper::Sort(p1->WriteTransferCount, p2->WriteTransferCount, asc);
 			case ColumnType::OtherBytes: return SortHelper::Sort(p1->OtherTransferCount, p2->OtherTransferCount, asc);
 			case ColumnType::ReadCount: return SortHelper::Sort(p1->ReadOperationCount, p2->ReadOperationCount, asc);
 			case ColumnType::WriteCount: return SortHelper::Sort(p1->WriteOperationCount, p2->WriteOperationCount, asc);
 			case ColumnType::OtherCount: return SortHelper::Sort(p1->OtherOperationCount, p2->OtherOperationCount, asc);
-			//case ColumnType::GDIObjects: return SortHelper::Sort(p1->GetGdiObjects(), p2->GetGdiObjects(), asc);
-			//case ColumnType::UserObjects: return SortHelper::Sort(p1->GetUserObjects(), p2->GetUserObjects(), asc);
-			//case ColumnType::PeakGdiObjects: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetPeakGdiObjects(), GetProcessInfoEx(p2.get()).GetPeakGdiObjects(), asc);
-			//case ColumnType::PeakUserObjects: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetPeakUserObjects(), GetProcessInfoEx(p2.get()).GetPeakUserObjects(), asc);
+			case ColumnType::GDIObjects: return SortHelper::Sort(p1->GetGdiObjects(), p2->GetGdiObjects(), asc);
+			case ColumnType::UserObjects: return SortHelper::Sort(p1->GetUserObjects(), p2->GetUserObjects(), asc);
+			case ColumnType::PeakGDIObjects: return SortHelper::Sort(p1->GetPeakGdiObjects(), p2->GetPeakGdiObjects(), asc);
+			case ColumnType::PeakUserObjects: return SortHelper::Sort(p1->GetPeakUserObjects(), p2->GetPeakUserObjects(), asc);
 			case ColumnType::KernelTime: return SortHelper::Sort(p1->KernelTime, p2->KernelTime, asc);
 			case ColumnType::UserTime: return SortHelper::Sort(p1->UserTime, p2->UserTime, asc);
 			case ColumnType::Elevated: return SortHelper::Sort(p1->IsElevated(), p2->IsElevated(), asc);
 			case ColumnType::Integrity: return SortHelper::Sort(p1->GetIntegrityLevel(), p2->GetIntegrityLevel(), asc);
-			//case ColumnType::Virtualized: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetVirtualizationState(), GetProcessInfoEx(p2.get()).GetVirtualizationState(), asc);
+				//case ColumnType::Virtualized: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetVirtualizationState(), GetProcessInfoEx(p2.get()).GetVirtualizationState(), asc);
 			case ColumnType::JobId: return SortHelper::Sort(p1->JobObjectId, p2->JobObjectId, asc);
-			//case ColumnType::WindowTitle: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetWindowTitle(), GetProcessInfoEx(p2.get()).GetWindowTitle(), asc);
+				//case ColumnType::WindowTitle: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetWindowTitle(), GetProcessInfoEx(p2.get()).GetWindowTitle(), asc);
 			case ColumnType::Platform: return SortHelper::Sort(p1->GetPlatform(), p2->GetPlatform(), asc);
 			case ColumnType::Description: return SortHelper::Sort(p1->GetDescription(), p2->GetDescription(), asc);
 			case ColumnType::CompanyName: return SortHelper::Sort(p1->GetCompanyName(), p2->GetCompanyName(), asc);
-			//case ColumnType::DPIAware: return SortHelper::Sort(p1->GetDpiAwareness(), p2->GetDpiAwareness(), asc);
+				//case ColumnType::DPIAware: return SortHelper::Sort(p1->GetDpiAwareness(), p2->GetDpiAwareness(), asc);
 		}
 		return false;
 		});
 
 }
 
+void CProcessesView::PreSort(HWND) {
+	if(m_SelectedProcess == nullptr)
+		m_SelectedProcess = m_spList->GetSelectedIndex() < 0 ? nullptr : m_Items[m_spList->GetSelectedIndex()];
+}
+
 LRESULT CProcessesView::OnContinueProcessing(UINT, WPARAM, LPARAM, BOOL&) {
 	auto tick = GetTickCount64();
+	auto selected = m_spList->GetSelectedIndex();
+	if (selected >= 0)
+		m_SelectedProcess = m_Items[selected];
+
 	for (auto& p : m_pm.GetNewProcesses()) {
 		p->Flags = ProcessFlags::New;
 		p->TargetTime = tick + 2000;
@@ -252,7 +261,7 @@ CString CProcessesView::GetColumnText(HWND h, int row, int col) {
 	switch (GetColumnManager(h)->GetColumnTag<ColumnType>(col)) {
 		case ColumnType::Name: return p->GetImageName().c_str();
 		case ColumnType::Id: return std::format("{}", p->Id).c_str();
-		case ColumnType::CPU: 
+		case ColumnType::CPU:
 			return p->CPU > 0 && (p->Flags & ProcessFlags::Terminated) == ProcessFlags::None ? std::format(L"{:6.2f}", p->CPU / 10000.0f).c_str() : L"";
 
 		case ColumnType::Handles: return std::format("{}", p->HandleCount).c_str();
@@ -280,16 +289,24 @@ CString CProcessesView::GetColumnText(HWND h, int row, int col) {
 		case ColumnType::UserTime: return StringHelper::TimeSpanToString(p->UserTime);
 		case ColumnType::CPUTime: return StringHelper::TimeSpanToString(p->KernelTime + p->UserTime);
 		case ColumnType::Integrity: return StringHelper::IntegrityLevelToString(p->GetIntegrityLevel());
-		case ColumnType::Platform: return std::format("{} bit", p->GetPlatform()).c_str();
+		case ColumnType::Platform: return std::format(L"{} bit", p->GetPlatform()).c_str();
 		case ColumnType::Virtualization: return StringHelper::VirtualizationStateToString(p->GetVirtualizationState());
 		case ColumnType::Elevated: return p->IsElevated() ? L"Yes" : L"No";
 		case ColumnType::Description: return p->GetDescription();
 		case ColumnType::CompanyName: return p->GetCompanyName();
-		case ColumnType::MemoryPriority: return std::format("{}", p->GetMemoryPriority()).c_str();
+		case ColumnType::MemoryPriority: return std::format(L"{}", p->GetMemoryPriority()).c_str();
 		case ColumnType::JobId: return p->JobObjectId == 0 ? L"" : std::format(L"{}", p->JobObjectId).c_str();
 		case ColumnType::ReadBytes: return StringHelper::FormatSize(p->ReadTransferCount);
 		case ColumnType::WriteBytes: return StringHelper::FormatSize(p->WriteTransferCount);
 		case ColumnType::OtherBytes: return StringHelper::FormatSize(p->OtherTransferCount);
+		case ColumnType::ReadCount: return StringHelper::FormatSize(p->ReadOperationCount);
+		case ColumnType::WriteCount: return StringHelper::FormatSize(p->WriteOperationCount);
+		case ColumnType::OtherCount: return StringHelper::FormatSize(p->OtherOperationCount);
+		case ColumnType::GDIObjects: return std::format(L"{}", p->GetGdiObjects()).c_str();
+		case ColumnType::PeakGDIObjects: return std::format(L"{}", p->GetPeakGdiObjects()).c_str();
+		case ColumnType::UserObjects: return std::format(L"{}", p->GetUserObjects()).c_str();
+		case ColumnType::PeakUserObjects: return std::format(L"{}", p->GetPeakUserObjects()).c_str();
+		case ColumnType::Parent: return std::format(L"{} ({})", p->GetParentImageName(m_pm, L"<Dead>"), p->ParentId).c_str();
 	}
 	return L"";
 }
@@ -304,7 +321,7 @@ int CProcessesView::GetRowImage(HWND, int row, int col) const {
 		Process process(::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, p->Id));
 		if (process) {
 			auto path = process.GetFullImageName();
-			if(!path.empty())
+			if (!path.empty())
 				p->Image = ImageIconCache::Get().GetIcon(path);
 		}
 	}
@@ -325,10 +342,23 @@ void CProcessesView::UpdateLocalUI() {
 }
 
 DWORD CProcessesView::OnPrePaint(int, LPNMCUSTOMDRAW cd) {
-	if (cd->hdr.hwndFrom != m_List)
+	if (cd->hdr.hwndFrom != m_List) {
+		SetMsgHandled(FALSE);
 		return CDRF_DODEFAULT;
-
+	}
 	return CDRF_NOTIFYITEMDRAW;
+}
+
+void CProcessesView::PostSort(HWND) {
+	if (m_SelectedProcess) {
+		int count = (int)m_Items.size();
+		for(int i = 0; i < count; i++)
+			if (m_SelectedProcess == m_Items[i]) {
+				m_spList->SetItemState(i, -1, LVIS_SELECTED, LVIS_SELECTED);
+				break;
+			}
+		m_SelectedProcess = nullptr;
+	}
 }
 
 DWORD CProcessesView::OnSubItemPrePaint(int, LPNMCUSTOMDRAW cd) {
@@ -336,6 +366,10 @@ DWORD CProcessesView::OnSubItemPrePaint(int, LPNMCUSTOMDRAW cd) {
 }
 
 DWORD CProcessesView::OnItemPrePaint(int, LPNMCUSTOMDRAW cd) {
+	if (cd->hdr.hwndFrom != m_List) {
+		SetMsgHandled(FALSE);
+		return CDRF_DODEFAULT;
+	}
 	auto lv = (NMLVCUSTOMDRAW*)cd;
 	lv->clrTextBk = CLR_INVALID;
 	int row = (int)cd->dwItemSpec;
@@ -362,6 +396,18 @@ DWORD CProcessesView::OnItemPrePaint(int, LPNMCUSTOMDRAW cd) {
 	return CDRF_SKIPPOSTPAINT | CDRF_NOTIFYSUBITEMDRAW;
 }
 
+bool CProcessesView::OnRightClickHeader(HWND, int index, CPoint const& pt) {
+	CMenu menu;
+	menu.LoadMenu(IDR_CONTEXT);
+	m_SelectedHeader = index;
+	auto cmd = GetFrame()->TrackPopupMenu(menu.GetSubMenu(1), TPM_RETURNCMD, pt.x, pt.y);
+	if (cmd) {
+		LRESULT result;
+		return ProcessWindowMessage(m_hWnd, WM_COMMAND, cmd, 0, result, 0);
+	}
+	return false;
+}
+
 LRESULT CProcessesView::OnSelectColumns(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
 	CSelectColumnsDlg dlg(GetColumnManager(m_List));
 	dlg.DoModal();
@@ -369,3 +415,26 @@ LRESULT CProcessesView::OnSelectColumns(WORD /*wNotifyCode*/, WORD /*wID*/, HWND
 	return 0;
 }
 
+bool CProcessesView::OnRightClickList(HWND, int row, int col, CPoint const& pt) {
+	KillTimer(1);
+	CMenu menu;
+	menu.LoadMenu(IDR_CONTEXT);
+	auto cmd = GetFrame()->TrackPopupMenu(menu.GetSubMenu(0), TPM_RETURNCMD, pt.x, pt.y);
+	if (m_Running)
+		SetTimer(1, m_Interval);
+	if (cmd) {
+		LRESULT result;
+		return ProcessWindowMessage(m_hWnd, WM_COMMAND, cmd, 0, result, 0);
+	}
+	return false;
+}
+
+LRESULT CProcessesView::OnHideColumn(WORD, WORD, HWND, BOOL&) {
+	ATLASSERT(m_SelectedHeader >= 0);
+	auto cm = GetColumnManager(m_List);
+	cm->SetVisible(cm->GetRealColumn(m_SelectedHeader), false);
+	cm->UpdateColumns();
+	m_List.RedrawItems(m_spList->GetTopIndex(), m_spList->GetTopIndex() + m_spList->GetCountPerPage());
+
+	return 0;
+}

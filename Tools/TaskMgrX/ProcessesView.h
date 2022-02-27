@@ -26,10 +26,15 @@ public:
 	CString GetColumnText(HWND, int row, int col);
 	int GetRowImage(HWND, int row, int) const;
 	void DoSort(SortInfo const* si);
+	void PreSort(HWND);
+	void PostSort(HWND);
 
 	DWORD OnPrePaint(int, LPNMCUSTOMDRAW cd);
 	DWORD OnItemPrePaint(int, LPNMCUSTOMDRAW cd);
 	DWORD OnSubItemPrePaint(int, LPNMCUSTOMDRAW cd);
+
+	bool OnRightClickHeader(HWND, int col, CPoint const&);
+	bool OnRightClickList(HWND, int row, int col, CPoint const&);
 
 protected:
 	const UINT WM_CONTINUE_PROCESSING = WM_APP + 100;
@@ -41,6 +46,7 @@ protected:
 		MESSAGE_HANDLER(WM_CREATE, OnCreate)
 		COMMAND_ID_HANDLER(ID_PROCESS_KILL, OnKillProcess)
 		COMMAND_ID_HANDLER(ID_PROCESS_COLUMNS, OnSelectColumns)
+		COMMAND_ID_HANDLER(ID_HEADER_HIDECOLUMN, OnHideColumn)
 		CHAIN_MSG_MAP(CCustomDraw<CProcessesView>)
 		CHAIN_MSG_MAP(CVirtualListView<CProcessesView>)
 		CHAIN_MSG_MAP(CViewBase)
@@ -72,6 +78,7 @@ private:
 	LRESULT OnKillProcess(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnItemChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 	LRESULT OnSelectColumns(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnHideColumn(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 
 	CListViewCtrl m_List;
 	CComPtr<IListView> m_spList;
@@ -79,7 +86,9 @@ private:
 	std::vector<std::shared_ptr<ProcessInfoEx>> m_Items;
 	std::set<int> m_Deleted;
 	DWORD m_SelectedPid = -1;
+	std::shared_ptr<ProcessInfoEx> m_SelectedProcess;
 	int m_Interval{ 1000 };
+	int m_SelectedHeader{ -1 };
 	bool m_Running{ true };
 	bool m_Processing{ false };
 };

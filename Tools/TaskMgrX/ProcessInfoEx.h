@@ -2,6 +2,7 @@
 
 #include <ProcessInfo.h>
 #include <Processes.h>
+#include "ProcessManager.h"
 
 enum class ProcessAttributes : DWORD {
 	None =			0,
@@ -45,6 +46,11 @@ struct ProcessInfoEx : ProcessInfo {
 	bool IsElevated() const;
 	CString const& GetCompanyName() const;
 	CString const& GetDescription() const;
+	ULONG GetGdiObjects() const;
+	ULONG GetPeakGdiObjects() const;
+	ULONG GetUserObjects() const;
+	ULONG GetPeakUserObjects() const;
+	std::wstring GetParentImageName(ProcessManager<ProcessInfoEx> const& pm, PCWSTR defaultText) const;
 
 private:
 	CString GetVersionObject(const CString& name) const;

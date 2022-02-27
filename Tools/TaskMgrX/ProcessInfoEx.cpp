@@ -80,6 +80,33 @@ CString ProcessInfoEx::GetVersionObject(const CString& name) const {
 	return result;
 }
 
+ULONG ProcessInfoEx::GetGdiObjects() const {
+	return OpenProcess() ? m_process.GetGdiObjectCount() : 0;
+}
+
+ULONG ProcessInfoEx::GetPeakGdiObjects() const {
+	return OpenProcess() ? m_process.GetPeakGdiObjectCount() : 0;
+}
+
+ULONG ProcessInfoEx::GetUserObjects() const {
+	return OpenProcess() ? m_process.GetUserObjectCount() : 0;
+}
+
+std::wstring ProcessInfoEx::GetParentImageName(ProcessManager<ProcessInfoEx> const& pm, PCWSTR defaultText) const {
+	if (ParentId > 0) {
+		auto parent = pm.GetProcessById(ParentId);
+		if (parent && (parent->CreateTime < CreateTime || parent->Id == 4)) {
+			return parent->GetImageName();
+		}
+		return defaultText;
+	}
+	return L"";
+}
+
+ULONG ProcessInfoEx::GetPeakUserObjects() const {
+	return OpenProcess() ? m_process.GetPeakUserObjectCount() : 0;
+}
+
 const CString& ProcessInfoEx::GetCompanyName() const {
 	if (!m_companyDone) {
 		m_company = GetVersionObject(L"CompanyName");

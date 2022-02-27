@@ -17,8 +17,9 @@
 #define IDR_CONTEXT                     211
 #define IDI_COLORS                      212
 #define IDI_COLUMNS                     213
-#define IDI_ICON3                       214
 #define IDI_DELETE                      214
+#define IDI_ICON1                       215
+#define IDI_OK                          215
 #define IDC_COLUMNS                     1000
 #define ID_WINDOW_CLOSE                 32772
 #define ID_WINDOW_CLOSE_ALL             32773
@@ -38,13 +39,14 @@
 #define ID_PROCESS_OPENFILELOCATION     32788
 #define ID_PROCESS_COLUMNS              32789
 #define ID_PROCESS_COLORS               32790
+#define ID_HEADER_HIDECOLUMN            32791
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        215
-#define _APS_NEXT_COMMAND_VALUE         32791
+#define _APS_NEXT_RESOURCE_VALUE        216
+#define _APS_NEXT_COMMAND_VALUE         32792
 #define _APS_NEXT_CONTROL_VALUE         1001
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

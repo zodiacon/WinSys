@@ -38,6 +38,9 @@ void CMainFrame::InitMenu() {
 		{ ID_TAB_PROCESSES, IDI_PROCESSES },
 		{ ID_TAB_PERFORMANCE, IDI_PERF },
 		{ ID_TAB_SERVICES, IDI_SERVICES },
+		{ ID_PROCESS_COLUMNS, IDI_COLUMNS },
+		{ ID_PROCESS_COLORS, IDI_COLORS },
+		{ ID_PROCESS_KILL, IDI_DELETE },
 	};
 
 	for (auto& icon : icons) {
@@ -184,7 +187,7 @@ void CMainFrame::InitDarkTheme() {
 	m_DarkTheme.SysColors[COLOR_HIGHLIGHTTEXT] = RGB(240, 240, 240);
 	m_DarkTheme.SysColors[COLOR_MENUTEXT] = m_DarkTheme.TextColor;
 	m_DarkTheme.SysColors[COLOR_CAPTIONTEXT] = m_DarkTheme.TextColor;
-	m_DarkTheme.SysColors[COLOR_BTNFACE] = RGB(16, 16, 96);
+	m_DarkTheme.SysColors[COLOR_BTNFACE] = m_DarkTheme.BackColor;
 	m_DarkTheme.SysColors[COLOR_BTNTEXT] = m_DarkTheme.TextColor;
 	m_DarkTheme.SysColors[COLOR_3DLIGHT] = RGB(192, 192, 192);
 	m_DarkTheme.SysColors[COLOR_BTNHIGHLIGHT] = RGB(192, 192, 192);
