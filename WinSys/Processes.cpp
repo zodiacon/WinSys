@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Thread.h"
 #include "Processes.h"
+#include "SystemInformation.h"
 
 #ifdef WINSYS_NAMESPACE
 namespace WinSys {
@@ -91,6 +92,16 @@ bool Process::IsElevated() const {
 	if (!::GetTokenInformation(hToken.get(), TokenElevation, &elevation, sizeof(elevation), &size))
 		return false;
 	return elevation.TokenIsElevated ? true : false;
+}
+
+bool Process::Is64Bit() const {
+	auto& info = SystemInformation::GetBasicSystemInfo();
+	if (info.ProcessorArchitecture == ProcessorArchitecture::ARM || info.ProcessorArchitecture == ProcessorArchitecture::x86)
+		return false;
+
+	BOOL bit32 = FALSE;
+	::IsWow64Process(m_handle.get(), &bit32);
+	return bit32;
 }
 
 std::wstring Process::GetWindowTitle() const {
@@ -287,6 +298,25 @@ uint32_t Process::GetUserObjectCount() const {
 
 uint32_t Process::GetPeakUserObjectCount() const {
 	return ::GetGuiResources(m_handle.get(), GR_USEROBJECTS_PEAK);
+}
+
+VirtualizationState Process::GetVirtualizationState() const {
+	ULONG virt = 0;
+	DWORD len;
+	wil::unique_handle hToken;
+	if (!::OpenProcessToken(m_handle.get(), TOKEN_QUERY, hToken.addressof()))
+		return VirtualizationState::Unknown;
+
+	if (!::GetTokenInformation(hToken.get(), TokenVirtualizationAllowed, &virt, sizeof(virt), &len))
+		return VirtualizationState::Unknown;
+
+	if (!virt)
+		return VirtualizationState::NotAllowed;
+
+	if (::GetTokenInformation(hToken.get(), TokenVirtualizationEnabled, &virt, sizeof(virt), &len))
+		return virt ? VirtualizationState::Enabled : VirtualizationState::Disabled;
+
+	return VirtualizationState::Unknown;
 }
 
 HANDLE Process::GetNextThread(HANDLE hThread, ThreadAccessMask access) {

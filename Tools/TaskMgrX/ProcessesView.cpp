@@ -13,6 +13,8 @@
 #include "Helpers.h"
 #include "ThemeHelper.h"
 
+#pragma comment(lib, "Version.lib")
+
 BOOL CProcessesView::PreTranslateMessage(MSG* pMsg) {
 	pMsg;
 	return FALSE;
@@ -73,33 +75,33 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	cm->AddColumn(L"Memory\\Peak Virtual Size (K)", LVCFMT_RIGHT, 120, ColumnType::PeakVirtualSize, ColumnFlags::Numeric);
 	cm->AddColumn(L"Memory\\Paged Pool (K)", LVCFMT_RIGHT, 110, ColumnType::PagedPool, ColumnFlags::Numeric | ColumnFlags::Visible);
 	cm->AddColumn(L"Memory\\Peak Paged (K)", LVCFMT_RIGHT, 110, ColumnType::PeakPagedPool, ColumnFlags::Numeric);
-	//cm->AddColumn(L"Memory\\Non Paged (K)", LVCFMT_RIGHT, 110, ColumnFlags::Numeric);
-	//cm->AddColumn(L"Memory\\Peak NPaged (K)", LVCFMT_RIGHT, 120, ColumnFlags::Numeric);
-	cm->AddColumn(L"Performance\\Kernel Time", LVCFMT_RIGHT, 120, ColumnType::UserTime, ColumnFlags::Numeric | ColumnFlags::Visible);
-	cm->AddColumn(L"Performance\\User Time", LVCFMT_RIGHT, 120, ColumnType::KernelTime, ColumnFlags::Numeric | ColumnFlags::Visible);
-	//cm->AddColumn(L"Performance\\I/O Priority", LVCFMT_LEFT, 80, ColumnFlags::None);
-	//cm->AddColumn(L"Performance\\Memory Priority", LVCFMT_RIGHT, 80, ColumnFlags::Numeric);
+	cm->AddColumn(L"Memory\\Non Paged (K)", LVCFMT_RIGHT, 110, ColumnType::NonPagedPool, ColumnFlags::Numeric);
+	cm->AddColumn(L"Memory\\Peak NPaged (K)", LVCFMT_RIGHT, 120, ColumnType::PeakNonPagedPool, ColumnFlags::Numeric);
+	cm->AddColumn(L"Performance\\Kernel Time", LVCFMT_RIGHT, 120, ColumnType::KernelTime, ColumnFlags::Numeric | ColumnFlags::Visible);
+	cm->AddColumn(L"Performance\\User Time", LVCFMT_RIGHT, 120, ColumnType::UserTime, ColumnFlags::Numeric | ColumnFlags::Visible);
+	cm->AddColumn(L"Performance\\I/O Priority", LVCFMT_LEFT, 80, ColumnType::IoPriority, ColumnFlags::None);
+	cm->AddColumn(L"Performance\\Memory Priority", LVCFMT_RIGHT, 80, ColumnType::MemoryPriority, ColumnFlags::Numeric);
 	cm->AddColumn(L"Command Line", LVCFMT_LEFT, 250, ColumnType::CommandLine, ColumnFlags::Const);
-	cm->AddColumn(L"Package Name", LVCFMT_LEFT, 250, ColumnType::PackageName, ColumnFlags::Const);
+	cm->AddColumn(L"Package Name", LVCFMT_LEFT, 250, ColumnType::PackageName, ColumnFlags::Const | ColumnFlags::Visible);
 	cm->AddColumn(L"Job Object Id", LVCFMT_RIGHT, 100, ColumnType::JobId, ColumnFlags::Numeric | ColumnFlags::Const);
-	//cm->AddColumn(L"I/O\\I/O Read Bytes", LVCFMT_RIGHT, 120, ColumnFlags::Numeric);
-	//cm->AddColumn(L"I/O\\I/O Write Bytes", LVCFMT_RIGHT, 120, ColumnFlags::Numeric);
-	//cm->AddColumn(L"I/O\\I/O Other Bytes", LVCFMT_RIGHT, 120, ColumnFlags::Numeric);
-	//cm->AddColumn(L"I/O\\I/O Reads", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
-	//cm->AddColumn(L"I/O\\I/O Writes", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
-	//cm->AddColumn(L"I/O\\I/O Other", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
+	cm->AddColumn(L"I/O\\I/O Read Bytes", LVCFMT_RIGHT, 120, ColumnType::ReadBytes, ColumnFlags::Numeric);
+	cm->AddColumn(L"I/O\\I/O Write Bytes", LVCFMT_RIGHT, 120, ColumnType::WriteBytes, ColumnFlags::Numeric);
+	cm->AddColumn(L"I/O\\I/O Other Bytes", LVCFMT_RIGHT, 120, ColumnType::OtherBytes, ColumnFlags::Numeric);
+	cm->AddColumn(L"I/O\\I/O Reads", LVCFMT_RIGHT, 90, ColumnType::ReadCount, ColumnFlags::Numeric);
+	cm->AddColumn(L"I/O\\I/O Writes", LVCFMT_RIGHT, 90, ColumnType::WriteCount, ColumnFlags::Numeric);
+	cm->AddColumn(L"I/O\\I/O Other", LVCFMT_RIGHT, 90, ColumnType::OtherCount, ColumnFlags::Numeric);
 	//cm->AddColumn(L"GUI\\GDI Objects", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
 	//cm->AddColumn(L"GUI\\User Objects", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
 	//cm->AddColumn(L"GUI\\Peak GDI Objects", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
 	//cm->AddColumn(L"GUI\\Peak User Objects", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
-	//cm->AddColumn(L"Token\\Integrity", LVCFMT_LEFT, 70, ColumnFlags::None);
-	//cm->AddColumn(L"Token\\Elevated", LVCFMT_LEFT, 60, ColumnFlags::Const);
-	//cm->AddColumn(L"Token\\Virtualization", LVCFMT_LEFT, 70, ColumnFlags::Const);
+	cm->AddColumn(L"Token\\Integrity", LVCFMT_LEFT, 70, ColumnType::Integrity, ColumnFlags::Visible);
+	cm->AddColumn(L"Token\\Elevated", LVCFMT_LEFT, 60, ColumnType::Elevated, ColumnFlags::Const | ColumnFlags::Visible);
+	cm->AddColumn(L"Token\\Virtualization", LVCFMT_LEFT, 85, ColumnType::Virtualization, ColumnFlags::Visible);
 	//cm->AddColumn(L"Window Title", LVCFMT_LEFT, 200, ColumnFlags::None);
-	//cm->AddColumn(L"Platform", LVCFMT_LEFT, 60, ColumnFlags::Const);
-	//cm->AddColumn(L"Description", LVCFMT_LEFT, 250, ColumnFlags::Const | ColumnFlags::Visible);
-	//cm->AddColumn(L"Company Name", LVCFMT_LEFT, 150, ColumnFlags::Const | ColumnFlags::Visible);
-	//cm->AddColumn(L"DPI Awareness", LVCFMT_LEFT, 80, ColumnFlags::None);
+	cm->AddColumn(L"Platform", LVCFMT_LEFT, 60, ColumnType::Platform, ColumnFlags::Const | ColumnFlags::Visible);
+	cm->AddColumn(L"Description", LVCFMT_LEFT, 250, ColumnType::Description, ColumnFlags::Const | ColumnFlags::Visible);
+	cm->AddColumn(L"Company Name", LVCFMT_LEFT, 150, ColumnType::CompanyName, ColumnFlags::Const | ColumnFlags::Visible);
+	cm->AddColumn(L"DPI Awareness", LVCFMT_LEFT, 80, ColumnType::DPIAware, ColumnFlags::None);
 
 	cm->UpdateColumns();
 
@@ -174,12 +176,12 @@ void CProcessesView::DoSort(const SortInfo* si) {
 			//case ColumnType::PeakUserObjects: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetPeakUserObjects(), GetProcessInfoEx(p2.get()).GetPeakUserObjects(), asc);
 			case ColumnType::KernelTime: return SortHelper::Sort(p1->KernelTime, p2->KernelTime, asc);
 			case ColumnType::UserTime: return SortHelper::Sort(p1->UserTime, p2->UserTime, asc);
-			//case ColumnType::Elevated: return SortHelper::Sort(p1->IsElevated(), p2->IsElevated(), asc);
-			//case ColumnType::Integrity: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetIntegrityLevel(), GetProcessInfoEx(p2.get()).GetIntegrityLevel(), asc);
+			case ColumnType::Elevated: return SortHelper::Sort(p1->IsElevated(), p2->IsElevated(), asc);
+			case ColumnType::Integrity: return SortHelper::Sort(p1->GetIntegrityLevel(), p2->GetIntegrityLevel(), asc);
 			//case ColumnType::Virtualized: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetVirtualizationState(), GetProcessInfoEx(p2.get()).GetVirtualizationState(), asc);
 			case ColumnType::JobId: return SortHelper::Sort(p1->JobObjectId, p2->JobObjectId, asc);
 			//case ColumnType::WindowTitle: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetWindowTitle(), GetProcessInfoEx(p2.get()).GetWindowTitle(), asc);
-			//case ColumnType::Platform: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetBitness(), GetProcessInfoEx(p2.get()).GetBitness(), asc);
+			case ColumnType::Platform: return SortHelper::Sort(p1->GetPlatform(), p2->GetPlatform(), asc);
 			//case ColumnType::Description: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetDescription(), GetProcessInfoEx(p2.get()).GetDescription(), asc);
 			//case ColumnType::Company: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetCompanyName(), GetProcessInfoEx(p2.get()).GetCompanyName(), asc);
 			//case ColumnType::DPIAware: return SortHelper::Sort(p1->GetDpiAwareness(), p2->GetDpiAwareness(), asc);
@@ -209,13 +211,13 @@ LRESULT CProcessesView::OnContinueProcessing(UINT, WPARAM, LPARAM, BOOL&) {
 		}
 		m_Deleted.clear();
 	}
+	m_Processing = false;
 	m_spList->SetItemCount((int)m_Items.size(), LVSICF_NOSCROLL | LVSICF_NOINVALIDATEALL);
 	auto si = GetSortInfo(m_List);
 	if (si)
 		Sort(si);
 
 	m_spList->RedrawItems(m_spList->GetTopIndex(), m_spList->GetTopIndex() + m_spList->GetCountPerPage());
-	m_Processing = false;
 	return 0;
 }
 
@@ -250,6 +252,16 @@ CString CProcessesView::GetColumnText(HWND h, int row, int col) {
 		case ColumnType::NonPagedPool: return StringHelper::FormatSize(p->NonPagedPoolUsage >> 10);
 		case ColumnType::PeakNonPagedPool: return StringHelper::FormatSize(p->PeakNonPagedPoolUsage >> 10);
 		case ColumnType::CommandLine: return p->GetCommandLine();
+		case ColumnType::UserName: return p->GetUserName();
+		case ColumnType::KernelTime: return StringHelper::TimeSpanToString(p->KernelTime);
+		case ColumnType::UserTime: return StringHelper::TimeSpanToString(p->UserTime);
+		case ColumnType::CPUTime: return StringHelper::TimeSpanToString(p->KernelTime + p->UserTime);
+		case ColumnType::Integrity: return StringHelper::IntegrityLevelToString(p->GetIntegrityLevel());
+		case ColumnType::Platform: return std::format("{} bit", p->GetPlatform()).c_str();
+		case ColumnType::Virtualization: return StringHelper::VirtualizationStateToString(p->GetVirtualizationState());
+		case ColumnType::Elevated: return p->IsElevated() ? L"Yes" : L"No";
+		case ColumnType::Description: return p->GetDesciption();
+		case ColumnType::CompanyName: return p->GetCompanyName();
 	}
 	return L"";
 }
@@ -276,7 +288,7 @@ void CProcessesView::UpdateProcesses() {
 	// called on a thread pool thread
 	//
 	m_pm.EnumProcesses();
-	PostMessage(WM_CONTINUE_PROCESSING);
+	SendMessage(WM_CONTINUE_PROCESSING);
 }
 
 DWORD CProcessesView::OnPrePaint(int, LPNMCUSTOMDRAW cd) {

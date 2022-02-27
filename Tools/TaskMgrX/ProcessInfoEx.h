@@ -22,8 +22,8 @@ DEFINE_ENUM_FLAG_OPERATORS(ProcessAttributes);
 
 enum class ProcessFlags {
 	None,
-	New =			1 << 0,
-	Terminated =	1 << 1,
+	New =				1 << 0,
+	Terminated =		1 << 1,
 };
 DEFINE_ENUM_FLAG_OPERATORS(ProcessFlags);
 
@@ -38,11 +38,22 @@ struct ProcessInfoEx : ProcessInfo {
 	int GetMemoryPriority() const;
 	IoPriorityHint GetIoPriority() const;
 	CString const& GetCommandLine() const;
+	CString const& GetUserName() const;
+	IntegrityLevel GetIntegrityLevel() const;
+	VirtualizationState GetVirtualizationState() const;
+	int GetPlatform() const;
+	bool IsElevated() const;
+	CString const& GetCompanyName() const;
+	CString const& GetDesciption() const;
 
 private:
+	CString GetVersionObject(const CString& name) const;
 	bool OpenProcess() const;
 
 	mutable CString m_imagePath, m_commandLine;
 	mutable Process m_process;
+	mutable CString m_username, m_company, m_description;
+	mutable bool m_companyDone : 1 { false};
+	mutable bool m_descriptionDone : 1 { false};
 };
 

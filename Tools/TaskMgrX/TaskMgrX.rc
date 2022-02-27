@@ -112,15 +112,14 @@ IDI_SERVICES            ICON                    "res\\services.ico"
 // Dialog
 //
 
-IDD_ABOUTBOX DIALOG 0, 0, 187, 102
+IDD_ABOUTBOX DIALOGEX 0, 0, 187, 91
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About"
-FONT 9, "Segoe UI"
+FONT 9, "Segoe UI", 0, 0, 0x0
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,130,81,50,14
-    CTEXT           "TaskMgrX Application v1.0\n\n(c) Copyright 2022",IDC_STATIC,25,57,78,32
-    ICON            IDR_MAINFRAME,IDC_STATIC,55,26,18,20
-    GROUPBOX        "",IDC_STATIC,7,7,115,88
+    DEFPUSHBUTTON   "OK",IDOK,68,70,50,14
+    CTEXT           "Task Manager X v1.0\n\n(C)2022 Pavel Yosifovich",IDC_STATIC,54,18,78,32
+    ICON            IDR_MAINFRAME,IDC_STATIC,7,7,18,17
 END
 
 
@@ -137,7 +136,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 180
         TOPMARGIN, 7
-        BOTTOMMARGIN, 95
+        BOTTOMMARGIN, 84
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -202,6 +201,17 @@ BEGIN
     BEGIN
         VALUE "Translation", 0x409, 1200
     END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_ABOUTBOX AFX_DIALOG_LAYOUT
+BEGIN
+    0
 END
 
 

@@ -4,6 +4,8 @@
 #include "pch.h"
 #include "resource.h"
 #include "MainFrm.h"
+#include "SecurityHelper.h"
+#include "ThemeHelper.h"
 
 CAppModule _Module;
 
@@ -27,10 +29,15 @@ int Run(LPTSTR /*lpstrCmdLine*/ = nullptr, int nCmdShow = SW_SHOWDEFAULT) {
 }
 
 int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPTSTR lpstrCmdLine, int nCmdShow) {
+	::SetPriorityClass(::GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+
 	HRESULT hRes = ::CoInitialize(nullptr);
 	ATLASSERT(SUCCEEDED(hRes));
 
-	AtlInitCommonControls(ICC_BAR_CLASSES);	// add flags to support other controls
+	SecurityHelper::EnablePrivilege(SE_DEBUG_NAME, true);
+	ThemeHelper::Init();
+
+	AtlInitCommonControls(ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES);
 
 	hRes = _Module.Init(nullptr, hInstance);
 	ATLASSERT(SUCCEEDED(hRes));

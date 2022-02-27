@@ -30,3 +30,31 @@ CString StringHelper::TimeToString(int64_t time, bool includeMS) {
 	}
 	return str;
 }
+
+CString StringHelper::TimeSpanToString(long long ts) {
+	auto str = CTimeSpan(ts / 10000000).Format(L"%D.%H:%M:%S");
+
+	str.Format(L"%s.%03d", str, (ts / 10000) % 1000);
+	return str;
+}
+
+PCWSTR StringHelper::IntegrityLevelToString(IntegrityLevel level) {
+	switch (level) {
+		case IntegrityLevel::High: return L"High";
+		case IntegrityLevel::Medium: return L"Medium";
+		case IntegrityLevel::MediumPlus: return L"Medium+";
+		case IntegrityLevel::Low: return L"Low";
+		case IntegrityLevel::System: return L"System";
+		case IntegrityLevel::Untrusted: return L"Untrusted";
+	}
+	return L"Unknown";
+}
+
+PCWSTR StringHelper::VirtualizationStateToString(VirtualizationState state) {
+	switch (state) {
+		case VirtualizationState::Disabled: return L"Disabled";
+		case VirtualizationState::Enabled: return L"Enabled";
+		case VirtualizationState::NotAllowed: return L"Not Allowed";
+	}
+	return L"Unknown";
+}

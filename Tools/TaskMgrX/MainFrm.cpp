@@ -11,6 +11,7 @@
 #include "PerfView.h"
 #include "IconHelper.h"
 #include "SecurityHelper.h"
+#include "ThemeHelper.h"
 
 const int WINDOW_MENU_POSITION = 4;
 
@@ -78,6 +79,10 @@ LRESULT CMainFrame::OnTimer(UINT, WPARAM, LPARAM, BOOL&) {
 }
 
 LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
+	::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+
+	InitDarkTheme();
+	ThemeHelper::SetCurrentTheme(m_DefaultTheme);
 	CreateSimpleStatusBar();
 	m_sb.SubclassWindow(m_hWndStatusBar);
 
@@ -175,7 +180,7 @@ LRESULT CMainFrame::OnRunAsAdmin(WORD, WORD, HWND, BOOL&) {
 void CMainFrame::InitDarkTheme() {
 	m_DarkTheme.BackColor = m_DarkTheme.SysColors[COLOR_WINDOW] = RGB(32, 32, 32);
 	m_DarkTheme.TextColor = m_DarkTheme.SysColors[COLOR_WINDOWTEXT] = RGB(248, 248, 248);
-	m_DarkTheme.SysColors[COLOR_HIGHLIGHT] = RGB(32, 32, 255);
+	m_DarkTheme.SysColors[COLOR_HIGHLIGHT] = RGB(10, 10, 160);
 	m_DarkTheme.SysColors[COLOR_HIGHLIGHTTEXT] = RGB(240, 240, 240);
 	m_DarkTheme.SysColors[COLOR_MENUTEXT] = m_DarkTheme.TextColor;
 	m_DarkTheme.SysColors[COLOR_CAPTIONTEXT] = m_DarkTheme.TextColor;
@@ -185,7 +190,27 @@ void CMainFrame::InitDarkTheme() {
 	m_DarkTheme.SysColors[COLOR_BTNHIGHLIGHT] = RGB(192, 192, 192);
 	m_DarkTheme.SysColors[COLOR_CAPTIONTEXT] = m_DarkTheme.TextColor;
 	m_DarkTheme.SysColors[COLOR_3DSHADOW] = m_DarkTheme.TextColor;
+	m_DarkTheme.SysColors[COLOR_SCROLLBAR] = m_DarkTheme.BackColor;
 	m_DarkTheme.Name = L"Dark";
 	m_DarkTheme.Menu.BackColor = m_DarkTheme.BackColor;
 	m_DarkTheme.Menu.TextColor = m_DarkTheme.TextColor;
+}
+
+LRESULT CMainFrame::OnAlwaysOnTop(WORD, WORD id, HWND, BOOL&) {
+	auto style = GetExStyle() ^ WS_EX_TOPMOST;
+	bool topmost = style & WS_EX_TOPMOST;
+	SetWindowPos(topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+	UISetCheck(id, topmost);
+
+	return 0;
+}
+
+LRESULT CMainFrame::OnToggleDarkMode(WORD, WORD, HWND, BOOL&) {
+	m_DarkMode = !m_DarkMode;
+	ThemeHelper::SetCurrentTheme(m_DarkMode ? m_DarkTheme : m_DefaultTheme, m_hWnd);
+	ThemeHelper::UpdateMenuColors(*this, m_DarkMode);
+	UpdateMenu(GetMenu(), true);
+	UISetCheck(ID_OPTIONS_DARKMODE, m_DarkMode);
+
+	return 0;
 }

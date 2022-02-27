@@ -14,6 +14,13 @@ namespace WinSys {
 	enum class ProtectedProcessSigner : uint8_t;
 	struct ProcessHandleInfo;
 
+	enum class VirtualizationState {
+		Unknown,
+		NotAllowed,
+		Enabled,
+		Disabled
+	};
+
 	enum class ProcessMitigationPolicy {
 		DEPPolicy,
 		ASLRPolicy,
@@ -84,6 +91,7 @@ namespace WinSys {
 		bool IsWow64Process() const;
 		bool IsManaged() const;
 		bool IsElevated() const;
+		bool Is64Bit() const;
 		IntegrityLevel GetIntegrityLevel() const;
 		int GetMemoryPriority() const;
 		IoPriorityHint GetIoPriority() const;
@@ -98,6 +106,7 @@ namespace WinSys {
 		uint32_t GetPeakGdiObjectCount() const;
 		uint32_t GetUserObjectCount() const;
 		uint32_t GetPeakUserObjectCount() const;
+		VirtualizationState GetVirtualizationState() const;
 		HANDLE GetNextThread(HANDLE hThread = nullptr, ThreadAccessMask access = ThreadAccessMask::QueryLimitedInformation);
 		DpiAwareness GetDpiAwareness() const;
 
