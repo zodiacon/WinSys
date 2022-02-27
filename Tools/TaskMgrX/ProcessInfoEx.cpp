@@ -12,6 +12,10 @@ PriorityClass ProcessInfoEx::GetPriorityClass() const {
 	return OpenProcess() ? m_process.GetPriorityClass() : PriorityClass::Unknown;
 }
 
+int ProcessInfoEx::GetMemoryPriority() const {
+	return OpenProcess() ? m_process.GetMemoryPriority() : -1;
+}
+
 CString const& ProcessInfoEx::GetCommandLine() const {
 	if (m_commandLine.IsEmpty() && OpenProcess()) {
 		m_commandLine = m_process.GetCommandLine().c_str();
@@ -84,7 +88,7 @@ const CString& ProcessInfoEx::GetCompanyName() const {
 	return m_company;
 }
 
-const CString& ProcessInfoEx::GetDesciption() const {
+const CString& ProcessInfoEx::GetDescription() const {
 	if (!m_descriptionDone) {
 		m_description = GetVersionObject(L"FileDescription");
 		m_descriptionDone = true;

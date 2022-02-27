@@ -220,6 +220,7 @@
     </ClCompile>
     <ClCompile Include="PerfView.cpp" />
     <ClCompile Include="ProcessInfoEx.cpp" />
+    <ClCompile Include="SelectColumnsDlg.cpp" />
     <ClCompile Include="ServicesView.cpp" />
     <ClCompile Include="StringHelper.cpp" />
     <ClCompile Include="TaskMgrX.cpp" />
@@ -235,6 +236,7 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="ProcessesView.h" />
+    <ClInclude Include="SelectColumnsDlg.h" />
     <ClInclude Include="ServicesView.h" />
     <ClInclude Include="StringHelper.h" />
     <ClInclude Include="ViewBase.h" />
@@ -244,6 +246,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\check.ico" />
+    <Image Include="res\color_wheel.ico" />
+    <Image Include="res\columns.ico" />
+    <Image Include="res\delete.ico" />
     <Image Include="res\perf.ico" />
     <Image Include="res\pin.ico" />
     <Image Include="res\Processes.ico" />

@@ -29,6 +29,7 @@ public:
 
 	DWORD OnPrePaint(int, LPNMCUSTOMDRAW cd);
 	DWORD OnItemPrePaint(int, LPNMCUSTOMDRAW cd);
+	DWORD OnSubItemPrePaint(int, LPNMCUSTOMDRAW cd);
 
 protected:
 	const UINT WM_CONTINUE_PROCESSING = WM_APP + 100;
@@ -36,7 +37,10 @@ protected:
 	BEGIN_MSG_MAP(CProcessesView)
 		MESSAGE_HANDLER(WM_CONTINUE_PROCESSING, OnContinueProcessing)
 		MESSAGE_HANDLER(WM_TIMER, OnTimer)
+		NOTIFY_CODE_HANDLER(LVN_ITEMCHANGED, OnItemChanged)
 		MESSAGE_HANDLER(WM_CREATE, OnCreate)
+		COMMAND_ID_HANDLER(ID_PROCESS_KILL, OnKillProcess)
+		COMMAND_ID_HANDLER(ID_PROCESS_COLUMNS, OnSelectColumns)
 		CHAIN_MSG_MAP(CCustomDraw<CProcessesView>)
 		CHAIN_MSG_MAP(CVirtualListView<CProcessesView>)
 		CHAIN_MSG_MAP(CViewBase)
@@ -44,6 +48,7 @@ protected:
 
 private:
 	void UpdateProcesses();
+	void UpdateLocalUI();
 
 	enum class ColumnType {
 		Name, Id, Threads, Handles, Session, UserName, CPU, CPUTime, KernelTime, UserTime, Parent,
@@ -54,7 +59,7 @@ private:
 		ReadBytes, WriteBytes, OtherBytes, ReadCount, WriteCount, OtherCount,
 		UserObjects, PeakUserObjects, GDIObjects, PeakGDIObjects,
 		Integrity, Elevated, Virtualization, ExitTime,
-		MemoryPriority, IoPriority, 
+		MemoryPriority, IoPriority, WindowTitle,
 	};
 	// Handler prototypes (uncomment arguments if needed):
 	//	LRESULT MessageHandler(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
@@ -64,6 +69,9 @@ private:
 	LRESULT OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnContinueProcessing(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+	LRESULT OnKillProcess(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnItemChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
+	LRESULT OnSelectColumns(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 
 	CListViewCtrl m_List;
 	CComPtr<IListView> m_spList;

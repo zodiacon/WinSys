@@ -19,6 +19,9 @@
     <Filter Include="Views">
       <UniqueIdentifier>{4fbe48ac-b2cc-4f37-8f76-6b6788d9c831}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Dialogs">
+      <UniqueIdentifier>{c684f3ca-1c2b-4684-afbf-5aa767a7bb53}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -28,9 +31,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MainFrm.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="AboutDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ProcessesView.cpp">
@@ -51,15 +51,18 @@
     <ClCompile Include="StringHelper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SelectColumnsDlg.cpp">
+      <Filter>Dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="AboutDlg.cpp">
+      <Filter>Dialogs</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MainFrm.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AboutDlg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="resource.h">
@@ -88,6 +91,12 @@
     </ClInclude>
     <ClInclude Include="StringHelper.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SelectColumnsDlg.h">
+      <Filter>Dialogs</Filter>
+    </ClInclude>
+    <ClInclude Include="AboutDlg.h">
+      <Filter>Dialogs</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -118,6 +127,15 @@
       <Filter>Resource Files\Icons</Filter>
     </Image>
     <Image Include="res\services.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\color_wheel.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\columns.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\delete.ico">
       <Filter>Resource Files\Icons</Filter>
     </Image>
   </ItemGroup>

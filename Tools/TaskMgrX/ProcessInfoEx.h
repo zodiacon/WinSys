@@ -44,7 +44,7 @@ struct ProcessInfoEx : ProcessInfo {
 	int GetPlatform() const;
 	bool IsElevated() const;
 	CString const& GetCompanyName() const;
-	CString const& GetDesciption() const;
+	CString const& GetDescription() const;
 
 private:
 	CString GetVersionObject(const CString& name) const;

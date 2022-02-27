@@ -88,7 +88,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 	m_view.m_bTabCloseButton = false;
 	m_hWndClient = m_view.Create(m_hWnd, rcDefault, nullptr, 
-		WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
+		WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, WS_EX_STATICEDGE);
 
 	// register object for message filtering and idle updates
 	auto pLoop = _Module.GetMessageLoop();

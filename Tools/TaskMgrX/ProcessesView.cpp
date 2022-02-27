@@ -12,6 +12,7 @@
 #include "StringHelper.h"
 #include "Helpers.h"
 #include "ThemeHelper.h"
+#include "SelectColumnsDlg.h"
 
 #pragma comment(lib, "Version.lib")
 
@@ -25,20 +26,14 @@ void CProcessesView::OnFinalMessage(HWND /*hWnd*/) {
 }
 
 LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
-	//ToolBarButtonInfo buttons[] = {
-	//	{ ID_PROCESS_THREADS, IDI_THREAD, 0, L"Threads" },
-	//	{ ID_HANDLES_SHOWHANDLEINPROCESS, IDI_HANDLES, 0, L"Handles" },
-	//	{ ID_PROCESS_MODULES, IDI_DLL, 0, L"Modules" },
-	//	{ ID_PROCESS_MEMORYMAP, IDI_DRAM, 0, L"Memory" },
-	//	{ ID_PROCESS_HEAPS, IDI_HEAP, 0, L"Heaps" },
-	//	{ 0 },
-	//	{ ID_PROCESS_KILL, IDI_DELETE },
-	//	{ 0 },
-	//	{ ID_HEADER_COLUMNS, IDI_EDITCOLUMNS, 0, L"Columns" },
-	//	{ 0 },
-	//	{ ID_PROCESS_COLORS, IDI_COLORWHEEL, 0, L"Colors" },
-	//};
-	//CreateAndInitToolBar(buttons, _countof(buttons));
+	ToolBarButtonInfo buttons[] = {
+		{ ID_PROCESS_KILL, IDI_DELETE, 0, L"Kill" },
+		{ 0 },
+		{ ID_PROCESS_COLUMNS, IDI_COLUMNS, 0, L"Columns" },
+		{ 0 },
+		{ ID_PROCESS_COLORS, IDI_COLORS, 0, L"Colors" },
+	};
+	CreateAndInitToolBar(buttons, _countof(buttons));
 
 	m_hWndClient = m_List.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS |
 		LVS_OWNERDATA | LVS_SINGLESEL | LVS_REPORT);
@@ -90,14 +85,14 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	cm->AddColumn(L"I/O\\I/O Reads", LVCFMT_RIGHT, 90, ColumnType::ReadCount, ColumnFlags::Numeric);
 	cm->AddColumn(L"I/O\\I/O Writes", LVCFMT_RIGHT, 90, ColumnType::WriteCount, ColumnFlags::Numeric);
 	cm->AddColumn(L"I/O\\I/O Other", LVCFMT_RIGHT, 90, ColumnType::OtherCount, ColumnFlags::Numeric);
-	//cm->AddColumn(L"GUI\\GDI Objects", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
-	//cm->AddColumn(L"GUI\\User Objects", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
-	//cm->AddColumn(L"GUI\\Peak GDI Objects", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
-	//cm->AddColumn(L"GUI\\Peak User Objects", LVCFMT_RIGHT, 90, ColumnFlags::Numeric);
+	cm->AddColumn(L"GUI\\GDI Objects", LVCFMT_RIGHT, 90, ColumnType::GDIObjects, ColumnFlags::Numeric);
+	cm->AddColumn(L"GUI\\User Objects", LVCFMT_RIGHT, 90, ColumnType::UserObjects, ColumnFlags::Numeric);
+	cm->AddColumn(L"GUI\\Peak GDI Objects", LVCFMT_RIGHT, 90, ColumnType::PeakGDIObjects, ColumnFlags::Numeric);
+	cm->AddColumn(L"GUI\\Peak User Objects", LVCFMT_RIGHT, 90, ColumnType::PeakUserObjects, ColumnFlags::Numeric);
 	cm->AddColumn(L"Token\\Integrity", LVCFMT_LEFT, 70, ColumnType::Integrity, ColumnFlags::Visible);
 	cm->AddColumn(L"Token\\Elevated", LVCFMT_LEFT, 60, ColumnType::Elevated, ColumnFlags::Const | ColumnFlags::Visible);
 	cm->AddColumn(L"Token\\Virtualization", LVCFMT_LEFT, 85, ColumnType::Virtualization, ColumnFlags::Visible);
-	//cm->AddColumn(L"Window Title", LVCFMT_LEFT, 200, ColumnFlags::None);
+	cm->AddColumn(L"Window Title", LVCFMT_LEFT, 200, ColumnType::WindowTitle, ColumnFlags::None);
 	cm->AddColumn(L"Platform", LVCFMT_LEFT, 60, ColumnType::Platform, ColumnFlags::Const | ColumnFlags::Visible);
 	cm->AddColumn(L"Description", LVCFMT_LEFT, 250, ColumnType::Description, ColumnFlags::Const | ColumnFlags::Visible);
 	cm->AddColumn(L"Company Name", LVCFMT_LEFT, 150, ColumnType::CompanyName, ColumnFlags::Const | ColumnFlags::Visible);
@@ -105,6 +100,7 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 
 	cm->UpdateColumns();
 
+	UpdateLocalUI();
 	auto count = m_pm.EnumProcesses();
 	m_Items = m_pm.GetProcesses();
 	m_spList->SetItemCount((int)count, 0);
@@ -161,7 +157,7 @@ void CProcessesView::DoSort(const SortInfo* si) {
 			case ColumnType::PeakPagedPool: return SortHelper::Sort(p1->PeakPagedPoolUsage, p2->PeakPagedPoolUsage, asc);
 			case ColumnType::NonPagedPool: return SortHelper::Sort(p1->NonPagedPoolUsage, p2->NonPagedPoolUsage, asc);
 			case ColumnType::PeakNonPagedPool: return SortHelper::Sort(p1->PeakNonPagedPoolUsage, p2->PeakNonPagedPoolUsage, asc);
-			//case ColumnType::MemoryPriority: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetMemoryPriority(), GetProcessInfoEx(p2.get()).GetMemoryPriority(), asc);
+			case ColumnType::MemoryPriority: return SortHelper::Sort(p1->GetMemoryPriority(), p2->GetMemoryPriority(), asc);
 			//case ColumnType::IoPriority: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetIoPriority(), GetProcessInfoEx(p2.get()).GetIoPriority(), asc);
 			//case ColumnType::CommandLine: return SortHelper::Sort(p1->GetCommandLine(), p2->GetCommandLine(), asc);
 			case ColumnType::ReadBytes: return SortHelper::Sort(p1->ReadTransferCount, p2->ReadTransferCount, asc);
@@ -182,8 +178,8 @@ void CProcessesView::DoSort(const SortInfo* si) {
 			case ColumnType::JobId: return SortHelper::Sort(p1->JobObjectId, p2->JobObjectId, asc);
 			//case ColumnType::WindowTitle: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetWindowTitle(), GetProcessInfoEx(p2.get()).GetWindowTitle(), asc);
 			case ColumnType::Platform: return SortHelper::Sort(p1->GetPlatform(), p2->GetPlatform(), asc);
-			//case ColumnType::Description: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetDescription(), GetProcessInfoEx(p2.get()).GetDescription(), asc);
-			//case ColumnType::Company: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetCompanyName(), GetProcessInfoEx(p2.get()).GetCompanyName(), asc);
+			case ColumnType::Description: return SortHelper::Sort(p1->GetDescription(), p2->GetDescription(), asc);
+			case ColumnType::CompanyName: return SortHelper::Sort(p1->GetCompanyName(), p2->GetCompanyName(), asc);
 			//case ColumnType::DPIAware: return SortHelper::Sort(p1->GetDpiAwareness(), p2->GetDpiAwareness(), asc);
 		}
 		return false;
@@ -221,6 +217,32 @@ LRESULT CProcessesView::OnContinueProcessing(UINT, WPARAM, LPARAM, BOOL&) {
 	return 0;
 }
 
+LRESULT CProcessesView::OnKillProcess(WORD, WORD, HWND, BOOL&) {
+	int selected = m_spList->GetSelectedIndex();
+	ATLASSERT(selected >= 0);
+	auto& p = m_Items[selected];
+
+	CString text;
+	text.Format(L"Kill process %u (%ws)?", p->Id, p->GetImageName().c_str());
+	if (AtlMessageBox(*this, (PCWSTR)text, IDS_TITLE, MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON2) == IDCANCEL)
+		return 0;
+
+	Process process;
+	bool ok = false;
+	if (process.Open(p->Id, ProcessAccessMask::Terminate)) {
+		ok = process.Terminate(0);
+	}
+	if (!ok)
+		AtlMessageBox(*this, L"Failed to kill process", IDS_TITLE, MB_ICONERROR);
+
+	return 0;
+}
+
+LRESULT CProcessesView::OnItemChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/) {
+	UpdateLocalUI();
+	return 0;
+}
+
 CString CProcessesView::GetTitle() const {
 	return L"Processes";
 }
@@ -245,6 +267,7 @@ CString CProcessesView::GetColumnText(HWND h, int row, int col) {
 		case ColumnType::Commit: return StringHelper::FormatSize(p->PagefileUsage >> 10);
 		case ColumnType::WorkingSet: return StringHelper::FormatSize(p->WorkingSetSize >> 10);
 		case ColumnType::PrivateWorkingSet: return StringHelper::FormatSize(p->WorkingSetPrivateSize >> 10);
+		case ColumnType::PeakWorkingSet: return StringHelper::FormatSize(p->PeakWorkingSetSize >> 10);
 		case ColumnType::VirtualSize: return StringHelper::FormatSize(p->VirtualSize >> 10);
 		case ColumnType::PeakVirtualSize: return StringHelper::FormatSize(p->PeakVirtualSize >> 10);
 		case ColumnType::PagedPool: return StringHelper::FormatSize(p->PagedPoolUsage >> 10);
@@ -260,8 +283,13 @@ CString CProcessesView::GetColumnText(HWND h, int row, int col) {
 		case ColumnType::Platform: return std::format("{} bit", p->GetPlatform()).c_str();
 		case ColumnType::Virtualization: return StringHelper::VirtualizationStateToString(p->GetVirtualizationState());
 		case ColumnType::Elevated: return p->IsElevated() ? L"Yes" : L"No";
-		case ColumnType::Description: return p->GetDesciption();
+		case ColumnType::Description: return p->GetDescription();
 		case ColumnType::CompanyName: return p->GetCompanyName();
+		case ColumnType::MemoryPriority: return std::format("{}", p->GetMemoryPriority()).c_str();
+		case ColumnType::JobId: return p->JobObjectId == 0 ? L"" : std::format(L"{}", p->JobObjectId).c_str();
+		case ColumnType::ReadBytes: return StringHelper::FormatSize(p->ReadTransferCount);
+		case ColumnType::WriteBytes: return StringHelper::FormatSize(p->WriteTransferCount);
+		case ColumnType::OtherBytes: return StringHelper::FormatSize(p->OtherTransferCount);
 	}
 	return L"";
 }
@@ -291,8 +319,20 @@ void CProcessesView::UpdateProcesses() {
 	SendMessage(WM_CONTINUE_PROCESSING);
 }
 
+void CProcessesView::UpdateLocalUI() {
+	auto selected = m_spList->GetSelectedCount();
+	UIEnable(ID_PROCESS_KILL, selected == 1);
+}
+
 DWORD CProcessesView::OnPrePaint(int, LPNMCUSTOMDRAW cd) {
+	if (cd->hdr.hwndFrom != m_List)
+		return CDRF_DODEFAULT;
+
 	return CDRF_NOTIFYITEMDRAW;
+}
+
+DWORD CProcessesView::OnSubItemPrePaint(int, LPNMCUSTOMDRAW cd) {
+	return CDRF_SKIPPOSTPAINT;
 }
 
 DWORD CProcessesView::OnItemPrePaint(int, LPNMCUSTOMDRAW cd) {
@@ -301,18 +341,31 @@ DWORD CProcessesView::OnItemPrePaint(int, LPNMCUSTOMDRAW cd) {
 	int row = (int)cd->dwItemSpec;
 	ATLASSERT(row < m_Items.size());
 
-	auto& p = m_Items[row];
-	auto tick = GetTickCount64();
-	if ((p->Flags & ProcessFlags::Terminated) == ProcessFlags::Terminated) {
-		lv->clrTextBk = RGB(255, 64, 0);
-		if (tick >= p->TargetTime) {
-			m_Deleted.insert(row);
+	if (m_spList->GetItemState(row, LVIS_SELECTED) == LVIS_SELECTED) {
+		// skip selected items
+	}
+	else {
+		auto& p = m_Items[row];
+		auto tick = GetTickCount64();
+		if ((p->Flags & ProcessFlags::Terminated) == ProcessFlags::Terminated) {
+			lv->clrTextBk = RGB(255, 64, 0);
+			if (tick >= p->TargetTime) {
+				m_Deleted.insert(row);
+			}
+		}
+		else if ((p->Flags & ProcessFlags::New) == ProcessFlags::New) {
+			lv->clrTextBk = ThemeHelper::IsDefault() ? RGB(0, 255, 64) : RGB(0, 160, 64);
+			if (tick >= p->TargetTime)
+				p->Flags &= ~ProcessFlags::New;
 		}
 	}
-	else if ((p->Flags & ProcessFlags::New) == ProcessFlags::New) {
-		lv->clrTextBk = ThemeHelper::IsDefault() ? RGB(0, 255, 64) : RGB(0, 160, 64);
-		if (tick >= p->TargetTime)
-			p->Flags &= ~ProcessFlags::New;
-	}
-	return CDRF_SKIPPOSTPAINT;
+	return CDRF_SKIPPOSTPAINT | CDRF_NOTIFYSUBITEMDRAW;
 }
+
+LRESULT CProcessesView::OnSelectColumns(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) {
+	CSelectColumnsDlg dlg(GetColumnManager(m_List));
+	dlg.DoModal();
+	m_spList->RedrawItems(m_spList->GetTopIndex(), m_spList->GetTopIndex() + m_spList->GetCountPerPage());
+	return 0;
+}
+

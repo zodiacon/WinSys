@@ -70,6 +70,15 @@ BEGIN
         MENUITEM "&Services",                   ID_TAB_SERVICES
         MENUITEM SEPARATOR
         MENUITEM "&Status Bar",                 ID_VIEW_STATUS_BAR
+        MENUITEM SEPARATOR
+        MENUITEM "Pause",                       ID_VIEW_PAUSE
+        POPUP "&Update Speed"
+        BEGIN
+            MENUITEM "&Fast",                       ID_UPDATESPEED_FAST
+            MENUITEM "&Normal",                     ID_UPDATESPEED_NORMAL
+            MENUITEM "&Slow",                       ID_UPDATESPEED_SLOW
+            MENUITEM "&Very Slow",                  ID_UPDATESPEED_VERYSLOW
+        END
     END
     POPUP "&Options"
     BEGIN
@@ -79,6 +88,18 @@ BEGIN
     POPUP "&Help"
     BEGIN
         MENUITEM "&About Task Manager X...",    ID_APP_ABOUT
+    END
+END
+
+IDR_CONTEXT MENU
+BEGIN
+    POPUP "Process"
+    BEGIN
+        MENUITEM "&Kill",                       ID_PROCESS_KILL
+        MENUITEM "&Open File Location",         ID_PROCESS_OPENFILELOCATION
+        MENUITEM SEPARATOR
+        MENUITEM "&Columns...",                 ID_PROCESS_COLUMNS
+        MENUITEM "Colors...",                   ID_PROCESS_COLORS
     END
 END
 
@@ -106,6 +127,12 @@ IDI_REFRESH             ICON                    "res\\refresh.ico"
 
 IDI_SERVICES            ICON                    "res\\services.ico"
 
+IDI_COLORS              ICON                    "res\\color_wheel.ico"
+
+IDI_COLUMNS             ICON                    "res\\columns.ico"
+
+IDI_DELETE              ICON                    "res\\delete.ico"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -114,12 +141,22 @@ IDI_SERVICES            ICON                    "res\\services.ico"
 
 IDD_ABOUTBOX DIALOGEX 0, 0, 187, 91
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "About"
+CAPTION "About Task Manager X"
 FONT 9, "Segoe UI", 0, 0, 0x0
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,68,70,50,14
     CTEXT           "Task Manager X v1.0\n\n(C)2022 Pavel Yosifovich",IDC_STATIC,54,18,78,32
-    ICON            IDR_MAINFRAME,IDC_STATIC,7,7,18,17
+    ICON            IDR_MAINFRAME,IDC_STATIC,7,7,20,20
+END
+
+IDD_COLUMNS DIALOGEX 0, 0, 309, 216
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+CAPTION "Select Columns"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,96,195,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,162,195,50,14
+    CONTROL         "",IDC_COLUMNS,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | LVS_OWNERDATA | WS_BORDER | WS_TABSTOP,7,7,295,168
 END
 
 
@@ -137,6 +174,14 @@ BEGIN
         RIGHTMARGIN, 180
         TOPMARGIN, 7
         BOTTOMMARGIN, 84
+    END
+
+    IDD_COLUMNS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 302
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 209
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -212,6 +257,14 @@ END
 IDD_ABOUTBOX AFX_DIALOG_LAYOUT
 BEGIN
     0
+END
+
+IDD_COLUMNS AFX_DIALOG_LAYOUT
+BEGIN
+    0,
+    50, 100, 0, 0,
+    50, 100, 0, 0,
+    0, 0, 100, 100
 END
 
 
