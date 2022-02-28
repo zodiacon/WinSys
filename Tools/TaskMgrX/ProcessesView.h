@@ -53,6 +53,7 @@ protected:
 	END_MSG_MAP()
 
 private:
+	COLORREF GetProcessColor(ProcessInfoEx* p) const;
 	void UpdateProcesses();
 	void UpdateLocalUI();
 
@@ -65,7 +66,7 @@ private:
 		ReadBytes, WriteBytes, OtherBytes, ReadCount, WriteCount, OtherCount,
 		UserObjects, PeakUserObjects, GDIObjects, PeakGDIObjects,
 		Integrity, Elevated, Virtualization, ExitTime,
-		MemoryPriority, IoPriority, WindowTitle,
+		MemoryPriority, IoPriority, WindowTitle, Protection,
 	};
 	// Handler prototypes (uncomment arguments if needed):
 	//	LRESULT MessageHandler(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)

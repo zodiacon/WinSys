@@ -17,6 +17,7 @@ enum class ProcessAttributes : DWORD {
 	Pico =			1 << 9,
 	Minimal =		1 << 10,
 	NetCore =		1 << 11,
+	Terminated =	1 << 12,
 	Computed =		1 << 23,
 };
 DEFINE_ENUM_FLAG_OPERATORS(ProcessAttributes);
@@ -30,7 +31,6 @@ DEFINE_ENUM_FLAG_OPERATORS(ProcessFlags);
 
 struct ProcessInfoEx : ProcessInfo {
 	ProcessFlags Flags{ ProcessFlags::None };
-	ProcessAttributes Attributes{ ProcessAttributes::None };
 	int Image{ -1 };
 	DWORD64 TargetTime;
 
@@ -44,6 +44,7 @@ struct ProcessInfoEx : ProcessInfo {
 	VirtualizationState GetVirtualizationState() const;
 	int GetPlatform() const;
 	bool IsElevated() const;
+	bool IsSuspended() const;
 	CString const& GetCompanyName() const;
 	CString const& GetDescription() const;
 	ULONG GetGdiObjects() const;
@@ -51,9 +52,11 @@ struct ProcessInfoEx : ProcessInfo {
 	ULONG GetUserObjects() const;
 	ULONG GetPeakUserObjects() const;
 	std::wstring GetParentImageName(ProcessManager<ProcessInfoEx> const& pm, PCWSTR defaultText) const;
+	ProcessAttributes GetAttributes(ProcessManager<ProcessInfoEx> const& pm) const;
+	ProcessProtection GetProtection() const;
 
 private:
-	CString GetVersionObject(const CString& name) const;
+	CString GetVersionObject(CString const& name) const;
 	bool OpenProcess() const;
 
 	mutable CString m_imagePath, m_commandLine;
@@ -61,5 +64,6 @@ private:
 	mutable CString m_username, m_company, m_description;
 	mutable bool m_companyDone : 1 { false};
 	mutable bool m_descriptionDone : 1 { false};
+	mutable ProcessAttributes m_attributes{ ProcessAttributes::None };
 };
 

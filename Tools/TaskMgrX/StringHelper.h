@@ -1,6 +1,7 @@
 #pragma once
 
 #include <processes.h>
+#include "ProcessInfoEx.h"
 
 struct StringHelper abstract final {
 	static PCWSTR PriorityClassToString(PriorityClass pc);
@@ -10,5 +11,7 @@ struct StringHelper abstract final {
 	static PCWSTR IntegrityLevelToString(IntegrityLevel level);
 	static CString PrivilegeAttributesToString(DWORD pattributes);
 	static PCWSTR VirtualizationStateToString(VirtualizationState state);
+	static CString ProcessAttributesToString(ProcessAttributes attributes);
+	static CString ProcessProtectionToString(ProcessProtection pp);
 };
 

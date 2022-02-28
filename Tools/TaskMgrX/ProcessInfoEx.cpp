@@ -62,7 +62,7 @@ CString const& ProcessInfoEx::GetUserName() const {
 	return m_username;
 }
 
-CString ProcessInfoEx::GetVersionObject(const CString& name) const {
+CString ProcessInfoEx::GetVersionObject(CString const& name) const {
 	BYTE buffer[1 << 12];
 	CString result;
 	const auto& exe = GetFullImagePath();
@@ -78,6 +78,10 @@ CString ProcessInfoEx::GetVersionObject(const CString& name) const {
 		}
 	}
 	return result;
+}
+
+ProcessProtection ProcessInfoEx::GetProtection() const {
+	return OpenProcess() ? m_process.GetProtection() : ProcessProtection{};
 }
 
 ULONG ProcessInfoEx::GetGdiObjects() const {
@@ -115,10 +119,43 @@ const CString& ProcessInfoEx::GetCompanyName() const {
 	return m_company;
 }
 
+bool ProcessInfoEx::IsSuspended() const {
+	return OpenProcess() ? m_process.IsSuspended() : false;
+}
+
 const CString& ProcessInfoEx::GetDescription() const {
 	if (!m_descriptionDone) {
 		m_description = GetVersionObject(L"FileDescription");
 		m_descriptionDone = true;
 	}
 	return m_description;
+}
+
+ProcessAttributes ProcessInfoEx::GetAttributes(ProcessManager<ProcessInfoEx> const& pm) const {
+	if (!OpenProcess())
+		return m_attributes;
+
+	bool computed = (m_attributes & ProcessAttributes::Computed) == ProcessAttributes::Computed;
+	if (!computed) {
+		m_attributes = ProcessAttributes::None;
+		if (m_process.IsPico())
+			m_attributes |= ProcessAttributes::Pico;
+		if (m_process.IsManaged())
+			m_attributes |= ProcessAttributes::Managed;
+		if (m_process.IsProtected())
+			m_attributes |= ProcessAttributes::Protected;
+		if (m_process.IsImmersive())
+			m_attributes |= ProcessAttributes::Immersive;
+		if (m_process.IsSecure())
+			m_attributes |= ProcessAttributes::Secure;
+		auto parent = pm.GetProcessById(ParentId);
+		if (parent && ::_wcsicmp(parent->GetImageName().c_str(), L"services.exe") == 0)
+			m_attributes |= ProcessAttributes::Service;
+		if (m_process.IsWow64Process())
+			m_attributes |= ProcessAttributes::Wow64;
+		m_attributes |= ProcessAttributes::Computed;
+	}
+	if ((m_attributes & ProcessAttributes::InJob) == ProcessAttributes::None && m_process.IsInJob())
+		m_attributes |= ProcessAttributes::InJob;
+	return m_attributes;
 }

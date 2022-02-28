@@ -3,25 +3,6 @@
 #include "Processes.h"
 #include "SystemInformation.h"
 
-#ifdef WINSYS_NAMESPACE
-namespace WinSys {
-#endif
-	enum class ProcessProtectionSigner : uint8_t {
-		None = PsProtectedSignerNone,
-		Authenticode = PsProtectedSignerAuthenticode,
-		CodeGen = PsProtectedSignerCodeGen,
-		Antimalware = PsProtectedSignerAntimalware,
-		Lsa = PsProtectedSignerLsa,
-		Windows = PsProtectedSignerWindows,
-		WinTcb = PsProtectedSignerWinTcb,
-		WinSystem = PsProtectedSignerWinSystem,
-		App = PsProtectedSignerApp,
-		Max = PsProtectedSignerMax
-	};
-#ifdef WINSYS_NAMESPACE
-}
-#endif
-
 static bool GetProcessPeb(HANDLE hProcess, PPEB peb) {
 	PROCESS_BASIC_INFORMATION info;
 	if (!NT_SUCCESS(::NtQueryInformationProcess(hProcess, ProcessBasicInformation, &info, sizeof(info), nullptr)))
@@ -193,12 +174,10 @@ std::wstring Process::GetUserName() const {
 	return std::wstring(domain) + L"\\" + name;
 }
 
-std::optional<ProcessProtection> Process::GetProtection() const {
-	ProcessProtection protection;
+ProcessProtection Process::GetProtection() const {
+	ProcessProtection protection{};
 	ULONG len;
-	auto status = ::NtQueryInformationProcess(m_handle.get(), ProcessProtectionInformation, &protection, sizeof(protection), &len);
-	if (!NT_SUCCESS(status))
-		return std::optional<ProcessProtection>();
+	::NtQueryInformationProcess(m_handle.get(), ProcessProtectionInformation, &protection, sizeof(protection), &len);
 	return protection;
 }
 
@@ -224,7 +203,7 @@ bool Process::IsProtected() const {
 	if (!GetExtendedInfo(Handle(), &info))
 		return false;
 
-	return info.IsProtectedProcess ? true : false;
+	return info.IsProtectedProcess;
 }
 
 bool Process::IsSecure() const {
@@ -232,7 +211,15 @@ bool Process::IsSecure() const {
 	if (!GetExtendedInfo(Handle(), &info))
 		return false;
 
-	return info.IsSecureProcess ? true : false;
+	return info.IsSecureProcess;
+}
+
+bool Process::IsSuspended() const {
+	PROCESS_EXTENDED_BASIC_INFORMATION info;
+	if (!GetExtendedInfo(Handle(), &info))
+		return false;
+
+	return info.IsFrozen;
 }
 
 bool Process::IsInJob(HANDLE hJob) const {
@@ -247,6 +234,18 @@ bool Process::IsWow64Process() const {
 		return false;
 
 	return info.IsWow64Process ? true : false;
+}
+
+bool Process::IsPico() const {
+	PROCESS_EXTENDED_BASIC_INFORMATION info;
+	if (!GetExtendedInfo(Handle(), &info))
+		return false;
+
+	return info.IsSubsystemProcess ? true : false;
+}
+
+bool Process::IsTerminated() const {
+	return ::WaitForSingleObject(m_handle.get(), 0) == WAIT_OBJECT_0;
 }
 
 bool Process::IsManaged() const {

@@ -152,7 +152,7 @@ CAPTION "About Task Manager X"
 FONT 9, "Segoe UI", 0, 0, 0x0
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,68,70,50,14
-    CTEXT           "Task Manager X v1.0\n\n(C)2022 Pavel Yosifovich",IDC_STATIC,54,18,78,32
+    CTEXT           "Task Manager X v1.0\n\n©2022 Pavel Yosifovich",IDC_STATIC,54,18,78,32
     ICON            IDR_MAINFRAME,IDC_STATIC,7,7,20,20
 END
 
@@ -238,12 +238,12 @@ VS_VERSION_INFO VERSIONINFO
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
-        BLOCK "040904B0"
+        BLOCK "040904b0"
         BEGIN
-            VALUE "FileDescription", "TaskMgrX Module"
+            VALUE "FileDescription", "Task Manager X"
             VALUE "FileVersion", "1, 0, 0, 1"
             VALUE "InternalName", "TaskMgrX"
-            VALUE "LegalCopyright", "Copyright 2022"
+            VALUE "LegalCopyright", "©2022 Pavel Yosifovich"
             VALUE "OriginalFilename", "TaskMgrX.exe"
             VALUE "ProductName", "TaskMgrX Module"
             VALUE "ProductVersion", "1, 0, 0, 1"

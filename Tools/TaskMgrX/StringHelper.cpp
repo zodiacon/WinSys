@@ -58,3 +58,54 @@ PCWSTR StringHelper::VirtualizationStateToString(VirtualizationState state) {
 	}
 	return L"Unknown";
 }
+
+CString StringHelper::ProcessAttributesToString(ProcessAttributes attributes) {
+	CString text;
+
+	static const struct {
+		ProcessAttributes Attribute;
+		PCWSTR Text;
+	} attribs[] = {
+		{ ProcessAttributes::Managed, L"Managed" },
+		{ ProcessAttributes::Immersive, L"Immersive" },
+		{ ProcessAttributes::Protected, L"Protected" },
+		{ ProcessAttributes::Secure, L"Secure" },
+		{ ProcessAttributes::Service, L"Service" },
+		{ ProcessAttributes::InJob, L"Job" },
+		{ ProcessAttributes::Wow64, L"Wow64" },
+		{ ProcessAttributes::Pico, L"Pico" },
+		{ ProcessAttributes::Suspended, L"Suspended" },
+	};
+
+	for (auto& item : attribs)
+		if ((item.Attribute & attributes) == item.Attribute)
+			text += CString(item.Text) + ", ";
+	if (!text.IsEmpty())
+		text = text.Mid(0, text.GetLength() - 2);
+	return text;
+}
+
+CString StringHelper::ProcessProtectionToString(ProcessProtection pp) {
+	if (pp.Level == 0)
+		return L"";
+
+	CString signer;
+	switch (pp.Signer) {
+		case ProcessProtectionSigner::Authenticode: signer = L"Authenticode"; break;
+		case ProcessProtectionSigner::CodeGen: signer = L"CodeGen"; break;
+		case ProcessProtectionSigner::Antimalware: signer = L"AntiMalware"; break;
+		case ProcessProtectionSigner::Lsa: signer = L"LSA"; break;
+		case ProcessProtectionSigner::Windows: signer = L"Windows"; break;
+		case ProcessProtectionSigner::WinTcb: signer = L"WinTcb"; break;
+		case ProcessProtectionSigner::WinSystem: signer = L"WinSystem"; break;
+		case ProcessProtectionSigner::App: signer = L"App"; break;
+	}
+
+	CString type;
+	switch (pp.Type) {
+		case 1: type = L"Protected Light"; break;
+		case 2: type = L"Protected";
+	}
+
+	return signer + L"-" + type;
+}

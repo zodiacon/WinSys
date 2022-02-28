@@ -13,6 +13,8 @@
 #include "Helpers.h"
 #include "ThemeHelper.h"
 #include "SelectColumnsDlg.h"
+#include "ColorHelper.h"
+#include "StandardColors.h"
 
 #pragma comment(lib, "Version.lib")
 
@@ -36,7 +38,7 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	CreateAndInitToolBar(buttons, _countof(buttons));
 
 	m_hWndClient = m_List.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS |
-		LVS_OWNERDATA | LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS);
+		LVS_OWNERDATA | LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS, WS_EX_CLIENTEDGE);
 	m_List.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_INFOTIP | LVS_EX_HEADERDRAGDROP);
 	m_spList = ListViewHelper::GetIListView(m_List);
 	ATLASSERT(m_spList);
@@ -60,6 +62,7 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	cm->AddColumn(L"Performance\\Peak Threads", LVCFMT_RIGHT, 60, ColumnType::PeakThreads, ColumnFlags::Numeric);
 	cm->AddColumn(L"Performance\\Handles", LVCFMT_RIGHT, 70, ColumnType::Handles, ColumnFlags::Visible | ColumnFlags::Numeric);
 	cm->AddColumn(L"Attributes", LVCFMT_LEFT, 100, ColumnType::Attributes, ColumnFlags::Visible | ColumnFlags::Const);
+	cm->AddColumn(L"Protection", LVCFMT_LEFT, 100, ColumnType::Protection, ColumnFlags::Const);
 	cm->AddColumn(L"Image Path", LVCFMT_LEFT, 300, ColumnType::ImagePath, ColumnFlags::Const);
 	cm->AddColumn(L"Create Time", LVCFMT_LEFT, 160, ColumnType::CreateTime, ColumnFlags::Visible | ColumnFlags::Numeric | ColumnFlags::Const);
 	cm->AddColumn(L"Memory\\Commit (K)", LVCFMT_RIGHT, 110, ColumnType::Commit, ColumnFlags::Visible | ColumnFlags::Numeric);
@@ -77,7 +80,7 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	cm->AddColumn(L"Performance\\I/O Priority", LVCFMT_LEFT, 80, ColumnType::IoPriority, ColumnFlags::None);
 	cm->AddColumn(L"Performance\\Memory Priority", LVCFMT_RIGHT, 80, ColumnType::MemoryPriority, ColumnFlags::Numeric);
 	cm->AddColumn(L"Command Line", LVCFMT_LEFT, 250, ColumnType::CommandLine, ColumnFlags::Const);
-	cm->AddColumn(L"Package Name", LVCFMT_LEFT, 250, ColumnType::PackageName, ColumnFlags::Const | ColumnFlags::Visible);
+	cm->AddColumn(L"Package Name", LVCFMT_LEFT, 250, ColumnType::PackageName, ColumnFlags::Const);
 	cm->AddColumn(L"Job Object Id", LVCFMT_RIGHT, 100, ColumnType::JobId, ColumnFlags::Numeric | ColumnFlags::Const);
 	cm->AddColumn(L"I/O\\I/O Read Bytes", LVCFMT_RIGHT, 120, ColumnType::ReadBytes, ColumnFlags::Numeric);
 	cm->AddColumn(L"I/O\\I/O Write Bytes", LVCFMT_RIGHT, 120, ColumnType::WriteBytes, ColumnFlags::Numeric);
@@ -152,14 +155,14 @@ void CProcessesView::DoSort(const SortInfo* si) {
 			case ColumnType::PeakThreads: return SortHelper::Sort(p1->PeakThreads, p2->PeakThreads, asc);
 			case ColumnType::VirtualSize: return SortHelper::Sort(p1->VirtualSize, p2->VirtualSize, asc);
 			case ColumnType::PeakWorkingSet: return SortHelper::Sort(p1->PeakWorkingSetSize, p2->PeakWorkingSetSize, asc);
-				//case ColumnType::Attributes: return SortHelper::Sort(p1->GetAttributes(m_pm), p2->GetAttributes(m_pm), asc);
+			case ColumnType::Attributes: return SortHelper::Sort(p1->GetAttributes(m_pm), p2->GetAttributes(m_pm), asc);
 			case ColumnType::PagedPool: return SortHelper::Sort(p1->PagedPoolUsage, p2->PagedPoolUsage, asc);
 			case ColumnType::PeakPagedPool: return SortHelper::Sort(p1->PeakPagedPoolUsage, p2->PeakPagedPoolUsage, asc);
 			case ColumnType::NonPagedPool: return SortHelper::Sort(p1->NonPagedPoolUsage, p2->NonPagedPoolUsage, asc);
 			case ColumnType::PeakNonPagedPool: return SortHelper::Sort(p1->PeakNonPagedPoolUsage, p2->PeakNonPagedPoolUsage, asc);
 			case ColumnType::MemoryPriority: return SortHelper::Sort(p1->GetMemoryPriority(), p2->GetMemoryPriority(), asc);
 				//case ColumnType::IoPriority: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetIoPriority(), GetProcessInfoEx(p2.get()).GetIoPriority(), asc);
-				//case ColumnType::CommandLine: return SortHelper::Sort(p1->GetCommandLine(), p2->GetCommandLine(), asc);
+			case ColumnType::CommandLine: return SortHelper::Sort(p1->GetCommandLine(), p2->GetCommandLine(), asc);
 			case ColumnType::ReadBytes: return SortHelper::Sort(p1->ReadTransferCount, p2->ReadTransferCount, asc);
 			case ColumnType::WriteBytes: return SortHelper::Sort(p1->WriteTransferCount, p2->WriteTransferCount, asc);
 			case ColumnType::OtherBytes: return SortHelper::Sort(p1->OtherTransferCount, p2->OtherTransferCount, asc);
@@ -174,12 +177,13 @@ void CProcessesView::DoSort(const SortInfo* si) {
 			case ColumnType::UserTime: return SortHelper::Sort(p1->UserTime, p2->UserTime, asc);
 			case ColumnType::Elevated: return SortHelper::Sort(p1->IsElevated(), p2->IsElevated(), asc);
 			case ColumnType::Integrity: return SortHelper::Sort(p1->GetIntegrityLevel(), p2->GetIntegrityLevel(), asc);
-				//case ColumnType::Virtualized: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetVirtualizationState(), GetProcessInfoEx(p2.get()).GetVirtualizationState(), asc);
+			case ColumnType::Virtualization: return SortHelper::Sort(p1->GetVirtualizationState(), p2->GetVirtualizationState(), asc);
 			case ColumnType::JobId: return SortHelper::Sort(p1->JobObjectId, p2->JobObjectId, asc);
-				//case ColumnType::WindowTitle: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetWindowTitle(), GetProcessInfoEx(p2.get()).GetWindowTitle(), asc);
+			//case ColumnType::WindowTitle: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetWindowTitle(), GetProcessInfoEx(p2.get()).GetWindowTitle(), asc);
 			case ColumnType::Platform: return SortHelper::Sort(p1->GetPlatform(), p2->GetPlatform(), asc);
 			case ColumnType::Description: return SortHelper::Sort(p1->GetDescription(), p2->GetDescription(), asc);
 			case ColumnType::CompanyName: return SortHelper::Sort(p1->GetCompanyName(), p2->GetCompanyName(), asc);
+			case ColumnType::Protection: return SortHelper::Sort(p1->GetProtection().Level, p2->GetProtection().Level, asc);
 				//case ColumnType::DPIAware: return SortHelper::Sort(p1->GetDpiAwareness(), p2->GetDpiAwareness(), asc);
 		}
 		return false;
@@ -262,6 +266,8 @@ CString CProcessesView::GetColumnText(HWND h, int row, int col) {
 		case ColumnType::Name: return p->GetImageName().c_str();
 		case ColumnType::Id: return std::format("{}", p->Id).c_str();
 		case ColumnType::CPU:
+			if (p->IsSuspended())
+				return L"Suspended";
 			return p->CPU > 0 && (p->Flags & ProcessFlags::Terminated) == ProcessFlags::None ? std::format(L"{:6.2f}", p->CPU / 10000.0f).c_str() : L"";
 
 		case ColumnType::Handles: return std::format("{}", p->HandleCount).c_str();
@@ -307,6 +313,8 @@ CString CProcessesView::GetColumnText(HWND h, int row, int col) {
 		case ColumnType::UserObjects: return std::format(L"{}", p->GetUserObjects()).c_str();
 		case ColumnType::PeakUserObjects: return std::format(L"{}", p->GetPeakUserObjects()).c_str();
 		case ColumnType::Parent: return std::format(L"{} ({})", p->GetParentImageName(m_pm, L"<Dead>"), p->ParentId).c_str();
+		case ColumnType::Attributes: return StringHelper::ProcessAttributesToString(p->GetAttributes(m_pm));
+		case ColumnType::Protection: return StringHelper::ProcessProtectionToString(p->GetProtection());
 	}
 	return L"";
 }
@@ -326,6 +334,35 @@ int CProcessesView::GetRowImage(HWND, int row, int col) const {
 		}
 	}
 	return p->Image;
+}
+
+COLORREF CProcessesView::GetProcessColor(ProcessInfoEx* p) const {
+	if (p->IsSuspended())
+		return RGB(128, 128, 128);
+
+	auto attr = p->GetAttributes(m_pm);
+	auto color = CLR_INVALID;
+	if ((attr & ProcessAttributes::Secure) == ProcessAttributes::Secure)
+		color = StandardColors::Gold;
+	else if ((attr & ProcessAttributes::Immersive) == ProcessAttributes::Immersive)
+		color = StandardColors::Cyan;
+	else if ((attr & ProcessAttributes::Protected) == ProcessAttributes::Protected)
+		color = StandardColors::Fuchsia;
+	else if ((attr & ProcessAttributes::Service) == ProcessAttributes::Service)
+		color = StandardColors::Pink;
+	else if ((attr & ProcessAttributes::Managed) == ProcessAttributes::Managed)
+		color = StandardColors::LightYellow;
+	else if ((attr & ProcessAttributes::Pico) == ProcessAttributes::Pico)
+		color = StandardColors::LightGoldenrodYellow;
+	else if ((attr & ProcessAttributes::Wow64) == ProcessAttributes::Wow64)
+		color = StandardColors::LightBlue;
+	else if ((attr & ProcessAttributes::InJob) == ProcessAttributes::InJob)
+		color = ColorHelper::Lighten(StandardColors::SaddleBrown, 20);
+
+	if (color != CLR_INVALID && !ThemeHelper::IsDefault())
+		color = ColorHelper::Darken(color, 20);
+
+	return color;
 }
 
 void CProcessesView::UpdateProcesses() {
@@ -391,6 +428,9 @@ DWORD CProcessesView::OnItemPrePaint(int, LPNMCUSTOMDRAW cd) {
 			lv->clrTextBk = ThemeHelper::IsDefault() ? RGB(0, 255, 64) : RGB(0, 160, 64);
 			if (tick >= p->TargetTime)
 				p->Flags &= ~ProcessFlags::New;
+		}
+		else {
+			lv->clrTextBk = GetProcessColor(p.get());
 		}
 	}
 	return CDRF_SKIPPOSTPAINT | CDRF_NOTIFYSUBITEMDRAW;

@@ -11,7 +11,18 @@
 namespace WinSys {
 #endif
 
-	enum class ProtectedProcessSigner : uint8_t;
+	enum class ProcessProtectionSigner : uint8_t {
+		None,
+		Authenticode,
+		CodeGen,
+		Antimalware,
+		Lsa,
+		Windows,
+		WinTcb,
+		WinSystem,
+		App,
+		MAX,
+	};
 	struct ProcessHandleInfo;
 
 	enum class VirtualizationState {
@@ -52,7 +63,7 @@ namespace WinSys {
 			struct {
 				uint8_t Type : 3;
 				uint8_t Audit : 1;
-				ProtectedProcessSigner : 4;
+				ProcessProtectionSigner Signer: 4;
 			};
 		};
 	};
@@ -80,7 +91,7 @@ namespace WinSys {
 		std::wstring GetName() const;
 		std::wstring GetWindowTitle() const;
 
-		std::optional<ProcessProtection> GetProtection() const;
+		ProcessProtection GetProtection() const;
 		bool Terminate(uint32_t exitCode = 0);
 		bool Suspend();
 		bool Resume();
@@ -92,6 +103,9 @@ namespace WinSys {
 		bool IsManaged() const;
 		bool IsElevated() const;
 		bool Is64Bit() const;
+		bool IsTerminated() const;
+		bool IsSuspended() const;
+		bool IsPico() const;
 		IntegrityLevel GetIntegrityLevel() const;
 		int GetMemoryPriority() const;
 		IoPriorityHint GetIoPriority() const;
