@@ -85,7 +85,7 @@ private:
 	CComPtr<IListView> m_spList;
 	ProcessManager<ProcessInfoEx> m_pm;
 	std::vector<std::shared_ptr<ProcessInfoEx>> m_Items;
-	std::set<int> m_Deleted;
+	std::vector<std::shared_ptr<ProcessInfoEx>> m_Terminated, m_New;
 	DWORD m_SelectedPid = -1;
 	std::shared_ptr<ProcessInfoEx> m_SelectedProcess;
 	int m_Interval{ 1000 };

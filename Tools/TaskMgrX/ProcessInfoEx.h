@@ -42,6 +42,7 @@ struct ProcessInfoEx : ProcessInfo {
 	CString const& GetUserName() const;
 	IntegrityLevel GetIntegrityLevel() const;
 	VirtualizationState GetVirtualizationState() const;
+	DpiAwareness GetDpiAwareness() const;
 	int GetPlatform() const;
 	bool IsElevated() const;
 	bool IsSuspended() const;

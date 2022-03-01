@@ -58,7 +58,7 @@ namespace WinSys {
 	public:
 		static std::unique_ptr<Thread> OpenById(uint32_t tid, ThreadAccessMask accessMask = ThreadAccessMask::QueryInformation);
 		explicit Thread(HANDLE handle, bool own = false);
-		explicit Thread(uint32_t tid, ThreadAccessMask accessMask = ThreadAccessMask::QueryInformation);
+		bool Open(uint32_t tid, ThreadAccessMask accessMask = ThreadAccessMask::QueryInformation);
 		~Thread();
 
 		HANDLE Handle() const {
@@ -77,11 +77,11 @@ namespace WinSys {
 		int GetMemoryPriority() const;
 		IoPriorityHint GetIoPriority() const;
 		size_t GetSubProcessTag() const;
-		std::wstring GetServiceNameByTag(uint32_t pid);
+		std::wstring GetServiceNameByTag(uint32_t pid) const;
 		ComFlags GetComFlags() const;
 
 	private:
-		HANDLE m_handle;
+		HANDLE m_handle{ nullptr };
 		bool m_own;
 	};
 

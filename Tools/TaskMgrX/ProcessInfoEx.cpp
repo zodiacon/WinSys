@@ -35,6 +35,10 @@ bool ProcessInfoEx::IsElevated() const {
 	return OpenProcess() ? m_process.IsElevated() : false;
 }
 
+DpiAwareness ProcessInfoEx::GetDpiAwareness() const {
+	return OpenProcess() ? m_process.GetDpiAwareness() : DpiAwareness::Unknown;
+}
+
 IntegrityLevel ProcessInfoEx::GetIntegrityLevel() const {
 	return OpenProcess() ? m_process.GetIntegrityLevel() : IntegrityLevel::Error;
 }

@@ -104,6 +104,8 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	cm->UpdateColumns();
 
 	UpdateLocalUI();
+	m_Terminated.reserve(16);
+	m_New.reserve(16);
 	auto count = m_pm.EnumProcesses();
 	m_Items = m_pm.GetProcesses();
 	m_spList->SetItemCount((int)count, 0);
@@ -117,6 +119,10 @@ LRESULT CProcessesView::OnTimer(UINT, WPARAM, LPARAM, BOOL&) {
 		return 0;
 
 	m_Processing = true;
+	auto tick = GetTickCount64();
+	auto selected = m_spList->GetSelectedIndex();
+	if (selected >= 0)
+		m_SelectedProcess = m_Items[selected];
 	::TrySubmitThreadpoolCallback([](auto, auto param) {
 		auto p = (CProcessesView*)param;
 		p->UpdateProcesses();
@@ -184,7 +190,7 @@ void CProcessesView::DoSort(const SortInfo* si) {
 			case ColumnType::Description: return SortHelper::Sort(p1->GetDescription(), p2->GetDescription(), asc);
 			case ColumnType::CompanyName: return SortHelper::Sort(p1->GetCompanyName(), p2->GetCompanyName(), asc);
 			case ColumnType::Protection: return SortHelper::Sort(p1->GetProtection().Level, p2->GetProtection().Level, asc);
-				//case ColumnType::DPIAware: return SortHelper::Sort(p1->GetDpiAwareness(), p2->GetDpiAwareness(), asc);
+			case ColumnType::DPIAware: return SortHelper::Sort(p1->GetDpiAwareness(), p2->GetDpiAwareness(), asc);
 		}
 		return false;
 		});
@@ -197,29 +203,6 @@ void CProcessesView::PreSort(HWND) {
 }
 
 LRESULT CProcessesView::OnContinueProcessing(UINT, WPARAM, LPARAM, BOOL&) {
-	auto tick = GetTickCount64();
-	auto selected = m_spList->GetSelectedIndex();
-	if (selected >= 0)
-		m_SelectedProcess = m_Items[selected];
-
-	for (auto& p : m_pm.GetNewProcesses()) {
-		p->Flags = ProcessFlags::New;
-		p->TargetTime = tick + 2000;
-		m_Items.push_back(p);
-	}
-	for (auto& p : m_pm.GetTerminatedProcesses()) {
-		p->Flags = ProcessFlags::Terminated;
-		p->TargetTime = tick + 2000;
-	}
-
-	if (!m_Deleted.empty()) {
-		int offset = 0;
-		for (auto& i : m_Deleted) {
-			m_Items.erase(m_Items.begin() + i - offset);
-			offset++;
-		}
-		m_Deleted.clear();
-	}
 	m_Processing = false;
 	m_spList->SetItemCount((int)m_Items.size(), LVSICF_NOSCROLL | LVSICF_NOINVALIDATEALL);
 	auto si = GetSortInfo(m_List);
@@ -300,7 +283,7 @@ CString CProcessesView::GetColumnText(HWND h, int row, int col) {
 		case ColumnType::Elevated: return p->IsElevated() ? L"Yes" : L"No";
 		case ColumnType::Description: return p->GetDescription();
 		case ColumnType::CompanyName: return p->GetCompanyName();
-		case ColumnType::MemoryPriority: return std::format(L"{}", p->GetMemoryPriority()).c_str();
+		case ColumnType::MemoryPriority: return p->GetMemoryPriority() < 0 ? L"" : std::format(L"{}", p->GetMemoryPriority()).c_str();
 		case ColumnType::JobId: return p->JobObjectId == 0 ? L"" : std::format(L"{}", p->JobObjectId).c_str();
 		case ColumnType::ReadBytes: return StringHelper::FormatSize(p->ReadTransferCount);
 		case ColumnType::WriteBytes: return StringHelper::FormatSize(p->WriteTransferCount);
@@ -372,6 +355,42 @@ void CProcessesView::UpdateProcesses() {
 	// called on a thread pool thread
 	//
 	m_pm.EnumProcesses();
+
+	auto tick = ::GetTickCount64();
+	int count = (int)m_Terminated.size();
+	for (int i = 0; i < count; i++) {
+		auto& p = m_Terminated[i];
+		if (p->TargetTime < tick) {
+			m_Items.erase(std::find(m_Items.begin(), m_Items.end(), p));
+			m_Terminated.erase(m_Terminated.begin() + i);
+			i--;
+			count--;
+		}
+	}
+
+	count = (int)m_New.size();
+	for (int i = 0; i < count; i++) {
+		auto& p = m_New[i];
+		if (p->TargetTime < tick) {
+			p->Flags &= ~ProcessFlags::New;
+			m_New.erase(m_New.begin() + i);
+			i--;
+			count--;
+		}
+	}
+
+	for (auto& p : m_pm.GetNewProcesses()) {
+		p->Flags = ProcessFlags::New;
+		p->TargetTime = tick + 2000;
+		m_Items.push_back(p);
+		m_New.push_back(p);
+	}
+	for (auto& p : m_pm.GetTerminatedProcesses()) {
+		p->Flags = ProcessFlags::Terminated;
+		p->TargetTime = tick + 2000;
+		m_Terminated.push_back(p);
+	}
+
 	SendMessage(WM_CONTINUE_PROCESSING);
 }
 
@@ -422,14 +441,9 @@ DWORD CProcessesView::OnItemPrePaint(int, LPNMCUSTOMDRAW cd) {
 		auto tick = GetTickCount64();
 		if ((p->Flags & ProcessFlags::Terminated) == ProcessFlags::Terminated) {
 			lv->clrTextBk = RGB(255, 64, 0);
-			if (tick >= p->TargetTime) {
-				m_Deleted.insert(row);
-			}
 		}
 		else if ((p->Flags & ProcessFlags::New) == ProcessFlags::New) {
 			lv->clrTextBk = ThemeHelper::IsDefault() ? RGB(0, 255, 64) : RGB(0, 160, 64);
-			if (tick >= p->TargetTime)
-				p->Flags &= ~ProcessFlags::New;
 		}
 		else {
 			lv->clrTextBk = GetProcessColor(p.get());
