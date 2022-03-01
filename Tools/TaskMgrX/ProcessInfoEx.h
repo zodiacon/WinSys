@@ -54,6 +54,7 @@ struct ProcessInfoEx : ProcessInfo {
 	std::wstring GetParentImageName(ProcessManager<ProcessInfoEx> const& pm, PCWSTR defaultText) const;
 	ProcessAttributes GetAttributes(ProcessManager<ProcessInfoEx> const& pm) const;
 	ProcessProtection GetProtection() const;
+	CString GetWindowTitle() const;
 
 private:
 	CString GetVersionObject(CString const& name) const;
@@ -65,5 +66,7 @@ private:
 	mutable bool m_companyDone : 1 { false};
 	mutable bool m_descriptionDone : 1 { false};
 	mutable ProcessAttributes m_attributes{ ProcessAttributes::None };
+	mutable HWND m_hWnd{ nullptr };
+	mutable DWORD m_firstThreadId{ 0 };
 };
 

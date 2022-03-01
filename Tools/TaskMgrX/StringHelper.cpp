@@ -109,3 +109,14 @@ CString StringHelper::ProcessProtectionToString(ProcessProtection pp) {
 
 	return signer + L"-" + type;
 }
+
+PCWSTR StringHelper::IoPriorityToString(IoPriorityHint io) {
+	switch (io) {
+		case IoPriorityHint::Critical: return L"Critical";
+		case IoPriorityHint::High: return L"High";
+		case IoPriorityHint::Low: return L"Low";
+		case IoPriorityHint::Normal: return L"Normal";
+		case IoPriorityHint::VeryLow: return L"Very Low";
+	}
+	return L"";
+}

@@ -71,12 +71,12 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	cm->AddColumn(L"Memory\\Peak WS (K)", LVCFMT_RIGHT, 120, ColumnType::PeakWorkingSet, ColumnFlags::Numeric);
 	cm->AddColumn(L"Memory\\Virtual Size (K)", LVCFMT_RIGHT, 110, ColumnType::VirtualSize, ColumnFlags::Numeric);
 	cm->AddColumn(L"Memory\\Peak Virtual Size (K)", LVCFMT_RIGHT, 120, ColumnType::PeakVirtualSize, ColumnFlags::Numeric);
-	cm->AddColumn(L"Memory\\Paged Pool (K)", LVCFMT_RIGHT, 110, ColumnType::PagedPool, ColumnFlags::Numeric | ColumnFlags::Visible);
+	cm->AddColumn(L"Memory\\Paged Pool (K)", LVCFMT_RIGHT, 110, ColumnType::PagedPool, ColumnFlags::Numeric);
 	cm->AddColumn(L"Memory\\Peak Paged (K)", LVCFMT_RIGHT, 110, ColumnType::PeakPagedPool, ColumnFlags::Numeric);
 	cm->AddColumn(L"Memory\\Non Paged (K)", LVCFMT_RIGHT, 110, ColumnType::NonPagedPool, ColumnFlags::Numeric);
 	cm->AddColumn(L"Memory\\Peak NPaged (K)", LVCFMT_RIGHT, 120, ColumnType::PeakNonPagedPool, ColumnFlags::Numeric);
-	cm->AddColumn(L"Performance\\Kernel Time", LVCFMT_RIGHT, 120, ColumnType::KernelTime, ColumnFlags::Numeric | ColumnFlags::Visible);
-	cm->AddColumn(L"Performance\\User Time", LVCFMT_RIGHT, 120, ColumnType::UserTime, ColumnFlags::Numeric | ColumnFlags::Visible);
+	cm->AddColumn(L"Performance\\Kernel Time", LVCFMT_RIGHT, 120, ColumnType::KernelTime, ColumnFlags::Numeric);
+	cm->AddColumn(L"Performance\\User Time", LVCFMT_RIGHT, 120, ColumnType::UserTime, ColumnFlags::Numeric);
 	cm->AddColumn(L"Performance\\I/O Priority", LVCFMT_LEFT, 80, ColumnType::IoPriority, ColumnFlags::None);
 	cm->AddColumn(L"Performance\\Memory Priority", LVCFMT_RIGHT, 80, ColumnType::MemoryPriority, ColumnFlags::Numeric);
 	cm->AddColumn(L"Command Line", LVCFMT_LEFT, 250, ColumnType::CommandLine, ColumnFlags::Const);
@@ -93,8 +93,8 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	cm->AddColumn(L"GUI\\Peak GDI Objects", LVCFMT_RIGHT, 90, ColumnType::PeakGDIObjects, ColumnFlags::Numeric);
 	cm->AddColumn(L"GUI\\Peak User Objects", LVCFMT_RIGHT, 90, ColumnType::PeakUserObjects, ColumnFlags::Numeric);
 	cm->AddColumn(L"Token\\Integrity", LVCFMT_LEFT, 70, ColumnType::Integrity, ColumnFlags::Visible);
-	cm->AddColumn(L"Token\\Elevated", LVCFMT_LEFT, 60, ColumnType::Elevated, ColumnFlags::Const | ColumnFlags::Visible);
-	cm->AddColumn(L"Token\\Virtualization", LVCFMT_LEFT, 85, ColumnType::Virtualization, ColumnFlags::Visible);
+	cm->AddColumn(L"Token\\Elevated", LVCFMT_LEFT, 60, ColumnType::Elevated, ColumnFlags::Const);
+	cm->AddColumn(L"Token\\Virtualization", LVCFMT_LEFT, 85, ColumnType::Virtualization, ColumnFlags::None);
 	cm->AddColumn(L"Window Title", LVCFMT_LEFT, 200, ColumnType::WindowTitle, ColumnFlags::None);
 	cm->AddColumn(L"Platform", LVCFMT_LEFT, 60, ColumnType::Platform, ColumnFlags::Const | ColumnFlags::Visible);
 	cm->AddColumn(L"Description", LVCFMT_LEFT, 250, ColumnType::Description, ColumnFlags::Const | ColumnFlags::Visible);
@@ -161,7 +161,7 @@ void CProcessesView::DoSort(const SortInfo* si) {
 			case ColumnType::NonPagedPool: return SortHelper::Sort(p1->NonPagedPoolUsage, p2->NonPagedPoolUsage, asc);
 			case ColumnType::PeakNonPagedPool: return SortHelper::Sort(p1->PeakNonPagedPoolUsage, p2->PeakNonPagedPoolUsage, asc);
 			case ColumnType::MemoryPriority: return SortHelper::Sort(p1->GetMemoryPriority(), p2->GetMemoryPriority(), asc);
-				//case ColumnType::IoPriority: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetIoPriority(), GetProcessInfoEx(p2.get()).GetIoPriority(), asc);
+			case ColumnType::IoPriority: return SortHelper::Sort(p1->GetIoPriority(), p2->GetIoPriority(), asc);
 			case ColumnType::CommandLine: return SortHelper::Sort(p1->GetCommandLine(), p2->GetCommandLine(), asc);
 			case ColumnType::ReadBytes: return SortHelper::Sort(p1->ReadTransferCount, p2->ReadTransferCount, asc);
 			case ColumnType::WriteBytes: return SortHelper::Sort(p1->WriteTransferCount, p2->WriteTransferCount, asc);
@@ -179,7 +179,7 @@ void CProcessesView::DoSort(const SortInfo* si) {
 			case ColumnType::Integrity: return SortHelper::Sort(p1->GetIntegrityLevel(), p2->GetIntegrityLevel(), asc);
 			case ColumnType::Virtualization: return SortHelper::Sort(p1->GetVirtualizationState(), p2->GetVirtualizationState(), asc);
 			case ColumnType::JobId: return SortHelper::Sort(p1->JobObjectId, p2->JobObjectId, asc);
-			//case ColumnType::WindowTitle: return SortHelper::Sort(GetProcessInfoEx(p1.get()).GetWindowTitle(), GetProcessInfoEx(p2.get()).GetWindowTitle(), asc);
+			case ColumnType::WindowTitle: return SortHelper::Sort(p1->GetWindowTitle(), p2->GetWindowTitle(), asc);
 			case ColumnType::Platform: return SortHelper::Sort(p1->GetPlatform(), p2->GetPlatform(), asc);
 			case ColumnType::Description: return SortHelper::Sort(p1->GetDescription(), p2->GetDescription(), asc);
 			case ColumnType::CompanyName: return SortHelper::Sort(p1->GetCompanyName(), p2->GetCompanyName(), asc);
@@ -315,6 +315,8 @@ CString CProcessesView::GetColumnText(HWND h, int row, int col) {
 		case ColumnType::Parent: return std::format(L"{} ({})", p->GetParentImageName(m_pm, L"<Dead>"), p->ParentId).c_str();
 		case ColumnType::Attributes: return StringHelper::ProcessAttributesToString(p->GetAttributes(m_pm));
 		case ColumnType::Protection: return StringHelper::ProcessProtectionToString(p->GetProtection());
+		case ColumnType::IoPriority: return StringHelper::IoPriorityToString(p->GetIoPriority());
+		case ColumnType::WindowTitle: return p->GetWindowTitle();
 	}
 	return L"";
 }

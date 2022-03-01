@@ -84,6 +84,10 @@ ProcessProtection ProcessInfoEx::GetProtection() const {
 	return OpenProcess() ? m_process.GetProtection() : ProcessProtection{};
 }
 
+IoPriorityHint ProcessInfoEx::GetIoPriority() const {
+	return OpenProcess() ? m_process.GetIoPriority() : IoPriorityHint::Unknown;
+}
+
 ULONG ProcessInfoEx::GetGdiObjects() const {
 	return OpenProcess() ? m_process.GetGdiObjectCount() : 0;
 }
@@ -158,4 +162,30 @@ ProcessAttributes ProcessInfoEx::GetAttributes(ProcessManager<ProcessInfoEx> con
 	if ((m_attributes & ProcessAttributes::InJob) == ProcessAttributes::None && m_process.IsInJob())
 		m_attributes |= ProcessAttributes::InJob;
 	return m_attributes;
+}
+
+CString ProcessInfoEx::GetWindowTitle() const {
+	if (!OpenProcess())
+		return L"";
+	CString text;
+	if (!m_hWnd) {
+		if (m_firstThreadId == 0) {
+			auto hThread = m_process.GetNextThread();
+			if (hThread) {
+				::EnumThreadWindows(::GetThreadId(hThread), [](auto hWnd, auto param) {
+					if (::IsWindowVisible(hWnd)) {
+						*(HWND*)param = hWnd;
+						return FALSE;
+					}
+					return TRUE;
+					}, (LPARAM)&m_hWnd);
+				::CloseHandle(hThread);
+			}
+		}
+	}
+	if (m_hWnd) {
+		::GetWindowText(m_hWnd, text.GetBufferSetLength(128), 128);
+		text.FreeExtra();
+	}
+	return text;
 }

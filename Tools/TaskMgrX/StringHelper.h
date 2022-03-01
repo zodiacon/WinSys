@@ -13,5 +13,6 @@ struct StringHelper abstract final {
 	static PCWSTR VirtualizationStateToString(VirtualizationState state);
 	static CString ProcessAttributesToString(ProcessAttributes attributes);
 	static CString ProcessProtectionToString(ProcessProtection pp);
+	static PCWSTR IoPriorityToString(IoPriorityHint io);
 };
 
