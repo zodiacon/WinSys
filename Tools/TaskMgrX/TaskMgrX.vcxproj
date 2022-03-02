@@ -211,6 +211,7 @@
   <ItemGroup>
     <ClCompile Include="..\ImageIconCache.cpp" />
     <ClCompile Include="AboutDlg.cpp" />
+    <ClCompile Include="AppSettings.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -229,6 +230,7 @@
   <ItemGroup>
     <ClInclude Include="..\ImageIconCache.h" />
     <ClInclude Include="AboutDlg.h" />
+    <ClInclude Include="AppSettings.h" />
     <ClInclude Include="Interfaces.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="PerfView.h" />

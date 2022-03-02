@@ -56,7 +56,7 @@ LRESULT CProcessesView::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 	cm->AddColumn(L"Performance\\CPU (%)", LVCFMT_RIGHT, 80, ColumnType::CPU, ColumnFlags::Visible | ColumnFlags::Numeric);
 	cm->AddColumn(L"Performance\\CPU Time", LVCFMT_RIGHT, 120, ColumnType::CPUTime, ColumnFlags::Numeric | ColumnFlags::Visible);
 	cm->AddColumn(L"Parent", LVCFMT_LEFT, 180, ColumnType::Parent, ColumnFlags::Const);
-	cm->AddColumn(L"Performance\\Base Priority", LVCFMT_LEFT, 80, ColumnType::BasePriority, ColumnFlags::Numeric);
+	cm->AddColumn(L"Performance\\Base Priority", LVCFMT_RIGHT, 80, ColumnType::BasePriority, ColumnFlags::Numeric);
 	cm->AddColumn(L"Performance\\Priority Class", LVCFMT_LEFT, 120, ColumnType::PriorityClass, ColumnFlags::Visible);
 	cm->AddColumn(L"Performance\\Threads", LVCFMT_RIGHT, 60, ColumnType::Threads, ColumnFlags::Visible | ColumnFlags::Numeric);
 	cm->AddColumn(L"Performance\\Peak Threads", LVCFMT_RIGHT, 60, ColumnType::PeakThreads, ColumnFlags::Numeric);
@@ -328,7 +328,7 @@ COLORREF CProcessesView::GetProcessColor(ProcessInfoEx* p) const {
 	auto attr = p->GetAttributes(m_pm);
 	auto color = CLR_INVALID;
 	if ((attr & ProcessAttributes::Secure) == ProcessAttributes::Secure)
-		color = StandardColors::Gold;
+		color = StandardColors::PaleVioletRed;
 	else if ((attr & ProcessAttributes::Immersive) == ProcessAttributes::Immersive)
 		color = StandardColors::Cyan;
 	else if ((attr & ProcessAttributes::Protected) == ProcessAttributes::Protected)
@@ -336,7 +336,7 @@ COLORREF CProcessesView::GetProcessColor(ProcessInfoEx* p) const {
 	else if ((attr & ProcessAttributes::Service) == ProcessAttributes::Service)
 		color = StandardColors::Pink;
 	else if ((attr & ProcessAttributes::Managed) == ProcessAttributes::Managed)
-		color = StandardColors::LightYellow;
+		color = ColorHelper::Darken(StandardColors::Yellow, 20);
 	else if ((attr & ProcessAttributes::Pico) == ProcessAttributes::Pico)
 		color = StandardColors::LightGoldenrodYellow;
 	else if ((attr & ProcessAttributes::Wow64) == ProcessAttributes::Wow64)

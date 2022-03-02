@@ -81,8 +81,21 @@ LRESULT CMainFrame::OnTimer(UINT, WPARAM, LPARAM, BOOL&) {
 	return 0;
 }
 
+LRESULT CMainFrame::OnShowWindow(UINT, WPARAM, LPARAM, BOOL&) {
+	static bool show = false;
+	if (!show) {
+		show = true;
+		auto wp = AppSettings::Get().MainWindowPlacement();
+		SetWindowPlacement(&wp);
+	}
+	return 0;
+}
+
 LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
 	::SetThreadPriority(::GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+
+	auto& settings = AppSettings::Get();
+	auto loaded = settings.LoadFromKey(L"Software\\ScorpioSoftware\\TaskMgrX");
 
 	InitDarkTheme();
 	ThemeHelper::SetCurrentTheme(m_DefaultTheme);
@@ -112,12 +125,25 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 	CreateTabs();
 	InitMenu();
-	m_view.SetActivePage(0);
+	m_view.SetActivePage(settings.InitialTab());
+
+	if (loaded) {
+		if (settings.Theme() == L"Dark")
+			SetDarkMode(true);
+		if (settings.AlwaysOnTop())
+			ToggleAlwaysOnTop();
+	}
 
 	return 0;
 }
 
 LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
+	auto& settings = AppSettings::Get();
+	WINDOWPLACEMENT wp{ sizeof(wp) };
+	GetWindowPlacement(&wp);
+	settings.MainWindowPlacement(wp);
+	settings.Save();
+
 	// unregister message filtering and idle updates
 	CMessageLoop* pLoop = _Module.GetMessageLoop();
 	ATLASSERT(pLoop != nullptr);
@@ -200,20 +226,31 @@ void CMainFrame::InitDarkTheme() {
 }
 
 LRESULT CMainFrame::OnAlwaysOnTop(WORD, WORD id, HWND, BOOL&) {
+	auto topmost = ToggleAlwaysOnTop();
+	AppSettings::Get().AlwaysOnTop(topmost);
+	return 0;
+}
+
+bool CMainFrame::ToggleAlwaysOnTop() {
 	auto style = GetExStyle() ^ WS_EX_TOPMOST;
 	bool topmost = style & WS_EX_TOPMOST;
 	SetWindowPos(topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-	UISetCheck(id, topmost);
-
-	return 0;
+	UISetCheck(ID_OPTIONS_ALWAYSONTOP, topmost);
+	return topmost;
 }
 
 LRESULT CMainFrame::OnToggleDarkMode(WORD, WORD, HWND, BOOL&) {
 	m_DarkMode = !m_DarkMode;
+	SetDarkMode(m_DarkMode);
+	AppSettings::Get().Theme((PCWSTR)ThemeHelper::GetCurrentTheme()->Name);
+
+	return 0;
+}
+
+void CMainFrame::SetDarkMode(bool dark) {
+	m_DarkMode = dark;
 	ThemeHelper::SetCurrentTheme(m_DarkMode ? m_DarkTheme : m_DefaultTheme, m_hWnd);
 	ThemeHelper::UpdateMenuColors(*this, m_DarkMode);
 	UpdateMenu(GetMenu(), true);
 	UISetCheck(ID_OPTIONS_DARKMODE, m_DarkMode);
-
-	return 0;
 }

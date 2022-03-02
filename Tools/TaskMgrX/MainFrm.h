@@ -8,6 +8,7 @@
 #include "Interfaces.h"
 #include "Theme.h"
 #include "CustomTabView.h"
+#include "AppSettings.h"
 
 class CMainFrame :
 	public CFrameWindowImpl<CMainFrame>,
@@ -35,6 +36,7 @@ protected:
 		COMMAND_ID_HANDLER(ID_OPTIONS_ALWAYSONTOP, OnAlwaysOnTop)
 		NOTIFY_CODE_HANDLER(TBVN_PAGEACTIVATED, OnPageActivated)
 		COMMAND_RANGE_HANDLER(ID_TAB_PROCESSES, ID_TAB_SERVICES, OnWindowActivate)
+		MESSAGE_HANDLER(WM_SHOWWINDOW, OnShowWindow)
 		CHAIN_MSG_MAP(CAutoUpdateUI<CMainFrame>)
 		CHAIN_MSG_MAP(CFrameWindowImpl<CMainFrame>)
 		CHAIN_MSG_MAP(COwnerDrawnMenu<CMainFrame>)
@@ -51,6 +53,8 @@ private:
 	void CreateTabs();
 	void ActivatePage(int page);
 	void InitDarkTheme();
+	void SetDarkMode(bool dark);
+	bool ToggleAlwaysOnTop();
 
 	// Handler prototypes (uncomment arguments if needed):
 	//	LRESULT MessageHandler(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
@@ -60,6 +64,7 @@ private:
 	LRESULT OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled);
+	LRESULT OnShowWindow(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnViewStatusBar(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnAppAbout(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
@@ -73,5 +78,6 @@ private:
 	CMultiPaneStatusBarCtrl m_sb;
 	int m_CurrentTab{ -1 };
 	Theme m_DarkTheme, m_DefaultTheme{ true };
+	AppSettings m_Settings;
 	bool m_DarkMode{ false };
 };
