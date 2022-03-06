@@ -165,7 +165,9 @@
   <ItemGroup>
     <ClInclude Include="Enums.h" />
     <ClInclude Include="Helpers.h" />
+    <ClInclude Include="KernelModuleTracker.h" />
     <ClInclude Include="Keys.h" />
+    <ClInclude Include="LsaSecurity.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Processes.h" />
     <ClInclude Include="ProcessHandlesTracker.h" />
@@ -173,13 +175,20 @@
     <ClInclude Include="ProcessManager.h" />
     <ClInclude Include="ProcessModuleTracker.h" />
     <ClInclude Include="SecurityHelper.h" />
+    <ClInclude Include="Service.h" />
+    <ClInclude Include="ServiceInfo.h" />
+    <ClInclude Include="ServiceManager.h" />
+    <ClInclude Include="Sid.h" />
     <ClInclude Include="SystemInformation.h" />
     <ClInclude Include="Thread.h" />
     <ClInclude Include="ThreadInfo.h" />
+    <ClInclude Include="Token.h" />
     <ClInclude Include="WinSys.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Helpers.cpp" />
+    <ClCompile Include="KernelModuleTracker.cpp" />
+    <ClCompile Include="LsaSecurity.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -192,9 +201,13 @@
     <ClCompile Include="ProcessManager.cpp" />
     <ClCompile Include="ProcessModuleTracker.cpp" />
     <ClCompile Include="SecurityHelper.cpp" />
+    <ClCompile Include="Service.cpp" />
+    <ClCompile Include="ServiceManager.cpp" />
+    <ClCompile Include="Sid.cpp" />
     <ClCompile Include="SystemInformation.cpp" />
     <ClCompile Include="Thread.cpp" />
     <ClCompile Include="ThreadInfo.cpp" />
+    <ClCompile Include="Token.cpp" />
     <ClCompile Include="WinSys.cpp" />
   </ItemGroup>
   <ItemGroup>
