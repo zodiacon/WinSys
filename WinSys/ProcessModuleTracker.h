@@ -3,9 +3,7 @@
 #include <vector>
 #include <memory>
 
-#ifdef WINSYS_NAMESPACE
 namespace WinSys {
-#endif
 	enum class MapType {
 		Image,
 		Data
@@ -59,6 +57,5 @@ namespace WinSys {
 		struct Impl;
 		std::unique_ptr<Impl> _impl;
 	};
-#ifdef WINSYS_NAMESPACE
 }
-#endif
+

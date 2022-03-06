@@ -5,9 +5,7 @@
 #include <memory>
 #include "Keys.h"
 
-#ifdef WINSYS_NAMESPACE
 namespace WinSys {
-#endif
 	struct ThreadInfo;
 
 	struct ProcessInfo {
@@ -68,6 +66,5 @@ namespace WinSys {
 		mutable std::wstring m_userName;
 		std::vector<std::shared_ptr<ThreadInfo>> m_threads;
 	};
-#ifdef WINSYS_NAMESPACE
 }
-#endif
+

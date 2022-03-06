@@ -2,9 +2,7 @@
 
 #include <stdint.h>
 
-#ifdef WINSYS_NAMESPACE
 namespace WinSys {
-#endif
 	int SetLastStatus(int status);
 	int GetLastStatus();
 
@@ -122,7 +120,5 @@ namespace WinSys {
 		static uint64_t GetBootTime();
 	};
 
-#ifdef WINSYS_NAMESPACE
 }
-#endif
 

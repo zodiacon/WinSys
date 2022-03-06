@@ -83,7 +83,7 @@ private:
 
 	CListViewCtrl m_List;
 	CComPtr<IListView> m_spList;
-	ProcessManager<ProcessInfoEx> m_pm;
+	WinSys::ProcessManager<ProcessInfoEx> m_pm;
 	std::vector<std::shared_ptr<ProcessInfoEx>> m_Items;
 	std::vector<std::shared_ptr<ProcessInfoEx>> m_Terminated, m_New;
 	DWORD m_SelectedPid = -1;

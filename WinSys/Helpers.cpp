@@ -1,9 +1,7 @@
 #include "pch.h"
 #include "Helpers.h"
 
-#ifdef WINSYS_NAMESPACE
 using namespace WinSys;
-#endif
 
 std::wstring Helpers::GetDosNameFromNtName(PCWSTR name, bool refresh) {
 	static std::vector<std::pair<std::wstring, std::wstring>> deviceNames;
@@ -46,14 +44,14 @@ std::wstring Helpers::GetErrorText(DWORD error) {
 	return text;
 }
 
-int Helpers::PriorityClassToPriority(PriorityClass pc) {
+int Helpers::PriorityClassToPriority(ProcessPriorityClass pc) {
 	switch (pc) {
-		case PriorityClass::Normal: return 8;
-		case PriorityClass::AboveNormal: return 10;
-		case PriorityClass::BelowNormal: return 6;
-		case PriorityClass::High: return 13;
-		case PriorityClass::Idle: return 4;
-		case PriorityClass::Realtime: return 24;
+		case ProcessPriorityClass::Normal: return 8;
+		case ProcessPriorityClass::AboveNormal: return 10;
+		case ProcessPriorityClass::BelowNormal: return 6;
+		case ProcessPriorityClass::High: return 13;
+		case ProcessPriorityClass::Idle: return 4;
+		case ProcessPriorityClass::Realtime: return 24;
 	}
 	return 0;
 }

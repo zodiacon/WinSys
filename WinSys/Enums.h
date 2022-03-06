@@ -1,8 +1,6 @@
 #pragma once
 
-#ifdef WINSYS_NAMESPACE
 namespace WinSys {
-#endif
 	enum class ProcessAccessMask : uint32_t {
 		None = 0,
 		AllAccess = PROCESS_ALL_ACCESS,
@@ -20,13 +18,9 @@ namespace WinSys {
 		GenericRead = GENERIC_READ,
 		GenericAll = GENERIC_ALL,
 	};
-#ifdef WINSYS_NAMESPACE
 	DEFINE_ENUM_FLAG_OPERATORS(WinSys::ProcessAccessMask);
-#else
-	DEFINE_ENUM_FLAG_OPERATORS(ProcessAccessMask);
-#endif
 
-	enum class PriorityClass {
+	enum class ProcessPriorityClass {
 		Normal = NORMAL_PRIORITY_CLASS,
 		BelowNormal = BELOW_NORMAL_PRIORITY_CLASS,
 		AboveNormal = ABOVE_NORMAL_PRIORITY_CLASS,
@@ -74,7 +68,7 @@ namespace WinSys {
 		AllAccess = THREAD_ALL_ACCESS
 	};
 
-	enum class IoPriorityHint {
+	enum class IoPriority {
 		Unknown = -1,
 		VeryLow = 0,
 		Low,
@@ -83,6 +77,50 @@ namespace WinSys {
 		Critical
 	};
 
-#ifdef WINSYS_NAMESPACE
+	enum class VirtualizationState {
+		Unknown,
+		NotAllowed,
+		Enabled,
+		Disabled
+	};
+
+	enum class ProcessProtectionSigner : uint8_t {
+		None,
+		Authenticode,
+		CodeGen,
+		Antimalware,
+		Lsa,
+		Windows,
+		WinTcb,
+		WinSystem,
+		App,
+		MAX,
+	};
+
+	enum class ProcessMitigationPolicy {
+		DEPPolicy,
+		ASLRPolicy,
+		DynamicCodePolicy,
+		StrictHandleCheckPolicy,
+		SystemCallDisablePolicy,
+		MitigationOptionsMask,
+		ExtensionPointDisablePolicy,
+		ControlFlowGuardPolicy,
+		SignaturePolicy,
+		FontDisablePolicy,
+		ImageLoadPolicy,
+		SystemCallFilterPolicy,
+		PayloadRestrictionPolicy,
+		ChildProcessPolicy,
+		SideChannelIsolationPolicy,
+	};
+
+	enum class DpiAwareness {
+		Unknown = -1,
+		None = DPI_AWARENESS_UNAWARE,
+		System = DPI_AWARENESS_SYSTEM_AWARE,
+		PerMonitor = DPI_AWARENESS_PER_MONITOR_AWARE,
+	};
+
 }
-#endif
+

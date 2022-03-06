@@ -2,14 +2,16 @@
 #include "ProcessInfoEx.h"
 #include "Helpers.h"
 
+using namespace WinSys;
+
 CString const& ProcessInfoEx::GetFullImagePath() const {
 	if (m_imagePath.IsEmpty())
 		m_imagePath = Helpers::GetDosNameFromNtName(GetNativeImagePath().c_str()).c_str();
 	return m_imagePath;
 }
 
-PriorityClass ProcessInfoEx::GetPriorityClass() const {
-	return OpenProcess() ? m_process.GetPriorityClass() : PriorityClass::Unknown;
+WinSys::ProcessPriorityClass ProcessInfoEx::GetPriorityClass() const {
+	return OpenProcess() ? m_process.GetPriorityClass() : ProcessPriorityClass::Unknown;
 }
 
 int ProcessInfoEx::GetMemoryPriority() const {
@@ -88,8 +90,8 @@ ProcessProtection ProcessInfoEx::GetProtection() const {
 	return OpenProcess() ? m_process.GetProtection() : ProcessProtection{};
 }
 
-IoPriorityHint ProcessInfoEx::GetIoPriority() const {
-	return OpenProcess() ? m_process.GetIoPriority() : IoPriorityHint::Unknown;
+WinSys::IoPriority ProcessInfoEx::GetIoPriority() const {
+	return OpenProcess() ? m_process.GetIoPriority() : IoPriority::Unknown;
 }
 
 ULONG ProcessInfoEx::GetGdiObjects() const {

@@ -12,6 +12,8 @@
 #include <concepts>
 #include <format>
 
+using namespace WinSys;
+
 bool CView::ToggleRunning() {
 	m_Running = !m_Running;
 	if (m_Running)

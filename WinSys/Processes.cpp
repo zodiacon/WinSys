@@ -3,6 +3,8 @@
 #include "Processes.h"
 #include "SystemInformation.h"
 
+using namespace WinSys;
+
 static bool GetProcessPeb(HANDLE hProcess, PPEB peb) {
 	PROCESS_BASIC_INFORMATION info;
 	if (!NT_SUCCESS(::NtQueryInformationProcess(hProcess, ProcessBasicInformation, &info, sizeof(info), nullptr)))
@@ -52,8 +54,8 @@ int Process::GetMemoryPriority() const {
 	return priority;
 }
 
-IoPriorityHint Process::GetIoPriority() const {
-	auto priority = IoPriorityHint::Unknown;
+IoPriority Process::GetIoPriority() const {
+	auto priority = IoPriority::Unknown;
 	ULONG len;
 	::NtQueryInformationProcess(m_handle.get(), ProcessIoPriority, &priority, sizeof(priority), &len);
 	return priority;
@@ -275,11 +277,11 @@ bool Process::IsManaged() const {
 	return false;
 }
 
-PriorityClass Process::GetPriorityClass() const {
-	return static_cast<PriorityClass>(::GetPriorityClass(m_handle.get()));
+WinSys::ProcessPriorityClass Process::GetPriorityClass() const {
+	return static_cast<WinSys::ProcessPriorityClass>(::GetPriorityClass(m_handle.get()));
 }
 
-bool Process::SetPriorityClass(PriorityClass pc) {
+bool Process::SetPriorityClass(WinSys::ProcessPriorityClass pc) {
 	return ::SetPriorityClass(m_handle.get(), static_cast<DWORD>(pc));
 }
 

@@ -7,55 +7,8 @@
 #include "Enums.h"
 #include <wil\resource.h>
 
-#ifdef WINSYS_NAMESPACE
 namespace WinSys {
-#endif
-
-	enum class ProcessProtectionSigner : uint8_t {
-		None,
-		Authenticode,
-		CodeGen,
-		Antimalware,
-		Lsa,
-		Windows,
-		WinTcb,
-		WinSystem,
-		App,
-		MAX,
-	};
 	struct ProcessHandleInfo;
-
-	enum class VirtualizationState {
-		Unknown,
-		NotAllowed,
-		Enabled,
-		Disabled
-	};
-
-	enum class ProcessMitigationPolicy {
-		DEPPolicy,
-		ASLRPolicy,
-		DynamicCodePolicy,
-		StrictHandleCheckPolicy,
-		SystemCallDisablePolicy,
-		MitigationOptionsMask,
-		ExtensionPointDisablePolicy,
-		ControlFlowGuardPolicy,
-		SignaturePolicy,
-		FontDisablePolicy,
-		ImageLoadPolicy,
-		SystemCallFilterPolicy,
-		PayloadRestrictionPolicy,
-		ChildProcessPolicy,
-		SideChannelIsolationPolicy,
-	};
-
-	enum class DpiAwareness {
-		Unknown = -1,
-		None = DPI_AWARENESS_UNAWARE,
-		System = DPI_AWARENESS_SYSTEM_AWARE,
-		PerMonitor = DPI_AWARENESS_PER_MONITOR_AWARE,
-	};
 
 	struct ProcessProtection {
 		union {
@@ -106,34 +59,32 @@ namespace WinSys {
 		bool IsTerminated() const;
 		bool IsSuspended() const;
 		bool IsPico() const;
-		IntegrityLevel GetIntegrityLevel() const;
+		WinSys::IntegrityLevel GetIntegrityLevel() const;
 		int GetMemoryPriority() const;
-		IoPriorityHint GetIoPriority() const;
-		PriorityClass GetPriorityClass() const;
+		WinSys::IoPriority GetIoPriority() const;
+		WinSys::ProcessPriorityClass GetPriorityClass() const;
 		std::wstring GetCurrentDirectory() const;
 		static std::wstring GetCurrentDirectory(HANDLE hProcess);
 		static std::vector<std::pair<std::wstring, std::wstring>> GetEnvironment(HANDLE hProcess);
 		std::vector<std::pair<std::wstring, std::wstring>> GetEnvironment() const;
 
-		bool SetPriorityClass(PriorityClass pc);
+		bool SetPriorityClass(ProcessPriorityClass pc);
 		uint32_t GetGdiObjectCount() const;
 		uint32_t GetPeakGdiObjectCount() const;
 		uint32_t GetUserObjectCount() const;
 		uint32_t GetPeakUserObjectCount() const;
 		VirtualizationState GetVirtualizationState() const;
-		HANDLE GetNextThread(HANDLE hThread = nullptr, ThreadAccessMask access = ThreadAccessMask::QueryLimitedInformation);
-		DpiAwareness GetDpiAwareness() const;
+		HANDLE GetNextThread(HANDLE hThread = nullptr, WinSys::ThreadAccessMask access = WinSys::ThreadAccessMask::QueryLimitedInformation);
+		WinSys::DpiAwareness GetDpiAwareness() const;
 
 		uint32_t GetId() const;
 		HANDLE Handle() const;
 
-		std::optional<ProcessWindowInfo> GetWindowInformation() const;
-		std::vector<std::shared_ptr<ProcessHandleInfo>> EnumHandles();
+		std::optional<WinSys::ProcessWindowInfo> GetWindowInformation() const;
+		std::vector<std::shared_ptr<WinSys::ProcessHandleInfo>> EnumHandles();
 
 	private:
 		wil::unique_handle m_handle;
 	};
 
-#ifdef WINSYS_NAMESPACE
 }
-#endif

@@ -7,9 +7,7 @@
 
 #pragma comment(lib, "imagehlp")
 
-#ifdef WINSYS_NAMESPACE
 using namespace WinSys;
-#endif
 
 struct ProcessModuleTracker::Impl {
 	std::vector<std::shared_ptr<ModuleInfo>> _modules, _newModules, _unloadedModules;

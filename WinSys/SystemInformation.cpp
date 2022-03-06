@@ -3,9 +3,7 @@
 #include <Psapi.h>
 #include <assert.h>
 
-#ifdef WINSYS_NAMESPACE
 using namespace WinSys;
-#endif
 
 static_assert(sizeof(PerformanceInformation) == sizeof(SYSTEM_PERFORMANCE_INFORMATION));
 

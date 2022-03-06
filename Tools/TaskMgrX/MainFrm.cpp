@@ -13,6 +13,8 @@
 #include "SecurityHelper.h"
 #include "ThemeHelper.h"
 
+using namespace WinSys;
+
 const int WINDOW_MENU_POSITION = 4;
 
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg) {

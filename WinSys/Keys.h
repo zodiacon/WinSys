@@ -3,9 +3,7 @@
 #include <stdint.h>
 #include <algorithm>
 
-#ifdef WINSYS_NAMESPACE
 namespace WinSys {
-#endif
 	struct ProcessOrThreadKey {
 		int64_t Created;
 		uint32_t Id;
@@ -27,17 +25,18 @@ namespace WinSys {
 			return other.Handle == Handle && other.ProcessId == ProcessId && Object == other.Object;
 		}
 	};
+}
 
 template<>
-struct ::std::hash<ProcessOrThreadKey> {
-	size_t operator()(const ProcessOrThreadKey& key) const {
+struct ::std::hash<WinSys::ProcessOrThreadKey> {
+	size_t operator()(const WinSys::ProcessOrThreadKey& key) const {
 		return key.Created ^ key.Id;
 	}
 };
 
 template<>
-struct ::std::hash<HandleKey> {
-	size_t operator()(const HandleKey& key) const {
+struct ::std::hash<WinSys::HandleKey> {
+	size_t operator()(const WinSys::HandleKey& key) const {
 		return key.Handle ^ key.ProcessId ^ key.Object;
 	}
 };

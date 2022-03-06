@@ -1,9 +1,7 @@
 #include "pch.h"
 #include "ProcessInfo.h"
 
-#ifdef WINSYS_NAMESPACE
 using namespace WinSys;
-#endif
 
 const std::vector<std::shared_ptr<ThreadInfo>>& ProcessInfo::GetThreads() const {
 	return m_threads;

@@ -25,9 +25,7 @@
 #undef EnumProcesses
 #endif
 
-#ifdef WINSYS_NAMESPACE
 namespace WinSys {
-#endif
 	template<typename TProcessInfo = ProcessInfo, typename TThreadInfo = ThreadInfo>
 	class ProcessManager {
 		static_assert(std::is_base_of_v<ProcessInfo, TProcessInfo>);
@@ -390,7 +388,6 @@ namespace WinSys {
 			inline static bool s_isElevated;
 
 	};
-#ifdef WINSYS_NAMESPACE
 }
-#endif
+
 

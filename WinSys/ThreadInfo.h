@@ -3,9 +3,7 @@
 #include <string>
 #include "Keys.h"
 
-#ifdef WINSYS_NAMESPACE
 namespace WinSys {
-#endif
 	enum class ThreadState : uint32_t {
 		Initialized = 0,
 		Ready = 1,
@@ -91,7 +89,5 @@ namespace WinSys {
 	private:
 		std::wstring m_processName;
 	};
-#ifdef WINSYS_NAMESPACE
 }
-#endif
 

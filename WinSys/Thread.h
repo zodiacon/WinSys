@@ -3,10 +3,7 @@
 #include <string>
 #include "Enums.h"
 
-#ifdef WINSYS_NAMESPACE
 namespace WinSys {
-#endif
-
 	struct CpuNumber {
 		uint16_t Group;
 		uint8_t Number;
@@ -75,7 +72,7 @@ namespace WinSys {
 		CpuNumber GetIdealProcessor() const;
 		bool Terminate(uint32_t exitCode = 0);
 		int GetMemoryPriority() const;
-		IoPriorityHint GetIoPriority() const;
+		IoPriority GetIoPriority() const;
 		size_t GetSubProcessTag() const;
 		std::wstring GetServiceNameByTag(uint32_t pid) const;
 		ComFlags GetComFlags() const;
@@ -85,7 +82,6 @@ namespace WinSys {
 		bool m_own;
 	};
 
-#ifdef WINSYS_NAMESPACE
 }
-#endif
+
 

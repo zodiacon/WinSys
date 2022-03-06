@@ -3,6 +3,8 @@
 #include <shellapi.h>
 #include <wil\resource.h>
 
+using namespace WinSys;
+
 bool SecurityHelper::IsRunningElevated() {
 	static bool runningElevated = false;
 	static bool runningElevatedCheck = false;

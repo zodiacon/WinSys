@@ -42,7 +42,7 @@ protected:
 
 private:
 	void SelectPid(DWORD pid);
-	struct ProcessInfoEx : ProcessInfo {
+	struct ProcessInfoEx : WinSys::ProcessInfo {
 		DWORD64 TargetTime;
 		int Image{ -1 };
 		bool New{ false };
@@ -59,7 +59,7 @@ private:
 	LRESULT OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 
 	CListViewCtrl m_List;
-	ProcessManager<ProcessInfoEx> m_pm;
+	WinSys::ProcessManager<ProcessInfoEx> m_pm;
 	std::vector<std::shared_ptr<ProcessInfoEx>> m_Items;
 	std::set<int> m_Deleted;
 	DWORD m_SelectedPid = -1;

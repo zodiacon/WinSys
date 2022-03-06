@@ -4,9 +4,7 @@
 #include "subprocesstag.h"
 #include "Processes.h"
 
-#ifdef WINSYS_NAMESPACE
 using namespace WinSys;
-#endif
 
 Thread::Thread(HANDLE handle, bool own) : m_handle(handle), m_own(own) {}
 
@@ -34,8 +32,8 @@ int Thread::GetMemoryPriority() const {
 	return priority;
 }
 
-IoPriorityHint Thread::GetIoPriority() const {
-	auto priority = IoPriorityHint::Unknown;
+IoPriority Thread::GetIoPriority() const {
+	auto priority = IoPriority::Unknown;
 	ULONG len;
 	::NtQueryInformationThread(m_handle, ThreadIoPriority, &priority, sizeof(priority), &len);
 	return priority;

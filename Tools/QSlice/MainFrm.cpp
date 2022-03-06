@@ -11,6 +11,8 @@
 #include "SecurityHelper.h"
 #include "ThemeHelper.h"
 
+using namespace WinSys;
+
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg) {
 	if (CFrameWindowImpl<CMainFrame>::PreTranslateMessage(pMsg))
 		return TRUE;

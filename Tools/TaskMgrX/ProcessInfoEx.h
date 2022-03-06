@@ -29,20 +29,20 @@ enum class ProcessFlags {
 };
 DEFINE_ENUM_FLAG_OPERATORS(ProcessFlags);
 
-struct ProcessInfoEx : ProcessInfo {
+struct ProcessInfoEx : WinSys::ProcessInfo {
 	ProcessFlags Flags{ ProcessFlags::None };
 	int Image{ -1 };
 	DWORD64 TargetTime;
 
 	CString const& GetFullImagePath() const;
-	PriorityClass GetPriorityClass() const;
+	WinSys::ProcessPriorityClass GetPriorityClass() const;
 	int GetMemoryPriority() const;
-	IoPriorityHint GetIoPriority() const;
+	WinSys::IoPriority GetIoPriority() const;
 	CString const& GetCommandLine() const;
 	CString const& GetUserName() const;
-	IntegrityLevel GetIntegrityLevel() const;
-	VirtualizationState GetVirtualizationState() const;
-	DpiAwareness GetDpiAwareness() const;
+	WinSys::IntegrityLevel GetIntegrityLevel() const;
+	WinSys::VirtualizationState GetVirtualizationState() const;
+	WinSys::DpiAwareness GetDpiAwareness() const;
 	int GetPlatform() const;
 	bool IsElevated() const;
 	bool IsSuspended() const;
@@ -52,9 +52,9 @@ struct ProcessInfoEx : ProcessInfo {
 	ULONG GetPeakGdiObjects() const;
 	ULONG GetUserObjects() const;
 	ULONG GetPeakUserObjects() const;
-	std::wstring GetParentImageName(ProcessManager<ProcessInfoEx> const& pm, PCWSTR defaultText) const;
-	ProcessAttributes GetAttributes(ProcessManager<ProcessInfoEx> const& pm) const;
-	ProcessProtection GetProtection() const;
+	std::wstring GetParentImageName(WinSys::ProcessManager<ProcessInfoEx> const& pm, PCWSTR defaultText) const;
+	ProcessAttributes GetAttributes(WinSys::ProcessManager<ProcessInfoEx> const& pm) const;
+	WinSys::ProcessProtection GetProtection() const;
 	CString GetWindowTitle() const;
 
 private:
@@ -62,7 +62,7 @@ private:
 	bool OpenProcess() const;
 
 	mutable CString m_imagePath, m_commandLine;
-	mutable Process m_process;
+	mutable WinSys::Process m_process;
 	mutable CString m_username, m_company, m_description;
 	mutable bool m_companyDone : 1 { false};
 	mutable bool m_descriptionDone : 1 { false};

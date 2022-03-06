@@ -18,6 +18,8 @@
 
 #pragma comment(lib, "Version.lib")
 
+using namespace WinSys;
+
 BOOL CProcessesView::PreTranslateMessage(MSG* pMsg) {
 	pMsg;
 	return FALSE;

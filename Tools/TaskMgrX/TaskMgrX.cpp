@@ -34,7 +34,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPTSTR lp
 	HRESULT hRes = ::CoInitialize(nullptr);
 	ATLASSERT(SUCCEEDED(hRes));
 
-	SecurityHelper::EnablePrivilege(SE_DEBUG_NAME, true);
+	WinSys::SecurityHelper::EnablePrivilege(SE_DEBUG_NAME, true);
 	ThemeHelper::Init();
 
 	AtlInitCommonControls(ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES);

@@ -3,14 +3,17 @@
 #include "Processes.h"
 #include <atltime.h>
 
-PCWSTR StringHelper::PriorityClassToString(PriorityClass pc) {
+using namespace WinSys;
+
+PCWSTR StringHelper::PriorityClassToString(WinSys::ProcessPriorityClass pc) {
 	switch (pc) {
-		case PriorityClass::Normal: return L"Normal (8)";
-		case PriorityClass::AboveNormal: return L"Above Normal (10)";
-		case PriorityClass::BelowNormal: return L"Below Normal (6)";
-		case PriorityClass::High: return L"High (13)";
-		case PriorityClass::Idle: return L"Idle (4)";
-		case PriorityClass::Realtime: return L"Realtime (24)";
+		using enum WinSys::ProcessPriorityClass;
+		case Normal: return L"Normal (8)";
+		case AboveNormal: return L"Above Normal (10)";
+		case BelowNormal: return L"Below Normal (6)";
+		case High: return L"High (13)";
+		case Idle: return L"Idle (4)";
+		case Realtime: return L"Realtime (24)";
 	}
 	return L"";
 }
@@ -110,13 +113,13 @@ CString StringHelper::ProcessProtectionToString(ProcessProtection pp) {
 	return signer + L"-" + type;
 }
 
-PCWSTR StringHelper::IoPriorityToString(IoPriorityHint io) {
+PCWSTR StringHelper::IoPriorityToString(WinSys::IoPriority io) {
 	switch (io) {
-		case IoPriorityHint::Critical: return L"Critical";
-		case IoPriorityHint::High: return L"High";
-		case IoPriorityHint::Low: return L"Low";
-		case IoPriorityHint::Normal: return L"Normal";
-		case IoPriorityHint::VeryLow: return L"Very Low";
+		case IoPriority::Critical: return L"Critical";
+		case IoPriority::High: return L"High";
+		case IoPriority::Low: return L"Low";
+		case IoPriority::Normal: return L"Normal";
+		case IoPriority::VeryLow: return L"Very Low";
 	}
 	return L"";
 }
