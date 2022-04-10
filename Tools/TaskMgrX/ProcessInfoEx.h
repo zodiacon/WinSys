@@ -64,10 +64,10 @@ private:
 	mutable CString m_imagePath, m_commandLine;
 	mutable WinSys::Process m_process;
 	mutable CString m_username, m_company, m_description;
-	mutable bool m_companyDone : 1 { false};
-	mutable bool m_descriptionDone : 1 { false};
 	mutable ProcessAttributes m_attributes{ ProcessAttributes::None };
 	mutable HWND m_hWnd{ nullptr };
 	mutable DWORD m_firstThreadId{ 0 };
+	mutable bool m_companyDone : 1 { false};
+	mutable bool m_descriptionDone : 1 { false};
 };
 

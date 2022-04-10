@@ -31,7 +31,6 @@ extern CAppModule _Module;
 #include <strsafe.h>
 #include <dontuse.h>
 #include <map>
-#define __cpp_lib_format
 #include <format>
 #include <WinSys.h>
 

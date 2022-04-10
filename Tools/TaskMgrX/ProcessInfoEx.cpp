@@ -72,7 +72,7 @@ CString ProcessInfoEx::GetVersionObject(CString const& name) const {
 	BYTE buffer[1 << 12];
 	CString result;
 	const auto& exe = GetFullImagePath();
-	if (::GetFileVersionInfo(exe, 0, sizeof(buffer), buffer)) {
+	if (!exe.IsEmpty() && ::GetFileVersionInfo(exe, 0, sizeof(buffer), buffer)) {
 		WORD* langAndCodePage;
 		UINT len;
 		if (::VerQueryValue(buffer, L"\\VarFileInfo\\Translation", (void**)&langAndCodePage, &len)) {
