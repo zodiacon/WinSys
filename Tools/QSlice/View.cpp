@@ -8,7 +8,6 @@
 #include "SortHelper.h"
 #include "ImageIconCache.h"
 #include "ThemeHelper.h"
-#define __cpp_lib_format
 #include <concepts>
 #include <format>
 

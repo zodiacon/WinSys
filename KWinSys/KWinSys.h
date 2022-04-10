@@ -19,6 +19,11 @@ extern "C" NTSTATUS NTAPI ZwQueryInformationProcess(
 	_Out_opt_ PULONG ReturnLength
 );
 
+extern "C" NTSTATUS NTAPI ZwOpenSession(
+	_Out_ PHANDLE SessionHandle,
+	_In_ ACCESS_MASK DesiredAccess,
+	_In_ POBJECT_ATTRIBUTES ObjectAttributes);
+
 extern "C" NTSTATUS ObOpenObjectByName(
 	_In_ POBJECT_ATTRIBUTES ObjectAttributes,
 	_In_ POBJECT_TYPE ObjectType,
@@ -70,5 +75,12 @@ namespace NT {
 		OBJECT_TYPE_INFORMATION TypeInformation[1];
 	} OBJECT_TYPES_INFORMATION, * POBJECT_TYPES_INFORMATION;
 }
+
+enum class ObjectType {
+	None = 0,
+	Session,
+	SymbolicLink,
+	Mutant,
+};
 
 NTSTATUS CompleteRequest(PIRP Irp, NTSTATUS status = STATUS_SUCCESS, ULONG_PTR info = 0);

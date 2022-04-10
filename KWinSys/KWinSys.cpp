@@ -7,9 +7,15 @@ void WinSysUnload(PDRIVER_OBJECT DriverObject);
 NTSTATUS WinSysCreateClose(PDEVICE_OBJECT, PIRP Irp);
 NTSTATUS WinSysDeviceControl(PDEVICE_OBJECT, PIRP Irp);
 
-POBJECT_TYPE const* g_ObjectTypes;
+extern "C" POBJECT_TYPE* IoDeviceObjectType;
+extern "C" POBJECT_TYPE* LpcPortObjectType;
+extern "C" POBJECT_TYPE* IoDriverObjectType;
+extern "C" POBJECT_TYPE* ExWindowStationObjectType;
+extern "C" POBJECT_TYPE* MmSectionObjectType;
+extern "C" POBJECT_TYPE* ExTimerObjectType;
+
+POBJECT_TYPE g_ObjectTypes[256];
 ULONG g_NumberOfTypes;
-ULONG g_FirstTypeIndex;
 
 extern "C" NTSTATUS
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING) {
@@ -42,28 +48,53 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING) {
 }
 
 NTSTATUS InitGlobals() {
-	ULONG size = 1 << 13;
+	ULONG size = 1 << 14;
 	auto types = (NT::POBJECT_TYPES_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, DRIVER_TAG);
 	if (!types)
 		return STATUS_NO_MEMORY;
 
 	auto status = ZwQueryObject(nullptr, (OBJECT_INFORMATION_CLASS)NT::ObjectInformationClass::TypesInformation, types, size, nullptr);
-	UNICODE_STRING name = RTL_CONSTANT_STRING(L"Process");
+
 	if (NT_SUCCESS(status)) {
+		const struct {
+			PCWSTR Name;
+			POBJECT_TYPE Type;
+			PVOID Function;
+		} objectTypes[] = {
+			{ L"Process", *PsProcessType },
+			{ L"Thread", *PsThreadType },
+			{ L"Job", *PsJobType },
+			{ L"Event", *ExEventObjectType },
+			{ L"Semaphore", *ExSemaphoreObjectType },
+			{ L"File", *IoFileObjectType },
+			{ L"Key", *CmKeyObjectType },
+			{ L"Token", *SeTokenObjectType },
+			{ L"Device", *IoDeviceObjectType },
+			{ L"Driver", *IoDriverObjectType },
+			{ L"Section", *MmSectionObjectType },
+			{ L"Desktop", *ExDesktopObjectType },
+			{ L"WindowStation", *ExWindowStationObjectType },
+			{ L"ALPC Port", *LpcPortObjectType },
+			{ L"Timer", *ExTimerObjectType },
+			{ L"Session", POBJECT_TYPE(ObjectType::Session) },
+			{ L"SymbolicLink", POBJECT_TYPE(ObjectType::SymbolicLink) },
+		};
+
 		g_NumberOfTypes = types->NumberOfTypes;
-		g_FirstTypeIndex = types->TypeInformation[0].TypeIndex;
+		auto type = &types->TypeInformation[0];
 		for (ULONG i = 0; i < types->NumberOfTypes; i++) {
-			auto& type = types->TypeInformation[i];
-			if (RtlEqualUnicodeString(&type.TypeName, &name, FALSE)) {
-				//
-				// found process type
-				// derive all type objects from there
-				//
-				g_ObjectTypes = PsProcessType - type.TypeIndex;
-				break;
+			for (auto& ot : objectTypes) {
+				if (_wcsnicmp(ot.Name, type->TypeName.Buffer, wcslen(ot.Name)) == 0) {
+					g_ObjectTypes[type->TypeIndex] = ot.Type;
+					break;
+				}
 			}
+			auto temp = (PUCHAR)type + sizeof(NT::OBJECT_TYPE_INFORMATION) + type->TypeName.MaximumLength;
+			temp += sizeof(PVOID) - 1;
+			type = reinterpret_cast<NT::OBJECT_TYPE_INFORMATION*>((ULONG_PTR)temp / sizeof(PVOID) * sizeof(PVOID));
 		}
 	}
+
 	ExFreePool(types);
 	return status;
 }
@@ -106,7 +137,7 @@ NTSTATUS WinSysDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 				break;
 			}
 			auto data = (OpenObjectByNameData*)sysBuffer;
-			if (data->TypeIndex > g_NumberOfTypes + g_FirstTypeIndex) {
+			if (data->TypeIndex > 255) {
 				status = STATUS_INVALID_PARAMETER;
 				break;
 			}
@@ -116,12 +147,32 @@ NTSTATUS WinSysDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 			*(WCHAR*)((PUCHAR)sysBuffer + dic.InputBufferLength - sizeof(WCHAR)) = 0;
 			UNICODE_STRING name;
 			RtlInitUnicodeString(&name, data->Name);
-			OBJECT_ATTRIBUTES objAttr = RTL_CONSTANT_OBJECT_ATTRIBUTES(&name, 0);
-			status = ObOpenObjectByName(&objAttr, g_ObjectTypes[data->TypeIndex], KernelMode, nullptr, data->Access, nullptr, (PHANDLE)sysBuffer);
-			if (NT_SUCCESS(status))
-				len = sizeof(HANDLE);
-			break;
+			OBJECT_ATTRIBUTES objAttr = RTL_INIT_OBJECT_ATTRIBUTES(&name, 0);
+			HANDLE hObject{ nullptr };
+			if (g_ObjectTypes[data->TypeIndex]) {
+				if (ULONG_PTR(g_ObjectTypes[data->TypeIndex]) > 0x10000) {
+					status = ObOpenObjectByName(&objAttr, g_ObjectTypes[data->TypeIndex], KernelMode, nullptr, data->Access, nullptr, &hObject);
+				}
+				else {
+					//
+					// must handle special cases, where the object type is not exported
+					//
+					switch (ObjectType(ULONG_PTR(g_ObjectTypes[data->TypeIndex]))) {
+						case ObjectType::Session:
+							status = ZwOpenSession(&hObject, data->Access, &objAttr);
+							break;
 
+						case ObjectType::SymbolicLink:
+							status = ZwOpenSymbolicLinkObject(&hObject, data->Access, &objAttr);
+							break;
+					}
+				}
+			}
+			if (NT_SUCCESS(status)) {
+				*(PHANDLE)sysBuffer = hObject;
+				len = sizeof(HANDLE);
+			}
+			break;
 	}
 	return CompleteRequest(Irp, status, len);
 }

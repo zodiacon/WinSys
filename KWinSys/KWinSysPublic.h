@@ -12,6 +12,8 @@
 #define IOCTL_WINSYS_OPEN_THREAD				CTL_CODE(WINSYS_DEVICE, 0x805, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_WINSYS_GET_OBJECT_ADDRESS			CTL_CODE(WINSYS_DEVICE, 0x806, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#pragma pack(push, 1)
+
 struct OpenObjectByAddressData {
 	void* Address;
 	ACCESS_MASK Access;
@@ -19,7 +21,7 @@ struct OpenObjectByAddressData {
 
 struct OpenObjectByNameData {
 	ACCESS_MASK Access;
-	ULONG TypeIndex;
+	USHORT TypeIndex;
 	WCHAR Name[1];
 };
 
@@ -35,3 +37,4 @@ struct OpenProcessThreadData {
 	ACCESS_MASK AccessMask;
 };
 
+#pragma pack(pop)
