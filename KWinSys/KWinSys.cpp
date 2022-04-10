@@ -13,6 +13,7 @@ extern "C" POBJECT_TYPE* IoDriverObjectType;
 extern "C" POBJECT_TYPE* ExWindowStationObjectType;
 extern "C" POBJECT_TYPE* MmSectionObjectType;
 extern "C" POBJECT_TYPE* ExTimerObjectType;
+extern "C" POBJECT_TYPE* PsPartitionType;
 
 POBJECT_TYPE g_ObjectTypes[256];
 ULONG g_NumberOfTypes;
@@ -76,6 +77,7 @@ NTSTATUS InitGlobals() {
 			{ L"WindowStation", *ExWindowStationObjectType },
 			{ L"ALPC Port", *LpcPortObjectType },
 			{ L"Timer", *ExTimerObjectType },
+			{ L"Partition", *PsPartitionType },
 			{ L"Session", POBJECT_TYPE(ObjectType::Session) },
 			{ L"SymbolicLink", POBJECT_TYPE(ObjectType::SymbolicLink) },
 		};
@@ -125,6 +127,69 @@ NTSTATUS WinSysDeviceControl(PDEVICE_OBJECT, PIRP Irp) {
 			len = sizeof(ULONG);
 			status = STATUS_SUCCESS;
 			break;
+
+		case IOCTL_WINSYS_DUP_HANDLE:
+		{
+			if (sysBuffer == nullptr) {
+				status = STATUS_INVALID_PARAMETER;
+				break;
+			}
+			if (dic.InputBufferLength < sizeof(DupHandleData) || dic.OutputBufferLength < sizeof(HANDLE)) {
+				status = STATUS_BUFFER_TOO_SMALL;
+				break;
+			}
+
+			auto data = (DupHandleData*)sysBuffer;
+			HANDLE hProcess;
+			OBJECT_ATTRIBUTES procAttributes = RTL_CONSTANT_OBJECT_ATTRIBUTES(nullptr, OBJ_KERNEL_HANDLE);
+			CLIENT_ID pid{};
+			pid.UniqueProcess = UlongToHandle(data->SourcePid);
+			status = ZwOpenProcess(&hProcess, PROCESS_DUP_HANDLE, &procAttributes, &pid);
+			if (!NT_SUCCESS(status)) {
+				KdPrint(("Failed to open process %d (0x%08X)\n", data->SourcePid, status));
+				break;
+			}
+
+			HANDLE hTarget;
+			status = ZwDuplicateObject(hProcess, ULongToHandle(data->SourceHandle), NtCurrentProcess(),
+				&hTarget, data->AccessMask, 0, data->Flags);
+			ZwClose(hProcess);
+			if (NT_SUCCESS(status)) {
+				*(PHANDLE)sysBuffer = hTarget;
+				len = sizeof(HANDLE);
+			}
+			break;
+		}
+
+		case IOCTL_WINSYS_OPEN_PROCESS:
+		case IOCTL_WINSYS_OPEN_THREAD:
+		{
+			if (sysBuffer == nullptr) {
+				status = STATUS_INVALID_PARAMETER;
+				break;
+			}
+			if (dic.InputBufferLength < sizeof(OpenProcessThreadData) || dic.OutputBufferLength < sizeof(HANDLE)) {
+				status = STATUS_BUFFER_TOO_SMALL;
+				break;
+			}
+			auto data = (OpenProcessThreadData*)sysBuffer;
+			OBJECT_ATTRIBUTES attr = RTL_CONSTANT_OBJECT_ATTRIBUTES(nullptr, 0);
+			CLIENT_ID id{};
+			HANDLE hObject;
+			if (dic.IoControlCode == IOCTL_WINSYS_OPEN_PROCESS) {
+				id.UniqueProcess = UlongToHandle(data->Id);
+				status = ZwOpenProcess(&hObject, data->AccessMask, &attr, &id);
+			}
+			else {
+				id.UniqueThread = UlongToHandle(data->Id);
+				status = ZwOpenThread(&hObject, data->AccessMask, &attr, &id);
+			}
+			if (NT_SUCCESS(status)) {
+				len = sizeof(HANDLE);
+				*(PHANDLE)sysBuffer = hObject;
+			}
+			break;
+		}
 
 		case IOCTL_WINSYS_OPEN_OBJECT_BY_NAME:
 			if (g_ObjectTypes == nullptr) {

@@ -163,6 +163,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Driver.h" />
     <ClInclude Include="Enums.h" />
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="KernelModuleTracker.h" />
@@ -186,6 +187,7 @@
     <ClInclude Include="WinSys.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Driver.cpp" />
     <ClCompile Include="Helpers.cpp" />
     <ClCompile Include="KernelModuleTracker.cpp" />
     <ClCompile Include="LsaSecurity.cpp" />
