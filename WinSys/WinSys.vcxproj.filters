@@ -13,15 +13,15 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="phnt">
+      <UniqueIdentifier>{96a51be8-f55c-411f-878a-e18d928ac9cf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Processes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ProcessHandlesTracker.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ProcessManager.h">
@@ -81,6 +81,102 @@
     <ClInclude Include="Driver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="phnt\ntd3dkmt.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntdbg.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntexapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntgdi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntioapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntkeapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntldr.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntlpcapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntmisc.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntmmapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntnls.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntobapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntpebteb.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntpfapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntpnpapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntpoapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntpsapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntregapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntrtl.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntsam.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntseapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntsmss.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\nttmapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\nttp.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntwow64.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntxcapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\ntzwapi.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\phnt.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\phnt_ntdef.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\phnt_windows.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\subprocesstag.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
+    <ClInclude Include="phnt\winsta.h">
+      <Filter>phnt</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="WinSys.cpp">
@@ -90,9 +186,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Processes.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ProcessHandlesTracker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ProcessManager.cpp">

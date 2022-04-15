@@ -3,7 +3,7 @@
 namespace WinSys {
 	class Driver final {
 	public:
-		static bool Install(PCWSTR sysFilePath, PCWSTR serviceName = nullptr);
+		static bool Install(std::wstring_view sysFilePath, PCWSTR serviceName = nullptr);
 		static bool Start(PCWSTR serviceName = nullptr);
 		static bool Stop(PCWSTR serviceName = nullptr);
 

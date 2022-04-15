@@ -1,8 +1,52 @@
 #include "pch.h"
 #include "Driver.h"
 #include "..\KWinSys\KWinSysPublic.h"
+#include "ServiceManager.h"
+#include "Service.h"
 
 using namespace WinSys;
+
+bool Driver::Install(std::wstring_view sysFilePath, PCWSTR serviceName) {
+    if (serviceName == nullptr)
+        serviceName = L"KWinSys";
+    auto svc = Service::Open(serviceName, ServiceAccessMask::QueryConfig);
+    if (svc)
+        return true;
+
+    svc.reset();
+    auto pos = sysFilePath.rfind(L'\\');
+    PCWSTR baseName{ sysFilePath.data() };
+    if (pos != std::wstring::npos)
+        baseName = sysFilePath.data() + pos + 1;
+    WCHAR path[MAX_PATH];
+    ::GetSystemDirectory(path, _countof(path));
+    wcscat_s(path, L"\\Drivers\\");
+    wcscat_s(path, baseName);
+    ::CopyFile(sysFilePath.data(), path, FALSE);
+    svc = ServiceManager::Install(serviceName, ServiceType::KernelDriver, ServiceStartType::Demand, path);
+    if (svc)
+        svc->Start();
+    return svc != nullptr;
+}
+
+bool Driver::Start(PCWSTR serviceName) {
+    if (serviceName == nullptr)
+        serviceName = L"KWinSys";
+    auto svc = Service::Open(serviceName, ServiceAccessMask::Start | ServiceAccessMask::QueryStatus);
+    if(!svc)
+        return false;
+    if (svc->GetStatus().CurrentState == ServiceState::Running)
+        return true;
+
+    if (!svc->Start())
+        return false;
+
+    auto tick = ::GetTickCount64();
+    while (svc->GetStatus().CurrentState != ServiceState::Running && ::GetTickCount64() - tick < 5000) {
+        ::Sleep(200);
+    }
+    return svc->GetStatus().CurrentState == ServiceState::Running;
+}
 
 bool Driver::Open() {
     m_hDevice.reset(::CreateFile(KWINSYS_DEVNAME, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr));
