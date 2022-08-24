@@ -121,6 +121,4 @@ namespace WinSys {
 		System = DPI_AWARENESS_SYSTEM_AWARE,
 		PerMonitor = DPI_AWARENESS_PER_MONITOR_AWARE,
 	};
-
 }
-

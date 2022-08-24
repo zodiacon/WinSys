@@ -16,6 +16,9 @@
     <Filter Include="phnt">
       <UniqueIdentifier>{96a51be8-f55c-411f-878a-e18d928ac9cf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="VirtualDiskService">
+      <UniqueIdentifier>{f8f37594-d35e-4f37-841e-6cae70dd40f2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -177,6 +180,15 @@
     <ClInclude Include="phnt\winsta.h">
       <Filter>phnt</Filter>
     </ClInclude>
+    <ClInclude Include="VirtualDiskService.h">
+      <Filter>VirtualDiskService</Filter>
+    </ClInclude>
+    <ClInclude Include="VdsProvider.h">
+      <Filter>VirtualDiskService</Filter>
+    </ClInclude>
+    <ClInclude Include="VdsVolume.h">
+      <Filter>VirtualDiskService</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="WinSys.cpp">
@@ -232,6 +244,12 @@
     </ClCompile>
     <ClCompile Include="Driver.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VirtualDiskService.cpp">
+      <Filter>VirtualDiskService</Filter>
+    </ClCompile>
+    <ClCompile Include="VdsProvider.cpp">
+      <Filter>VirtualDiskService</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -50,7 +50,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING) {
 
 NTSTATUS InitGlobals() {
 	ULONG size = 1 << 14;
-	auto types = (NT::POBJECT_TYPES_INFORMATION)ExAllocatePoolWithTag(PagedPool, size, DRIVER_TAG);
+	auto types = (NT::POBJECT_TYPES_INFORMATION)ExAllocatePool2(POOL_FLAG_PAGED | POOL_FLAG_UNINITIALIZED, size, DRIVER_TAG);
 	if (!types)
 		return STATUS_NO_MEMORY;
 

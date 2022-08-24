@@ -215,6 +215,9 @@
     <ClInclude Include="Thread.h" />
     <ClInclude Include="ThreadInfo.h" />
     <ClInclude Include="Token.h" />
+    <ClInclude Include="VdsProvider.h" />
+    <ClInclude Include="VdsVolume.h" />
+    <ClInclude Include="VirtualDiskService.h" />
     <ClInclude Include="WinSys.h" />
   </ItemGroup>
   <ItemGroup>
@@ -240,6 +243,8 @@
     <ClCompile Include="Thread.cpp" />
     <ClCompile Include="ThreadInfo.cpp" />
     <ClCompile Include="Token.cpp" />
+    <ClCompile Include="VdsProvider.cpp" />
+    <ClCompile Include="VirtualDiskService.cpp" />
     <ClCompile Include="WinSys.cpp" />
   </ItemGroup>
   <ItemGroup>

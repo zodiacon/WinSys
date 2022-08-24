@@ -86,5 +86,4 @@ namespace WinSys {
 	private:
 		wil::unique_handle m_handle;
 	};
-
 }

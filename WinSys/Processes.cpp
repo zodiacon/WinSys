@@ -20,10 +20,6 @@ static bool GetExtendedInfo(HANDLE hProcess, PROCESS_EXTENDED_BASIC_INFORMATION*
 	return NT_SUCCESS(status);
 }
 
-#ifdef WINSYS_NAMESPACE
-using namespace WinSys;
-#endif
-
 uint32_t Process::GetId() const {
 	return ::GetProcessId(m_handle.get());
 }
