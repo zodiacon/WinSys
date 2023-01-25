@@ -66,7 +66,7 @@ namespace WinSys {
 		std::vector<TokenPrivilege> EnumPrivileges() const;
 
 	private:
-		wil::unique_handle m_handle;
+		wil::unique_handle m_Handle;
 	};
 }
 

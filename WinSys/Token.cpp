@@ -4,19 +4,19 @@
 
 using namespace WinSys;
 
-Token::Token(HANDLE hToken) : m_handle(hToken) {
+Token::Token(HANDLE hToken) : m_Handle(hToken) {
 }
 
 bool Token::OpenProcessToken(DWORD pid, TokenAccessMask access) {
 	wil::unique_handle hProcess(::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid));
 	if (hProcess) {
-		::OpenProcessToken(hProcess.get(), static_cast<DWORD>(access), m_handle.addressof());
+		::OpenProcessToken(hProcess.get(), static_cast<DWORD>(access), m_Handle.addressof());
 	}
-	return m_handle.is_valid();
+	return m_Handle.is_valid();
 }
 
 Token::Token(HANDLE hProcess, TokenAccessMask access) {
-	::OpenProcessToken(hProcess, static_cast<DWORD>(access), m_handle.addressof());
+	::OpenProcessToken(hProcess, static_cast<DWORD>(access), m_Handle.addressof());
 }
 
 std::unique_ptr<Token> Token::Open(DWORD pid, TokenAccessMask access) {
@@ -30,10 +30,10 @@ std::unique_ptr<Token> Token::Open(DWORD pid, TokenAccessMask access) {
 }
 
 std::pair<std::wstring, Sid> Token::GetUserNameAndSid() const {
-	assert(m_handle);
+	assert(m_Handle);
 	BYTE buffer[256];
 	DWORD len;
-	if (::GetTokenInformation(m_handle.get(), TokenUser, buffer, sizeof(buffer), &len)) {
+	if (::GetTokenInformation(m_Handle.get(), TokenUser, buffer, sizeof(buffer), &len)) {
 		auto data = (TOKEN_USER*)buffer;
 		Sid sid(data->User.Sid);
 		WCHAR name[64], domain[64];
@@ -52,26 +52,26 @@ std::wstring WinSys::Token::GetUserName() const {
 }
 
 bool Token::IsValid() const {
-	return m_handle != nullptr;
+	return m_Handle != nullptr;
 }
 
 bool Token::IsElevated() const {
 	ULONG elevated = 0;
 	DWORD len;
-	::GetTokenInformation(m_handle.get(), TokenElevation, &elevated, sizeof(elevated), &len);
+	::GetTokenInformation(m_Handle.get(), TokenElevation, &elevated, sizeof(elevated), &len);
 	return elevated ? true : false;
 }
 
 VirtualizationState Token::GetVirtualizationState() const {
 	ULONG virt = 0;
 	DWORD len;
-	if (!::GetTokenInformation(m_handle.get(), TokenVirtualizationAllowed, &virt, sizeof(virt), &len))
+	if (!::GetTokenInformation(m_Handle.get(), TokenVirtualizationAllowed, &virt, sizeof(virt), &len))
 		return VirtualizationState::Unknown;
 
 	if (!virt)
 		return VirtualizationState::NotAllowed;
 
-	if (::GetTokenInformation(m_handle.get(), TokenVirtualizationEnabled, &virt, sizeof(virt), &len))
+	if (::GetTokenInformation(m_Handle.get(), TokenVirtualizationEnabled, &virt, sizeof(virt), &len))
 		return virt ? VirtualizationState::Enabled : VirtualizationState::Disabled;
 
 	return VirtualizationState::Unknown;
@@ -80,7 +80,7 @@ VirtualizationState Token::GetVirtualizationState() const {
 IntegrityLevel Token::GetIntegrityLevel() const {
 	BYTE buffer[TOKEN_INTEGRITY_LEVEL_MAX_SIZE];
 	DWORD len;
-	if (!::GetTokenInformation(m_handle.get(), TokenIntegrityLevel, buffer, sizeof(buffer), &len))
+	if (!::GetTokenInformation(m_Handle.get(), TokenIntegrityLevel, buffer, sizeof(buffer), &len))
 		return IntegrityLevel::Error;
 
 	auto p = (TOKEN_MANDATORY_LABEL*)buffer;
@@ -89,14 +89,14 @@ IntegrityLevel Token::GetIntegrityLevel() const {
 
 DWORD Token::GetSessionId() const {
 	DWORD id = 0, len;
-	::GetTokenInformation(m_handle.get(), TokenSessionId, &id, sizeof(id), &len);
+	::GetTokenInformation(m_Handle.get(), TokenSessionId, &id, sizeof(id), &len);
 	return id;
 }
 
 TOKEN_STATISTICS Token::GetStats() const {
 	TOKEN_STATISTICS stats{};
 	DWORD len;
-	::GetTokenInformation(m_handle.get(), TokenStatistics, &stats, sizeof(stats), &len);
+	::GetTokenInformation(m_Handle.get(), TokenStatistics, &stats, sizeof(stats), &len);
 	return stats;
 }
 
@@ -104,7 +104,7 @@ std::vector<TokenGroup> WinSys::Token::EnumGroups(bool caps) const {
 	std::vector<TokenGroup> groups;
 	BYTE buffer[1 << 13];
 	DWORD len;
-	if (!::GetTokenInformation(m_handle.get(), caps ? TokenCapabilities : TokenGroups, buffer, sizeof(buffer), &len))
+	if (!::GetTokenInformation(m_Handle.get(), caps ? TokenCapabilities : TokenGroups, buffer, sizeof(buffer), &len))
 		return groups;
 
 	auto data = (TOKEN_GROUPS*)buffer;
@@ -129,7 +129,7 @@ std::vector<TokenPrivilege> Token::EnumPrivileges() const {
 	std::vector<TokenPrivilege> privs;
 	BYTE buffer[1 << 13];
 	DWORD len;
-	if (!::GetTokenInformation(m_handle.get(), TokenPrivileges, buffer, sizeof(buffer), &len))
+	if (!::GetTokenInformation(m_Handle.get(), TokenPrivileges, buffer, sizeof(buffer), &len))
 		return privs;
 
 	auto data = (TOKEN_PRIVILEGES*)buffer;
@@ -152,7 +152,7 @@ std::vector<TokenPrivilege> Token::EnumPrivileges() const {
 
 bool Token::EnablePrivilege(PCWSTR privName, bool enable) {
 	wil::unique_handle hToken;
-	if (!::DuplicateHandle(::GetCurrentProcess(), m_handle.get(), ::GetCurrentProcess(), hToken.addressof(), 
+	if (!::DuplicateHandle(::GetCurrentProcess(), m_Handle.get(), ::GetCurrentProcess(), hToken.addressof(), 
 		TOKEN_ADJUST_PRIVILEGES, FALSE, 0))
 		return false;
 

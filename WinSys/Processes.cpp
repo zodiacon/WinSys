@@ -20,8 +20,8 @@ static bool GetExtendedInfo(HANDLE hProcess, PROCESS_EXTENDED_BASIC_INFORMATION*
 	return NT_SUCCESS(status);
 }
 
-uint32_t Process::GetId() const {
-	return ::GetProcessId(m_handle.get());
+uint32_t Process::GetId() const noexcept {
+	return ::GetProcessId(m_Handle.get());
 }
 
 std::wstring Process::GetName() const {
@@ -34,7 +34,7 @@ std::optional<ProcessWindowInfo> Process::GetWindowInformation() const {
 	auto buffer = std::make_unique<BYTE[]>(1024);
 	std::optional<ProcessWindowInfo> info;
 	ULONG len;
-	if (!NT_SUCCESS(::NtQueryInformationProcess(m_handle.get(), ProcessWindowInformation, buffer.get(), 1024, &len)))
+	if (!NT_SUCCESS(::NtQueryInformationProcess(m_Handle.get(), ProcessWindowInformation, buffer.get(), 1024, &len)))
 		return info;
 
 	auto p = reinterpret_cast<PROCESS_WINDOW_INFORMATION*>(buffer.get());
@@ -43,27 +43,27 @@ std::optional<ProcessWindowInfo> Process::GetWindowInformation() const {
 	return info;
 }
 
-int Process::GetMemoryPriority() const {
+int Process::GetMemoryPriority() const noexcept {
 	int priority = -1;
 	ULONG len;
-	::NtQueryInformationProcess(m_handle.get(), ProcessPagePriority, &priority, sizeof(priority), &len);
+	::NtQueryInformationProcess(m_Handle.get(), ProcessPagePriority, &priority, sizeof(priority), &len);
 	return priority;
 }
 
-IoPriority Process::GetIoPriority() const {
+IoPriority Process::GetIoPriority() const noexcept {
 	auto priority = IoPriority::Unknown;
 	ULONG len;
-	::NtQueryInformationProcess(m_handle.get(), ProcessIoPriority, &priority, sizeof(priority), &len);
+	::NtQueryInformationProcess(m_Handle.get(), ProcessIoPriority, &priority, sizeof(priority), &len);
 	return priority;
 }
 
-HANDLE Process::Handle() const {
-	return m_handle.get();
+HANDLE Process::Handle() const noexcept {
+	return m_Handle.get();
 }
 
-bool Process::IsElevated() const {
+bool Process::IsElevated() const noexcept {
 	wil::unique_handle hToken;
-	if (!::OpenProcessToken(m_handle.get(), TOKEN_QUERY, hToken.addressof()))
+	if (!::OpenProcessToken(m_Handle.get(), TOKEN_QUERY, hToken.addressof()))
 		return false;
 
 	TOKEN_ELEVATION elevation;
@@ -73,20 +73,20 @@ bool Process::IsElevated() const {
 	return elevation.TokenIsElevated ? true : false;
 }
 
-bool Process::Is64Bit() const {
+bool Process::Is64Bit() const noexcept {
 	auto& info = SystemInformation::GetBasicSystemInfo();
 	if (info.ProcessorArchitecture == ProcessorArchitecture::ARM || info.ProcessorArchitecture == ProcessorArchitecture::x86)
 		return false;
 
 	BOOL bit32 = FALSE;
-	::IsWow64Process(m_handle.get(), &bit32);
+	::IsWow64Process(m_Handle.get(), &bit32);
 	return bit32;
 }
 
 std::wstring Process::GetWindowTitle() const {
 	BYTE buffer[1024];
 	ULONG len;
-	auto status = ::NtQueryInformationProcess(m_handle.get(), ProcessWindowInformation, buffer, 1024, &len);
+	auto status = ::NtQueryInformationProcess(m_Handle.get(), ProcessWindowInformation, buffer, 1024, &len);
 	if (!NT_SUCCESS(status))
 		return L"";
 
@@ -94,9 +94,9 @@ std::wstring Process::GetWindowTitle() const {
 	return std::wstring(name->WindowTitle, name->WindowTitleLength / sizeof(WCHAR));
 }
 
-IntegrityLevel Process::GetIntegrityLevel() const {
+IntegrityLevel Process::GetIntegrityLevel() const noexcept {
 	wil::unique_handle hToken;
-	if (!::OpenProcessToken(m_handle.get(), TOKEN_QUERY, hToken.addressof()))
+	if (!::OpenProcessToken(m_Handle.get(), TOKEN_QUERY, hToken.addressof()))
 		return IntegrityLevel::Error;
 
 	BYTE buffer[256];
@@ -115,7 +115,7 @@ std::unique_ptr<Process> Process::GetCurrent() {
 	return std::make_unique<Process>(NtCurrentProcess());
 }
 
-Process::Process(HANDLE handle) : m_handle(handle) {
+Process::Process(HANDLE handle) noexcept : m_Handle(handle) {
 }
 
 std::unique_ptr<Process> Process::OpenById(uint32_t pid, ProcessAccessMask access) {
@@ -123,26 +123,26 @@ std::unique_ptr<Process> Process::OpenById(uint32_t pid, ProcessAccessMask acces
 	return handle ? std::make_unique<Process>(handle) : nullptr;
 }
 
-bool Process::Open(uint32_t pid, ProcessAccessMask access) {
-	m_handle.reset(::OpenProcess(static_cast<ACCESS_MASK>(access), FALSE, pid));
-	return m_handle != nullptr;
+bool Process::Open(uint32_t pid, ProcessAccessMask access) noexcept {
+	m_Handle.reset(::OpenProcess(static_cast<ACCESS_MASK>(access), FALSE, pid));
+	return m_Handle != nullptr;
 }
 
-bool Process::IsValid() const {
-	return m_handle != nullptr;
+bool Process::IsValid() const noexcept {
+	return m_Handle != nullptr;
 }
 
 std::wstring Process::GetFullImageName() const {
 	DWORD size = MAX_PATH;
 	WCHAR name[MAX_PATH];
-	auto success = ::QueryFullProcessImageName(m_handle.get(), 0, name, &size);
+	auto success = ::QueryFullProcessImageName(m_Handle.get(), 0, name, &size);
 	return success ? std::wstring(name) : L"";
 }
 
 std::wstring Process::GetCommandLine() const {
 	ULONG size = 8192;
 	auto buffer = std::make_unique<BYTE[]>(size);
-	auto status = ::NtQueryInformationProcess(m_handle.get(), ProcessCommandLineInformation, buffer.get(), size, &size);
+	auto status = ::NtQueryInformationProcess(m_Handle.get(), ProcessCommandLineInformation, buffer.get(), size, &size);
 	if (NT_SUCCESS(status)) {
 		auto str = (UNICODE_STRING*)buffer.get();
 		return std::wstring(str->Buffer, str->Length / sizeof(WCHAR));
@@ -150,9 +150,9 @@ std::wstring Process::GetCommandLine() const {
 	return L"";
 }
 
-std::wstring Process::GetUserName() const {
+std::wstring Process::GetUserName() const noexcept {
 	wil::unique_handle hToken;
-	if (!::OpenProcessToken(m_handle.get(), TOKEN_QUERY, hToken.addressof()))
+	if (!::OpenProcessToken(m_Handle.get(), TOKEN_QUERY, hToken.addressof()))
 		return L"";
 
 	BYTE buffer[128];
@@ -172,31 +172,31 @@ std::wstring Process::GetUserName() const {
 	return std::wstring(domain) + L"\\" + name;
 }
 
-ProcessProtection Process::GetProtection() const {
+ProcessProtection Process::GetProtection() const noexcept {
 	ProcessProtection protection{};
 	ULONG len;
-	::NtQueryInformationProcess(m_handle.get(), ProcessProtectionInformation, &protection, sizeof(protection), &len);
+	::NtQueryInformationProcess(m_Handle.get(), ProcessProtectionInformation, &protection, sizeof(protection), &len);
 	return protection;
 }
 
-bool Process::Terminate(uint32_t exitCode) {
-	return NT_SUCCESS(NtTerminateProcess(m_handle.get(), exitCode));
+bool Process::Terminate(uint32_t exitCode) noexcept {
+	return NT_SUCCESS(NtTerminateProcess(m_Handle.get(), exitCode));
 }
 
-bool Process::Suspend() {
-	return NT_SUCCESS(::NtSuspendProcess(m_handle.get()));
+bool Process::Suspend() noexcept {
+	return NT_SUCCESS(::NtSuspendProcess(m_Handle.get()));
 }
 
-bool Process::Resume() {
-	return NT_SUCCESS(::NtResumeProcess(m_handle.get()));
+bool Process::Resume() noexcept {
+	return NT_SUCCESS(::NtResumeProcess(m_Handle.get()));
 }
 
 bool Process::IsImmersive() const noexcept {
 	static const auto pIsImmersiveProcess = (decltype(::IsImmersiveProcess)*)::GetProcAddress(::GetModuleHandle(L"user32"), "IsImmersiveProcess");
-	return pIsImmersiveProcess && pIsImmersiveProcess(m_handle.get()) ? true : false;
+	return pIsImmersiveProcess && pIsImmersiveProcess(m_Handle.get()) ? true : false;
 }
 
-bool Process::IsProtected() const {
+bool Process::IsProtected() const noexcept {
 	PROCESS_EXTENDED_BASIC_INFORMATION info;
 	if (!GetExtendedInfo(Handle(), &info))
 		return false;
@@ -204,7 +204,7 @@ bool Process::IsProtected() const {
 	return info.IsProtectedProcess;
 }
 
-bool Process::IsSecure() const {
+bool Process::IsSecure() const noexcept {
 	PROCESS_EXTENDED_BASIC_INFORMATION info;
 	if (!GetExtendedInfo(Handle(), &info))
 		return false;
@@ -212,7 +212,7 @@ bool Process::IsSecure() const {
 	return info.IsSecureProcess;
 }
 
-bool Process::IsSuspended() const {
+bool Process::IsSuspended() const noexcept {
 	PROCESS_EXTENDED_BASIC_INFORMATION info;
 	if (!GetExtendedInfo(Handle(), &info))
 		return false;
@@ -220,13 +220,13 @@ bool Process::IsSuspended() const {
 	return info.IsFrozen;
 }
 
-bool Process::IsInJob(HANDLE hJob) const {
+bool Process::IsInJob(HANDLE hJob) const noexcept {
 	BOOL injob = FALSE;
-	::IsProcessInJob(m_handle.get(), hJob, &injob);
+	::IsProcessInJob(m_Handle.get(), hJob, &injob);
 	return injob ? true : false;
 }
 
-bool Process::IsWow64Process() const {
+bool Process::IsWow64Process() const noexcept {
 	PROCESS_EXTENDED_BASIC_INFORMATION info;
 	if (!GetExtendedInfo(Handle(), &info))
 		return false;
@@ -234,7 +234,7 @@ bool Process::IsWow64Process() const {
 	return info.IsWow64Process ? true : false;
 }
 
-bool Process::IsPico() const {
+bool Process::IsPico() const noexcept {
 	PROCESS_EXTENDED_BASIC_INFORMATION info;
 	if (!GetExtendedInfo(Handle(), &info))
 		return false;
@@ -242,13 +242,13 @@ bool Process::IsPico() const {
 	return info.IsSubsystemProcess ? true : false;
 }
 
-bool Process::IsTerminated() const {
-	return ::WaitForSingleObject(m_handle.get(), 0) == WAIT_OBJECT_0;
+bool Process::IsTerminated() const noexcept {
+	return ::WaitForSingleObject(m_Handle.get(), 0) == WAIT_OBJECT_0;
 }
 
-bool Process::IsManaged() const {
+bool Process::IsManaged() const noexcept {
 	wil::unique_handle hProcess;
-	if (!::DuplicateHandle(::GetCurrentProcess(), m_handle.get(), ::GetCurrentProcess(), hProcess.addressof(),
+	if (!::DuplicateHandle(::GetCurrentProcess(), m_Handle.get(), ::GetCurrentProcess(), hProcess.addressof(),
 		PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, 0))
 		return false;
 
@@ -273,35 +273,35 @@ bool Process::IsManaged() const {
 	return false;
 }
 
-WinSys::ProcessPriorityClass Process::GetPriorityClass() const {
-	return static_cast<WinSys::ProcessPriorityClass>(::GetPriorityClass(m_handle.get()));
+WinSys::ProcessPriorityClass Process::GetPriorityClass() const noexcept {
+	return static_cast<WinSys::ProcessPriorityClass>(::GetPriorityClass(m_Handle.get()));
 }
 
-bool Process::SetPriorityClass(WinSys::ProcessPriorityClass pc) {
-	return ::SetPriorityClass(m_handle.get(), static_cast<DWORD>(pc));
+bool Process::SetPriorityClass(WinSys::ProcessPriorityClass pc) noexcept {
+	return ::SetPriorityClass(m_Handle.get(), static_cast<DWORD>(pc));
 }
 
-uint32_t Process::GetGdiObjectCount() const {
-	return ::GetGuiResources(m_handle.get(), GR_GDIOBJECTS);
+uint32_t Process::GetGdiObjectCount() const noexcept {
+	return ::GetGuiResources(m_Handle.get(), GR_GDIOBJECTS);
 }
 
-uint32_t Process::GetPeakGdiObjectCount() const {
-	return ::GetGuiResources(m_handle.get(), GR_GDIOBJECTS_PEAK);
+uint32_t Process::GetPeakGdiObjectCount() const noexcept {
+	return ::GetGuiResources(m_Handle.get(), GR_GDIOBJECTS_PEAK);
 }
 
-uint32_t Process::GetUserObjectCount() const {
-	return ::GetGuiResources(m_handle.get(), GR_USEROBJECTS);
+uint32_t Process::GetUserObjectCount() const noexcept {
+	return ::GetGuiResources(m_Handle.get(), GR_USEROBJECTS);
 }
 
-uint32_t Process::GetPeakUserObjectCount() const {
-	return ::GetGuiResources(m_handle.get(), GR_USEROBJECTS_PEAK);
+uint32_t Process::GetPeakUserObjectCount() const noexcept {
+	return ::GetGuiResources(m_Handle.get(), GR_USEROBJECTS_PEAK);
 }
 
-VirtualizationState Process::GetVirtualizationState() const {
+VirtualizationState Process::GetVirtualizationState() const noexcept {
 	ULONG virt = 0;
 	DWORD len;
 	wil::unique_handle hToken;
-	if (!::OpenProcessToken(m_handle.get(), TOKEN_QUERY, hToken.addressof()))
+	if (!::OpenProcessToken(m_Handle.get(), TOKEN_QUERY, hToken.addressof()))
 		return VirtualizationState::Unknown;
 
 	if (!::GetTokenInformation(hToken.get(), TokenVirtualizationAllowed, &virt, sizeof(virt), &len))
@@ -318,29 +318,29 @@ VirtualizationState Process::GetVirtualizationState() const {
 
 HANDLE Process::GetNextThread(HANDLE hThread, ThreadAccessMask access) {
 	HANDLE hNewThread{ nullptr };
-	::NtGetNextThread(m_handle.get(), hThread, static_cast<ACCESS_MASK>(access), 0, 0, &hNewThread);
+	::NtGetNextThread(m_Handle.get(), hThread, static_cast<ACCESS_MASK>(access), 0, 0, &hNewThread);
 	return hNewThread;
 }
 
-DpiAwareness Process::GetDpiAwareness() const {
+DpiAwareness Process::GetDpiAwareness() const noexcept {
 	static const auto pGetProcessDpiAware = (decltype(::GetProcessDpiAwareness)*)::GetProcAddress(::GetModuleHandle(L"shcore"), "GetProcessDpiAwareness");
 
-	if (!m_handle || pGetProcessDpiAware == nullptr)
+	if (!m_Handle || pGetProcessDpiAware == nullptr)
 		return DpiAwareness::None;
 
 	DpiAwareness da = DpiAwareness::None;
-	pGetProcessDpiAware(m_handle.get(), reinterpret_cast<PROCESS_DPI_AWARENESS*>(&da));
+	pGetProcessDpiAware(m_Handle.get(), reinterpret_cast<PROCESS_DPI_AWARENESS*>(&da));
 	return da;
 }
 
-std::wstring Process::GetCurrentDirectory() const {
+std::wstring Process::GetCurrentDirectory() const noexcept {
 	wil::unique_handle h;
-	if (!::DuplicateHandle(::GetCurrentProcess(), m_handle.get(), ::GetCurrentProcess(), h.addressof(), PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, 0))
+	if (!::DuplicateHandle(::GetCurrentProcess(), m_Handle.get(), ::GetCurrentProcess(), h.addressof(), PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, FALSE, 0))
 		return L"";
 	return GetCurrentDirectory(h.get());
 }
 
-std::wstring Process::GetCurrentDirectory(HANDLE hProcess) {
+std::wstring Process::GetCurrentDirectory(HANDLE hProcess) noexcept {
 	std::wstring path;
 	PEB peb;
 	if (!GetProcessPeb(hProcess, &peb))
@@ -357,7 +357,7 @@ std::wstring Process::GetCurrentDirectory(HANDLE hProcess) {
 	return path;
 }
 
-std::vector<std::pair<std::wstring, std::wstring>> Process::GetEnvironment(HANDLE hProcess) {
+std::vector<std::pair<std::wstring, std::wstring>> Process::GetEnvironment(HANDLE hProcess) noexcept {
 	std::vector<std::pair<std::wstring, std::wstring>> env;
 
 	PEB peb;
@@ -393,4 +393,8 @@ std::vector<std::pair<std::wstring, std::wstring>> Process::GetEnvironment(HANDL
 	}
 
 	return env;
+}
+
+std::vector<std::pair<std::wstring, std::wstring>> WinSys::Process::GetEnvironment() const noexcept {
+	return GetEnvironment(m_Handle.get());
 }

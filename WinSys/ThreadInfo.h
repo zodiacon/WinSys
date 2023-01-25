@@ -63,31 +63,24 @@ namespace WinSys {
 	struct ThreadInfo {
 		template<typename TProcessInfo, typename TThreadInfo>
 		friend class ProcessManager;
-	public:
+
+		const SYSTEM_EXTENDED_THREAD_INFORMATION* ExtendedInfo{ nullptr };
+		const SYSTEM_THREAD_INFORMATION* NativeInfo{ nullptr };
+
 		const std::wstring& GetProcessImageName() const {
-			return m_processName;
+			return m_ProcessName;
 		}
 
-		uint64_t KernelTime;
-		uint64_t UserTime;
-		uint64_t CreateTime;
-		uint32_t WaitTime;
 		uint32_t Id, ProcessId;
-		int32_t Priority;
-		int32_t BasePriority;
-		uint32_t ContextSwitches;
-		ThreadState ThreadState;
-		WaitReason WaitReason;
+		ThreadState GetThreadState() const;
+		WaitReason GetWaitReason() const;
+
 		int32_t CPU;
-		void* StartAddress;
-		void* StackBase, *StackLimit;
-		void* Win32StartAddress;
-		void* TebBase;
 
 		ProcessOrThreadKey Key;
 
 	private:
-		std::wstring m_processName;
+		std::wstring m_ProcessName;
 	};
 }
 

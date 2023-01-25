@@ -21,32 +21,32 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{c8ceb891-1e94-4ce1-9497-5d09c6f75ef4}</ProjectGuid>
-    <RootNamespace>WinSys</RootNamespace>
+    <ProjectGuid>{ef5ccb85-6978-40c2-a1b0-c3f03b9ee9d4}</ProjectGuid>
+    <RootNamespace>WinSysCon</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -70,33 +70,20 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LinkIncremental>true</LinkIncremental>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LinkIncremental>false</LinkIncremental>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LinkIncremental>true</LinkIncremental>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LinkIncremental>false</LinkIncremental>
-  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>.\phnt</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\WinSys;..\WinSys\phnt</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <SubSystem>
-      </SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -106,17 +93,16 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>.\phnt</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\WinSys;..\WinSys\phnt</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <SubSystem>
-      </SubSystem>
+      <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -126,17 +112,16 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>.\phnt</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\WinSys;..\WinSys\phnt</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <SubSystem>
-      </SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -146,106 +131,37 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>.\phnt</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\WinSys;..\WinSys\phnt</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <SubSystem>
-      </SubSystem>
+      <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Driver.h" />
-    <ClInclude Include="Enums.h" />
-    <ClInclude Include="Helpers.h" />
-    <ClInclude Include="KernelModuleTracker.h" />
-    <ClInclude Include="Keys.h" />
-    <ClInclude Include="LsaSecurity.h" />
-    <ClInclude Include="pch.h" />
-    <ClInclude Include="phnt\ntd3dkmt.h" />
-    <ClInclude Include="phnt\ntdbg.h" />
-    <ClInclude Include="phnt\ntexapi.h" />
-    <ClInclude Include="phnt\ntgdi.h" />
-    <ClInclude Include="phnt\ntioapi.h" />
-    <ClInclude Include="phnt\ntkeapi.h" />
-    <ClInclude Include="phnt\ntldr.h" />
-    <ClInclude Include="phnt\ntlpcapi.h" />
-    <ClInclude Include="phnt\ntmisc.h" />
-    <ClInclude Include="phnt\ntmmapi.h" />
-    <ClInclude Include="phnt\ntnls.h" />
-    <ClInclude Include="phnt\ntobapi.h" />
-    <ClInclude Include="phnt\ntpebteb.h" />
-    <ClInclude Include="phnt\ntpfapi.h" />
-    <ClInclude Include="phnt\ntpnpapi.h" />
-    <ClInclude Include="phnt\ntpoapi.h" />
-    <ClInclude Include="phnt\ntpsapi.h" />
-    <ClInclude Include="phnt\ntregapi.h" />
-    <ClInclude Include="phnt\ntrtl.h" />
-    <ClInclude Include="phnt\ntsam.h" />
-    <ClInclude Include="phnt\ntseapi.h" />
-    <ClInclude Include="phnt\ntsmss.h" />
-    <ClInclude Include="phnt\nttmapi.h" />
-    <ClInclude Include="phnt\nttp.h" />
-    <ClInclude Include="phnt\ntwow64.h" />
-    <ClInclude Include="phnt\ntxcapi.h" />
-    <ClInclude Include="phnt\ntzwapi.h" />
-    <ClInclude Include="phnt\phnt.h" />
-    <ClInclude Include="phnt\phnt_ntdef.h" />
-    <ClInclude Include="phnt\phnt_windows.h" />
-    <ClInclude Include="phnt\subprocesstag.h" />
-    <ClInclude Include="phnt\winsta.h" />
-    <ClInclude Include="Processes.h" />
-    <ClInclude Include="ProcessInfo.h" />
-    <ClInclude Include="ProcessManager.h" />
-    <ClInclude Include="ProcessModuleTracker.h" />
-    <ClInclude Include="SecurityHelper.h" />
-    <ClInclude Include="Service.h" />
-    <ClInclude Include="ServiceInfo.h" />
-    <ClInclude Include="ServiceManager.h" />
-    <ClInclude Include="Sid.h" />
-    <ClInclude Include="SystemInformation.h" />
-    <ClInclude Include="Thread.h" />
-    <ClInclude Include="ThreadInfo.h" />
-    <ClInclude Include="Token.h" />
-    <ClInclude Include="VdsProvider.h" />
-    <ClInclude Include="VdsVolume.h" />
-    <ClInclude Include="VirtualDiskService.h" />
-    <ClInclude Include="WinSys.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Driver.cpp" />
-    <ClCompile Include="Helpers.cpp" />
-    <ClCompile Include="KernelModuleTracker.cpp" />
-    <ClCompile Include="LsaSecurity.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Processes.cpp" />
-    <ClCompile Include="ProcessInfo.cpp" />
-    <ClCompile Include="ProcessManager.cpp" />
-    <ClCompile Include="ProcessModuleTracker.cpp" />
-    <ClCompile Include="SecurityHelper.cpp" />
-    <ClCompile Include="Service.cpp" />
-    <ClCompile Include="ServiceManager.cpp" />
-    <ClCompile Include="Sid.cpp" />
-    <ClCompile Include="SystemInformation.cpp" />
-    <ClCompile Include="Thread.cpp" />
-    <ClCompile Include="ThreadInfo.cpp" />
-    <ClCompile Include="Token.cpp" />
-    <ClCompile Include="VdsProvider.cpp" />
-    <ClCompile Include="VirtualDiskService.cpp" />
-    <ClCompile Include="WinSys.cpp" />
+    <ClCompile Include="WinSysCon.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WinSys\WinSys.vcxproj">
+      <Project>{c8ceb891-1e94-4ce1-9497-5d09c6f75ef4}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
