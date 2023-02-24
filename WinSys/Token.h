@@ -43,27 +43,25 @@ namespace WinSys {
 
 	class Token final {
 	public:
-		explicit Token(HANDLE hToken);
-		bool OpenProcessToken(DWORD pid, TokenAccessMask access);
-		Token(HANDLE hProcess, TokenAccessMask access);
+		explicit Token(HANDLE hToken) noexcept;
+		bool OpenProcessToken(DWORD pid, TokenAccessMask access) noexcept;
+		Token(HANDLE hProcess, TokenAccessMask access) noexcept;
 		static std::unique_ptr<Token> Open(DWORD pid, TokenAccessMask access = TokenAccessMask::Query);
 
-		bool EnablePrivilege(PCWSTR name, bool enable);
+		bool EnablePrivilege(PCWSTR name, bool enable) const noexcept;
 
 		std::pair<std::wstring, Sid> GetUserNameAndSid() const;
 		std::wstring GetUserName() const;
 
-		bool IsValid() const;
-		operator const bool() const {
-			return IsValid();
-		}
-		bool IsElevated() const;
-		VirtualizationState GetVirtualizationState() const;
-		IntegrityLevel GetIntegrityLevel() const;
-		DWORD GetSessionId() const;
-		TOKEN_STATISTICS GetStats() const;
-		std::vector<TokenGroup> EnumGroups(bool caps = false) const;
-		std::vector<TokenPrivilege> EnumPrivileges() const;
+		bool IsValid() const noexcept;
+		operator bool() const noexcept;
+		bool IsElevated() const noexcept;
+		VirtualizationState GetVirtualizationState() const noexcept;
+		IntegrityLevel GetIntegrityLevel() const noexcept;
+		DWORD GetSessionId() const noexcept;
+		TOKEN_STATISTICS GetStats() const noexcept;
+		std::vector<TokenGroup> EnumGroups(bool caps = false) const noexcept;
+		std::vector<TokenPrivilege> EnumPrivileges() const noexcept;
 
 	private:
 		wil::unique_handle m_Handle;

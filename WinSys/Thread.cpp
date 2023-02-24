@@ -8,7 +8,7 @@ using namespace WinSys;
 
 Thread::Thread(HANDLE handle, bool own) : m_handle(handle), m_own(own) {}
 
-bool Thread::Open(uint32_t tid, ThreadAccessMask accessMask) {
+bool Thread::Open(uint32_t tid, ThreadAccessMask accessMask) noexcept {
 	auto hThread = ::OpenThread(static_cast<ACCESS_MASK>(accessMask), FALSE, tid);
 	if (!hThread)
 		return false;
@@ -20,26 +20,26 @@ bool Thread::Open(uint32_t tid, ThreadAccessMask accessMask) {
 	return true;
 }
 
-Thread::~Thread() {
+Thread::~Thread() noexcept {
 	if (m_own && m_handle)
 		::CloseHandle(m_handle);
 }
 
-int Thread::GetMemoryPriority() const {
+int Thread::GetMemoryPriority() const noexcept {
 	int priority = -1;
 	ULONG len;
 	::NtQueryInformationThread(m_handle, ThreadPagePriority, &priority, sizeof(priority), &len);
 	return priority;
 }
 
-IoPriority Thread::GetIoPriority() const {
+IoPriority Thread::GetIoPriority() const noexcept {
 	auto priority = IoPriority::Unknown;
 	ULONG len;
 	::NtQueryInformationThread(m_handle, ThreadIoPriority, &priority, sizeof(priority), &len);
 	return priority;
 }
 
-size_t Thread::GetSubProcessTag() const {
+size_t Thread::GetSubProcessTag() const noexcept {
 	THREAD_BASIC_INFORMATION tbi;
 	auto status = ::NtQueryInformationThread(m_handle, ThreadBasicInformation, &tbi, sizeof(tbi), nullptr);
 	if (!NT_SUCCESS(status))
@@ -66,7 +66,7 @@ size_t Thread::GetSubProcessTag() const {
 	return tag;
 }
 
-std::wstring Thread::GetServiceNameByTag(uint32_t pid) const {
+std::wstring Thread::GetServiceNameByTag(uint32_t pid) const noexcept {
 	static auto QueryTagInformation = (PQUERY_TAG_INFORMATION)::GetProcAddress(::GetModuleHandle(L"advapi32"), "I_QueryTagInformation");
 	if (QueryTagInformation == nullptr)
 		return L"";
@@ -82,7 +82,7 @@ std::wstring Thread::GetServiceNameByTag(uint32_t pid) const {
 	return info.OutParams.pszName;
 }
 
-ComFlags Thread::GetComFlags() const {
+ComFlags Thread::GetComFlags() const noexcept {
 	THREAD_BASIC_INFORMATION tbi;
 	auto status = ::NtQueryInformationThread(m_handle, ThreadBasicInformation, &tbi, sizeof(tbi), nullptr);
 	if (!NT_SUCCESS(status))
@@ -119,15 +119,15 @@ ComFlags Thread::GetComFlags() const {
 	return ComFlags(*(DWORD*)flags);
 }
 
-bool Thread::IsValid() const {
+bool Thread::IsValid() const noexcept {
 	return m_handle != nullptr;
 }
 
-ThreadPriorityLevel Thread::GetPriority() const {
+ThreadPriorityLevel Thread::GetPriority() const noexcept {
 	return static_cast<ThreadPriorityLevel>(::GetThreadPriority(m_handle));
 }
 
-CpuNumber Thread::GetIdealProcessor() const {
+CpuNumber Thread::GetIdealProcessor() const noexcept {
 	PROCESSOR_NUMBER cpu;
 	ULONG len;
 	CpuNumber number;

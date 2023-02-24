@@ -4,7 +4,7 @@
 #include <vector>
 #include <type_traits>
 #include <unordered_map>
-#include <wil\resource.h>
+#include <wil/resource.h>
 #include "Keys.h"
 #include "ProcessInfo.h"
 #include "ThreadInfo.h"
@@ -83,11 +83,11 @@ namespace WinSys {
 			}
 
 			int size = 1 << 22;
-			if(!m_Buffer)
-				m_Buffer.reset((BYTE*)::VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-			if (!m_Buffer)
+			if(!m_Buffer[m_BufIndex])
+				m_Buffer[m_BufIndex].reset((BYTE*)::VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+			if (!m_Buffer[m_BufIndex])
 				return 0;
-			auto buffer = m_Buffer.get();
+			auto buffer = m_Buffer[m_BufIndex].get();
 
 			ULONG len;
 
@@ -165,7 +165,7 @@ namespace WinSys {
 			}
 
 			m_PrevTicks = ticks;
-
+			m_BufIndex = 1 - m_BufIndex;
 			return static_cast<uint32_t>(m_Processes.size());
 		}
 
@@ -283,6 +283,14 @@ namespace WinSys {
 						pi->m_ProcessName = name;
 					}
 				}
+				else {
+					pi->NativeInfo = info;
+					if (extended) {
+						auto ext = (SYSTEM_PROCESS_INFORMATION_EXTENSION*)((BYTE*)info +
+							FIELD_OFFSET(SYSTEM_PROCESS_INFORMATION, Threads) + sizeof(SYSTEM_EXTENDED_THREAD_INFORMATION) * info->NumberOfThreads);
+						pi->ExtendedInfo = ext;
+					}
+				}
 
 				if (includeThreads && pi->Id > 0) {
 					auto threadCount = info->NumberOfThreads;
@@ -348,7 +356,8 @@ namespace WinSys {
 			inline static uint32_t s_TotalProcessors;
 			inline static bool s_IsElevated;
 
-			wil::unique_virtualalloc_ptr<BYTE> m_Buffer;
+			wil::unique_virtualalloc_ptr<BYTE> m_Buffer[2];
+			int m_BufIndex{ 0 };
 	};
 }
 

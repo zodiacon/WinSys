@@ -55,27 +55,27 @@ namespace WinSys {
 	public:
 		static std::unique_ptr<Thread> OpenById(uint32_t tid, ThreadAccessMask accessMask = ThreadAccessMask::QueryInformation);
 		explicit Thread(HANDLE handle, bool own = false);
-		bool Open(uint32_t tid, ThreadAccessMask accessMask = ThreadAccessMask::QueryInformation);
-		~Thread();
+		bool Open(uint32_t tid, ThreadAccessMask accessMask = ThreadAccessMask::QueryInformation) noexcept;
+		~Thread() noexcept;
 
-		HANDLE Handle() const {
+		HANDLE Handle() const noexcept {
 			return m_handle;
 		}
 
-		operator bool() const {
+		operator bool() const noexcept {
 			return IsValid();
 		}
-		bool IsValid() const;
+		bool IsValid() const noexcept;
 
-		ThreadPriorityLevel GetPriority() const;
-		bool SetPriority(ThreadPriorityLevel priority);
-		CpuNumber GetIdealProcessor() const;
-		bool Terminate(uint32_t exitCode = 0);
-		int GetMemoryPriority() const;
-		IoPriority GetIoPriority() const;
-		size_t GetSubProcessTag() const;
-		std::wstring GetServiceNameByTag(uint32_t pid) const;
-		ComFlags GetComFlags() const;
+		ThreadPriorityLevel GetPriority() const noexcept;
+		bool SetPriority(ThreadPriorityLevel priority) noexcept;
+		CpuNumber GetIdealProcessor() const noexcept;
+		bool Terminate(uint32_t exitCode = 0) noexcept;
+		int GetMemoryPriority() const noexcept;
+		IoPriority GetIoPriority() const noexcept;
+		size_t GetSubProcessTag() const noexcept;
+		std::wstring GetServiceNameByTag(uint32_t pid) const noexcept;
+		ComFlags GetComFlags() const noexcept;
 
 	private:
 		HANDLE m_handle{ nullptr };

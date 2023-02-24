@@ -4,18 +4,17 @@
 
 using namespace WinSys;
 
-Token::Token(HANDLE hToken) : m_Handle(hToken) {
+Token::Token(HANDLE hToken) noexcept : m_Handle(hToken) {
 }
 
-bool Token::OpenProcessToken(DWORD pid, TokenAccessMask access) {
-	wil::unique_handle hProcess(::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid));
-	if (hProcess) {
+bool Token::OpenProcessToken(DWORD pid, TokenAccessMask access) noexcept {
+	if (wil::unique_handle hProcess(::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid)); hProcess) {
 		::OpenProcessToken(hProcess.get(), static_cast<DWORD>(access), m_Handle.addressof());
 	}
 	return m_Handle.is_valid();
 }
 
-Token::Token(HANDLE hProcess, TokenAccessMask access) {
+Token::Token(HANDLE hProcess, TokenAccessMask access) noexcept {
 	::OpenProcessToken(hProcess, static_cast<DWORD>(access), m_Handle.addressof());
 }
 
@@ -51,18 +50,22 @@ std::wstring WinSys::Token::GetUserName() const {
 	return GetUserNameAndSid().first;
 }
 
-bool Token::IsValid() const {
+bool Token::IsValid() const noexcept {
 	return m_Handle != nullptr;
 }
 
-bool Token::IsElevated() const {
+WinSys::Token::operator bool() const noexcept {
+	return IsValid();
+}
+
+bool Token::IsElevated() const noexcept {
 	ULONG elevated = 0;
 	DWORD len;
 	::GetTokenInformation(m_Handle.get(), TokenElevation, &elevated, sizeof(elevated), &len);
 	return elevated ? true : false;
 }
 
-VirtualizationState Token::GetVirtualizationState() const {
+VirtualizationState Token::GetVirtualizationState() const noexcept {
 	ULONG virt = 0;
 	DWORD len;
 	if (!::GetTokenInformation(m_Handle.get(), TokenVirtualizationAllowed, &virt, sizeof(virt), &len))
@@ -77,7 +80,7 @@ VirtualizationState Token::GetVirtualizationState() const {
 	return VirtualizationState::Unknown;
 }
 
-IntegrityLevel Token::GetIntegrityLevel() const {
+IntegrityLevel Token::GetIntegrityLevel() const noexcept {
 	BYTE buffer[TOKEN_INTEGRITY_LEVEL_MAX_SIZE];
 	DWORD len;
 	if (!::GetTokenInformation(m_Handle.get(), TokenIntegrityLevel, buffer, sizeof(buffer), &len))
@@ -87,24 +90,24 @@ IntegrityLevel Token::GetIntegrityLevel() const {
 	return (IntegrityLevel)*GetSidSubAuthority(p->Label.Sid, *GetSidSubAuthorityCount(p->Label.Sid) - 1);
 }
 
-DWORD Token::GetSessionId() const {
-	DWORD id = 0, len;
+DWORD Token::GetSessionId() const noexcept {
+	DWORD id = -1;
+	DWORD len;
 	::GetTokenInformation(m_Handle.get(), TokenSessionId, &id, sizeof(id), &len);
 	return id;
 }
 
-TOKEN_STATISTICS Token::GetStats() const {
+TOKEN_STATISTICS Token::GetStats() const noexcept {
 	TOKEN_STATISTICS stats{};
 	DWORD len;
 	::GetTokenInformation(m_Handle.get(), TokenStatistics, &stats, sizeof(stats), &len);
 	return stats;
 }
 
-std::vector<TokenGroup> WinSys::Token::EnumGroups(bool caps) const {
+std::vector<TokenGroup> WinSys::Token::EnumGroups(bool caps) const noexcept {
 	std::vector<TokenGroup> groups;
 	BYTE buffer[1 << 13];
-	DWORD len;
-	if (!::GetTokenInformation(m_Handle.get(), caps ? TokenCapabilities : TokenGroups, buffer, sizeof(buffer), &len))
+	if (DWORD len; !::GetTokenInformation(m_Handle.get(), caps ? TokenCapabilities : TokenGroups, buffer, sizeof(buffer), &len))
 		return groups;
 
 	auto data = (TOKEN_GROUPS*)buffer;
@@ -125,11 +128,10 @@ std::vector<TokenGroup> WinSys::Token::EnumGroups(bool caps) const {
 	return groups;
 }
 
-std::vector<TokenPrivilege> Token::EnumPrivileges() const {
+std::vector<TokenPrivilege> Token::EnumPrivileges() const noexcept {
 	std::vector<TokenPrivilege> privs;
-	BYTE buffer[1 << 13];
-	DWORD len;
-	if (!::GetTokenInformation(m_Handle.get(), TokenPrivileges, buffer, sizeof(buffer), &len))
+	BYTE buffer[1 << 12];
+	if (DWORD len; !::GetTokenInformation(m_Handle.get(), TokenPrivileges, buffer, sizeof(buffer), &len))
 		return privs;
 
 	auto data = (TOKEN_PRIVILEGES*)buffer;
@@ -141,8 +143,7 @@ std::vector<TokenPrivilege> Token::EnumPrivileges() const {
 		TokenPrivilege priv;
 		auto& p = data->Privileges[i];
 		priv.Privilege = p.Luid;
-		len = _countof(name);
-		if (::LookupPrivilegeName(nullptr, &p.Luid, name, &len))
+		if (DWORD len = _countof(name); ::LookupPrivilegeName(nullptr, &p.Luid, name, &len))
 			priv.Name = name;
 		priv.Attributes = p.Attributes;
 		privs.push_back(std::move(priv));
@@ -150,7 +151,7 @@ std::vector<TokenPrivilege> Token::EnumPrivileges() const {
 	return privs;
 }
 
-bool Token::EnablePrivilege(PCWSTR privName, bool enable) {
+bool Token::EnablePrivilege(PCWSTR privName, bool enable) const noexcept {
 	wil::unique_handle hToken;
 	if (!::DuplicateHandle(::GetCurrentProcess(), m_Handle.get(), ::GetCurrentProcess(), hToken.addressof(), 
 		TOKEN_ADJUST_PRIVILEGES, FALSE, 0))
