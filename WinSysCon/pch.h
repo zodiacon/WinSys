@@ -5,9 +5,10 @@
 #define PHNT_VERSION PHNT_THRESHOLD
 #define _HAS_EXCEPTIONS 0
 
-#define STATUS_BUFFER_TOO_SMALL (0xC0000023)
-
-#include <Windows.h>
+#define __ImageBase __ImageBase_phnt	// phnt declares it const, WIL doesn't
+#include <phnt_windows.h>
+#include <phnt.h>
+#undef __ImageBase
 #include <shellscalingapi.h>
 #include <strsafe.h>
 #include <string>
@@ -24,5 +25,3 @@
 #include <sddl.h>
 #include <wil\resource.h>
 #include <wil\com.h>
-#include <phnt_windows.h>
-#include <phnt.h>

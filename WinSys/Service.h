@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include "ServiceManager.h"
+#include <wil/resource.h>
 
 namespace WinSys {
 	enum class ServiceTriggerType {

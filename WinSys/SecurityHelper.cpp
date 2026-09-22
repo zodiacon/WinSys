@@ -18,7 +18,7 @@ bool SecurityHelper::IsRunningElevated() {
 
 	TOKEN_ELEVATION te;
 	DWORD len;
-	if (::GetTokenInformation(hToken.get(), TokenElevation, &te, sizeof(te), &len)) {
+	if (NT_SUCCESS(::NtQueryInformationToken(hToken.get(), TokenElevation, &te, sizeof(te), &len))) {
 		runningElevated = te.TokenIsElevated ? true : false;
 	}
 	return runningElevated;

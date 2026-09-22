@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "KernelModuleTracker.h"
+#include <wil/resource.h>
 
 using namespace WinSys;
 

@@ -48,7 +48,7 @@ namespace WinSys {
 		LARGE_INTEGER PasswordMustChange;
 	};
 
-	class LsaSecurity abstract final {
+	class LsaSecurity final {
 	public:
 		static std::vector<LogonSessionData> EnumLogonSessions();
 		static std::wstring GetUserNameByLogonSession(PLUID sessionId);

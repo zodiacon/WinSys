@@ -5,6 +5,7 @@
 #include "Sid.h"
 #include <memory>
 #include <string>
+#include <wil/resource.h>
 
 namespace WinSys {
 	struct ServiceInfo;

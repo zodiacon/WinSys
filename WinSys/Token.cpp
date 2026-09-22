@@ -32,7 +32,7 @@ std::pair<std::wstring, Sid> Token::GetUserNameAndSid() const {
 	assert(m_Handle);
 	BYTE buffer[256];
 	DWORD len;
-	if (::GetTokenInformation(m_Handle.get(), TokenUser, buffer, sizeof(buffer), &len)) {
+	if (NT_SUCCESS(::NtQueryInformationToken(m_Handle.get(), TokenUser, buffer, sizeof(buffer), &len))) {
 		auto data = (TOKEN_USER*)buffer;
 		Sid sid(data->User.Sid);
 		WCHAR name[64], domain[64];
@@ -61,20 +61,20 @@ WinSys::Token::operator bool() const noexcept {
 bool Token::IsElevated() const noexcept {
 	ULONG elevated = 0;
 	DWORD len;
-	::GetTokenInformation(m_Handle.get(), TokenElevation, &elevated, sizeof(elevated), &len);
+	::NtQueryInformationToken(m_Handle.get(), TokenElevation, &elevated, sizeof(elevated), &len);
 	return elevated ? true : false;
 }
 
 VirtualizationState Token::GetVirtualizationState() const noexcept {
 	ULONG virt = 0;
 	DWORD len;
-	if (!::GetTokenInformation(m_Handle.get(), TokenVirtualizationAllowed, &virt, sizeof(virt), &len))
+	if (!NT_SUCCESS(::NtQueryInformationToken(m_Handle.get(), TokenVirtualizationAllowed, &virt, sizeof(virt), &len)))
 		return VirtualizationState::Unknown;
 
 	if (!virt)
 		return VirtualizationState::NotAllowed;
 
-	if (::GetTokenInformation(m_Handle.get(), TokenVirtualizationEnabled, &virt, sizeof(virt), &len))
+	if (NT_SUCCESS(::NtQueryInformationToken(m_Handle.get(), TokenVirtualizationEnabled, &virt, sizeof(virt), &len)))
 		return virt ? VirtualizationState::Enabled : VirtualizationState::Disabled;
 
 	return VirtualizationState::Unknown;
@@ -83,7 +83,7 @@ VirtualizationState Token::GetVirtualizationState() const noexcept {
 IntegrityLevel Token::GetIntegrityLevel() const noexcept {
 	BYTE buffer[TOKEN_INTEGRITY_LEVEL_MAX_SIZE];
 	DWORD len;
-	if (!::GetTokenInformation(m_Handle.get(), TokenIntegrityLevel, buffer, sizeof(buffer), &len))
+	if (!NT_SUCCESS(::NtQueryInformationToken(m_Handle.get(), TokenIntegrityLevel, buffer, sizeof(buffer), &len)))
 		return IntegrityLevel::Error;
 
 	auto p = (TOKEN_MANDATORY_LABEL*)buffer;
@@ -93,21 +93,21 @@ IntegrityLevel Token::GetIntegrityLevel() const noexcept {
 DWORD Token::GetSessionId() const noexcept {
 	DWORD id = -1;
 	DWORD len;
-	::GetTokenInformation(m_Handle.get(), TokenSessionId, &id, sizeof(id), &len);
+	::NtQueryInformationToken(m_Handle.get(), TokenSessionId, &id, sizeof(id), &len);
 	return id;
 }
 
 TOKEN_STATISTICS Token::GetStats() const noexcept {
 	TOKEN_STATISTICS stats{};
 	DWORD len;
-	::GetTokenInformation(m_Handle.get(), TokenStatistics, &stats, sizeof(stats), &len);
+	::NtQueryInformationToken(m_Handle.get(), TokenStatistics, &stats, sizeof(stats), &len);
 	return stats;
 }
 
 std::vector<TokenGroup> WinSys::Token::EnumGroups(bool caps) const noexcept {
 	std::vector<TokenGroup> groups;
 	BYTE buffer[1 << 13];
-	if (DWORD len; !::GetTokenInformation(m_Handle.get(), caps ? TokenCapabilities : TokenGroups, buffer, sizeof(buffer), &len))
+	if (DWORD len; !NT_SUCCESS(::NtQueryInformationToken(m_Handle.get(), caps ? TokenCapabilities : TokenGroups, buffer, sizeof(buffer), &len)))
 		return groups;
 
 	auto data = (TOKEN_GROUPS*)buffer;
@@ -131,7 +131,7 @@ std::vector<TokenGroup> WinSys::Token::EnumGroups(bool caps) const noexcept {
 std::vector<TokenPrivilege> Token::EnumPrivileges() const noexcept {
 	std::vector<TokenPrivilege> privs;
 	BYTE buffer[1 << 12];
-	if (DWORD len; !::GetTokenInformation(m_Handle.get(), TokenPrivileges, buffer, sizeof(buffer), &len))
+	if (DWORD len; !NT_SUCCESS(::NtQueryInformationToken(m_Handle.get(), TokenPrivileges, buffer, sizeof(buffer), &len)))
 		return privs;
 
 	auto data = (TOKEN_PRIVILEGES*)buffer;

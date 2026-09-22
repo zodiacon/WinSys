@@ -1,5 +1,7 @@
 #pragma once
 
+#include <wil/resource.h>
+
 namespace WinSys {
 	class Driver final {
 	public:

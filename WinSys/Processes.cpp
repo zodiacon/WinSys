@@ -68,7 +68,7 @@ bool Process::IsElevated() const noexcept {
 
 	TOKEN_ELEVATION elevation;
 	DWORD size;
-	if (!::GetTokenInformation(hToken.get(), TokenElevation, &elevation, sizeof(elevation), &size))
+	if (!NT_SUCCESS(::NtQueryInformationToken(hToken.get(), TokenElevation, &elevation, sizeof(elevation), &size)))
 		return false;
 	return elevation.TokenIsElevated ? true : false;
 }
@@ -101,7 +101,7 @@ IntegrityLevel Process::GetIntegrityLevel() const noexcept {
 
 	BYTE buffer[256];
 	DWORD len;
-	if (!::GetTokenInformation(hToken.get(), TokenIntegrityLevel, buffer, 256, &len))
+	if (!NT_SUCCESS(::NtQueryInformationToken(hToken.get(), TokenIntegrityLevel, buffer, 256, &len)))
 		return IntegrityLevel::Error;
 
 	auto integrity = reinterpret_cast<TOKEN_MANDATORY_LABEL*>(buffer);
@@ -157,7 +157,7 @@ std::wstring Process::GetUserName() const noexcept {
 
 	BYTE buffer[128];
 	DWORD len;
-	if (!::GetTokenInformation(hToken.get(), TokenUser, buffer, sizeof(buffer), &len))
+	if (!NT_SUCCESS(::NtQueryInformationToken(hToken.get(), TokenUser, buffer, sizeof(buffer), &len)))
 		return L"";
 
 	auto user = reinterpret_cast<TOKEN_USER*>(buffer);
@@ -261,7 +261,7 @@ bool Process::IsManaged() const noexcept {
 	if (!::EnumProcessModulesEx(hProcess.get(), hModule, sizeof(hModule), &needed, wow64 ? LIST_MODULES_32BIT : LIST_MODULES_ALL))
 		return false;
 
-	int count = min(_countof(hModule), needed / sizeof(HMODULE));
+	auto count = std::min(_countof(hModule), needed / sizeof(HMODULE));
 
 	for (int i = 0; i < count; i++) {
 		if (::GetModuleFileNameEx(hProcess.get(), hModule[i], filename, MAX_PATH) == 0)
@@ -304,13 +304,13 @@ VirtualizationState Process::GetVirtualizationState() const noexcept {
 	if (!::OpenProcessToken(m_Handle.get(), TOKEN_QUERY, hToken.addressof()))
 		return VirtualizationState::Unknown;
 
-	if (!::GetTokenInformation(hToken.get(), TokenVirtualizationAllowed, &virt, sizeof(virt), &len))
+	if (!NT_SUCCESS(::NtQueryInformationToken(hToken.get(), TokenVirtualizationAllowed, &virt, sizeof(virt), &len)))
 		return VirtualizationState::Unknown;
 
 	if (!virt)
 		return VirtualizationState::NotAllowed;
 
-	if (::GetTokenInformation(hToken.get(), TokenVirtualizationEnabled, &virt, sizeof(virt), &len))
+	if (NT_SUCCESS(::NtQueryInformationToken(hToken.get(), TokenVirtualizationEnabled, &virt, sizeof(virt), &len)))
 		return virt ? VirtualizationState::Enabled : VirtualizationState::Disabled;
 
 	return VirtualizationState::Unknown;
