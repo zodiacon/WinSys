@@ -87,6 +87,9 @@
     <ClInclude Include="VdsVolume.h">
       <Filter>VirtualDiskService</Filter>
     </ClInclude>
+    <ClInclude Include="SystemInfo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="WinSys.cpp">
@@ -145,6 +148,9 @@
     </ClCompile>
     <ClCompile Include="VdsProvider.cpp">
       <Filter>VirtualDiskService</Filter>
+    </ClCompile>
+    <ClCompile Include="SystemInfo.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

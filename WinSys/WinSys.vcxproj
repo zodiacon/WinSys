@@ -179,6 +179,7 @@
     <ClInclude Include="ServiceInfo.h" />
     <ClInclude Include="ServiceManager.h" />
     <ClInclude Include="Sid.h" />
+    <ClInclude Include="SystemInfo.h" />
     <ClInclude Include="Thread.h" />
     <ClInclude Include="ThreadInfo.h" />
     <ClInclude Include="Token.h" />
@@ -206,6 +207,7 @@
     <ClCompile Include="Service.cpp" />
     <ClCompile Include="ServiceManager.cpp" />
     <ClCompile Include="Sid.cpp" />
+    <ClCompile Include="SystemInfo.cpp" />
     <ClCompile Include="Thread.cpp" />
     <ClCompile Include="ThreadInfo.cpp" />
     <ClCompile Include="Token.cpp" />

@@ -14,11 +14,18 @@ Sid::Sid(const wchar_t* fromString) {
 		::CopySid(sizeof(m_buffer), (PSID)*this, sid);
 }
 
-Sid::operator PSID() const {
+Sid WinSys::Sid::CreateWellKnown(WELL_KNOWN_SID_TYPE type, Sid const* domain) noexcept {
+	Sid s;
+	DWORD size = sizeof(m_buffer);
+	::CreateWellKnownSid(type, domain ? *domain : nullptr, s, &size);
+	return s;
+}
+
+Sid::operator PSID() const noexcept {
 	return (PSID)m_buffer;
 }
 
-bool Sid::IsValid() const {
+bool Sid::IsValid() const noexcept {
 	return ::IsValidSid((PSID)*this);
 }
 
@@ -43,3 +50,4 @@ std::wstring Sid::UserName(PSID_NAME_USE use) const {
 		return std::wstring(domain) + L"\\" + name;
 	return L"";
 }
+
