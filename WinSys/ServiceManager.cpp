@@ -99,6 +99,10 @@ std::unique_ptr<ServiceConfiguration> ServiceManager::GetServiceConfiguration(co
 			auto& info = (SERVICE_TRIGGER_INFO&)*buffer;
 			result->TriggerStart = info.cTriggers > 0;
 		}
+		else {
+			// too small for the trigger data means there are triggers
+			result->TriggerStart = ::GetLastError() == ERROR_INSUFFICIENT_BUFFER;
+		}
 	}
 
 	result->Type = static_cast<ServiceType>(config->dwServiceType);
@@ -117,18 +121,22 @@ std::wstring WinSys::ServiceManager::GetServiceDescription(const std::wstring & 
 	wil::unique_schandle hService(OpenServiceHandle(name));
 	if (!hService)
 		return L"";
-	BYTE buffer[1024];
-	DWORD len;
-	if (!::QueryServiceConfig2(hService.get(), SERVICE_CONFIG_DESCRIPTION, buffer, sizeof(buffer), &len))
+	DWORD len = 0;
+	::QueryServiceConfig2(hService.get(), SERVICE_CONFIG_DESCRIPTION, nullptr, 0, &len);
+	if (len == 0)
 		return L"";
-	auto desc = (SERVICE_DESCRIPTION*)buffer;
+	auto buffer = std::make_unique<BYTE[]>(len);
+	if (!::QueryServiceConfig2(hService.get(), SERVICE_CONFIG_DESCRIPTION, buffer.get(), len, &len))
+		return L"";
+	auto desc = (SERVICE_DESCRIPTION*)buffer.get();
 	if (desc->lpDescription == nullptr)
 		return L"";
 	return desc->lpDescription;
 }
 
 wil::unique_schandle ServiceManager::OpenServiceHandle(const std::wstring & name, ServiceAccessMask access) {
-	wil::unique_schandle hScm(::OpenSCManager(nullptr, nullptr, SC_MANAGER_ALL_ACCESS));
+	// opening a service only needs SC_MANAGER_CONNECT; SC_MANAGER_ALL_ACCESS fails unless running elevated
+	wil::unique_schandle hScm(::OpenSCManager(nullptr, nullptr, SC_MANAGER_CONNECT));
 	if (!hScm)
 		return nullptr;
 
