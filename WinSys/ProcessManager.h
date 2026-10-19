@@ -54,11 +54,24 @@ namespace WinSys {
 		ProcessManager() {
 			if (s_TotalProcessors == 0) {
 				s_TotalProcessors = ::GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
-				s_IsElevated = SecurityHelper::IsRunningElevated();
+				s_UseFullInfo = SecurityHelper::IsRunningElevated() && IsWindows8OrGreater();
+				LARGE_INTEGER freq;
+				::QueryPerformanceFrequency(&freq);
+				s_QpcFrequency = freq.QuadPart;
 			}
 		}
 
 		uint32_t Update(bool includeThreads, uint32_t pid) {
+			// query first: if it fails, the previous snapshot (and the pointers into its buffer) stays intact
+			LARGE_INTEGER ticks;
+			auto buffer = QuerySystemProcesses(ticks);
+			if (!buffer)
+				return static_cast<uint32_t>(m_Processes.size());
+
+			// CPU times are in 100 nsec units, so convert the elapsed QPC ticks to match
+			auto delta = m_PrevTicks.QuadPart == 0 ? 0 : (ticks.QuadPart - m_PrevTicks.QuadPart) * 10000000 / s_QpcFrequency;
+			bool extended = s_UseFullInfo;
+
 			std::vector<std::shared_ptr<TProcessInfo>> processes;
 			processes.reserve(m_Processes.empty() ? 512 : m_Processes.size() + 10);
 			ProcessMap processesByKey;
@@ -78,32 +91,7 @@ namespace WinSys {
 				m_ThreadsById.clear();
 			}
 
-			int size = 1 << 22;
-			if(!m_Buffer[m_BufIndex])
-				m_Buffer[m_BufIndex].reset((BYTE*)::VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-			if (!m_Buffer[m_BufIndex])
-				return 0;
-			auto buffer = m_Buffer[m_BufIndex].get();
-
-			ULONG len;
-
-			// get timing info as close as possible to the API call
-
-			LARGE_INTEGER ticks;
-			::QueryPerformanceCounter(&ticks);
-			auto delta = ticks.QuadPart - m_PrevTicks.QuadPart;
-
-			NTSTATUS status;
-			bool extended;
-			if (s_IsElevated && IsWindows8OrGreater()) {
-				status = NtQuerySystemInformation(SystemFullProcessInformation, buffer, size, &len);
-				extended = true;
-			}
-			else {
-				extended = false;
-				status = NtQuerySystemInformation(SystemExtendedProcessInformation, buffer, size, &len);
-			}
-			if (NT_SUCCESS(status)) {
+			{
 				auto p = reinterpret_cast<SYSTEM_PROCESS_INFORMATION*>(buffer);
 
 				for (;;) {
@@ -220,7 +208,7 @@ namespace WinSys {
 			auto map = m_ProcessesById;
 			for (auto& p : m_Processes) {
 				auto it = m_ProcessesById.find(p->ParentId);
-				if (p->ParentId == 0 || it == m_ProcessesById.end() || (it != m_ProcessesById.end() && it->second->CreateTime > p->CreateTime)) {
+				if (p->ParentId == 0 || it == m_ProcessesById.end() || (it != m_ProcessesById.end() && it->second->Key.Created > p->Key.Created)) {
 					// root
 					DbgPrint((PSTR)"Root: %ws (%u) (Parent: %u)\n", p->GetImageName().c_str(), p->Id, p->ParentId);
 					tree.push_back(std::make_pair(p, 0));
@@ -238,7 +226,7 @@ namespace WinSys {
 		std::vector<std::pair<uint32_t, int>> FindChildren(std::unordered_map<uint32_t, std::shared_ptr<TProcessInfo>>& map, TProcessInfo* parent, int indent) {
 			std::vector<std::pair<uint32_t, int>> children;
 			for (auto& p : m_Processes) {
-				if (p->ParentId == parent->Id && p->CreateTime > parent->CreateTime) {
+				if (p->ParentId == parent->Id && p->Key.Created > parent->Key.Created) {
 					children.push_back(std::make_pair(p->Id, indent));
 					map.erase(p->Id);
 					auto children2 = FindChildren(map, p.get(), indent + 1);
@@ -251,6 +239,34 @@ namespace WinSys {
 		private:
 			using ProcessMap = std::unordered_map<ProcessOrThreadKey, std::shared_ptr<TProcessInfo>>;
 			using ThreadMap = std::unordered_map<ProcessOrThreadKey, std::shared_ptr<TThreadInfo>>;
+
+			// fills the current buffer, growing it as needed; returns nullptr on failure
+			BYTE* QuerySystemProcesses(LARGE_INTEGER& ticks) {
+				auto& buffer = m_Buffer[m_BufIndex];
+				auto& size = m_BufferSize[m_BufIndex];
+				// the required size can grow between calls, so retry a few times
+				for (int i = 0; i < 4; i++) {
+					if (!buffer) {
+						if (size == 0)
+							size = 1 << 22;
+						buffer.reset((BYTE*)::VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+						if (!buffer)
+							return nullptr;
+					}
+					// get timing info as close as possible to the API call
+					::QueryPerformanceCounter(&ticks);
+					ULONG len = 0;
+					auto status = NtQuerySystemInformation(s_UseFullInfo ? SystemFullProcessInformation : SystemExtendedProcessInformation,
+						buffer.get(), size, &len);
+					if (NT_SUCCESS(status))
+						return buffer.get();
+					if (status != STATUS_INFO_LENGTH_MISMATCH)
+						return nullptr;
+					size = std::max<ULONG>(size * 2, len + (1 << 16));
+					buffer.reset();
+				}
+				return nullptr;
+			}
 
 			std::shared_ptr<TProcessInfo> BuildProcessInfo(const SYSTEM_PROCESS_INFORMATION* info, bool includeThreads,
 				ThreadMap& threadsByKey, int64_t delta, std::shared_ptr<TProcessInfo> pi, bool extended) {
@@ -289,6 +305,8 @@ namespace WinSys {
 				}
 
 				if (includeThreads && pi->Id > 0) {
+					// an existing process gets its current threads again below
+					pi->ClearThreads();
 					auto threadCount = info->NumberOfThreads;
 					for (ULONG i = 0; i < threadCount; i++) {
 						auto tinfo = (SYSTEM_EXTENDED_THREAD_INFORMATION*)info->Threads + i;
@@ -302,6 +320,9 @@ namespace WinSys {
 							thread = it->second;
 							cpuTime = thread->NativeInfo->UserTime.QuadPart + thread->NativeInfo->KernelTime.QuadPart;
 							newobject = false;
+							// point to the current snapshot (the previous one is overwritten on the next update)
+							thread->NativeInfo = &tinfo->ThreadInfo;
+							thread->ExtendedInfo = tinfo;
 						}
 						if (newobject) {
 							thread = std::make_shared<TThreadInfo>();
@@ -350,9 +371,11 @@ namespace WinSys {
 
 			LARGE_INTEGER m_PrevTicks{};
 			inline static uint32_t s_TotalProcessors;
-			inline static bool s_IsElevated;
+			inline static bool s_UseFullInfo;
+			inline static int64_t s_QpcFrequency;
 
 			wil::unique_virtualalloc_ptr<BYTE> m_Buffer[2];
+			ULONG m_BufferSize[2]{};
 			int m_BufIndex{ 0 };
 	};
 }

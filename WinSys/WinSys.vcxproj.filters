@@ -131,6 +131,9 @@
     <ClCompile Include="Sid.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SystemInformation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Token.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

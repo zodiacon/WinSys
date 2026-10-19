@@ -10,7 +10,7 @@ namespace WinSys {
 		FileSystemDrivers = SERVICE_FILE_SYSTEM_DRIVER,
 		AllServices = SERVICE_WIN32,
 		ServicesOwnProcess = SERVICE_WIN32_OWN_PROCESS,
-		ServicesSharedProcess = SERVICE_WIN32_OWN_PROCESS,
+		ServicesSharedProcess = SERVICE_WIN32_SHARE_PROCESS,
 	};
 	DEFINE_ENUM_FLAG_OPERATORS(ServiceEnumType);
 

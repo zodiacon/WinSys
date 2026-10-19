@@ -12,13 +12,20 @@ std::vector<ServiceInfo> ServiceManager::EnumServices(ServiceEnumType enumType, 
 	if (!hScm)
 		return services;
 
-	auto buffer = std::make_unique<BYTE[]>(1 << 18);
+	DWORD size = 1 << 18;
+	std::unique_ptr<BYTE[]> buffer;
 	DWORD needed;
 	DWORD count;
-	auto ok = ::EnumServicesStatusEx(hScm.get(), SC_ENUM_PROCESS_INFO, static_cast<DWORD>(enumType),
-		static_cast<DWORD>(enumState), buffer.get(), 1 << 18, &needed, &count, nullptr, nullptr);
-	if (!ok)
-		return services;
+	for (;;) {
+		buffer = std::make_unique<BYTE[]>(size);
+		if (::EnumServicesStatusEx(hScm.get(), SC_ENUM_PROCESS_INFO, static_cast<DWORD>(enumType),
+			static_cast<DWORD>(enumState), buffer.get(), size, &needed, &count, nullptr, nullptr))
+			break;
+		if (::GetLastError() != ERROR_MORE_DATA)
+			return services;
+		// the service list may grow between calls, so leave some slack
+		size = needed + (1 << 12);
+	}
 
 //	auto QueryTagInformation = (PQUERY_TAG_INFORMATION)::GetProcAddress(::GetModuleHandle(L"advapi32"), "I_QueryTagInformation");
 	services.reserve(count);

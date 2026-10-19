@@ -206,6 +206,7 @@
     <ClCompile Include="Service.cpp" />
     <ClCompile Include="ServiceManager.cpp" />
     <ClCompile Include="Sid.cpp" />
+    <ClCompile Include="SystemInformation.cpp" />
     <ClCompile Include="Thread.cpp" />
     <ClCompile Include="ThreadInfo.cpp" />
     <ClCompile Include="Token.cpp" />

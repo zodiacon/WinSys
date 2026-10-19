@@ -143,6 +143,11 @@ std::wstring Process::GetCommandLine() const {
 	ULONG size = 8192;
 	auto buffer = std::make_unique<BYTE[]>(size);
 	auto status = ::NtQueryInformationProcess(m_Handle.get(), ProcessCommandLineInformation, buffer.get(), size, &size);
+	if (status == STATUS_INFO_LENGTH_MISMATCH) {
+		// command lines can be up to 32K characters; size now holds the required length
+		buffer = std::make_unique<BYTE[]>(size);
+		status = ::NtQueryInformationProcess(m_Handle.get(), ProcessCommandLineInformation, buffer.get(), size, &size);
+	}
 	if (NT_SUCCESS(status)) {
 		auto str = (UNICODE_STRING*)buffer.get();
 		return std::wstring(str->Buffer, str->Length / sizeof(WCHAR));

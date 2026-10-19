@@ -85,6 +85,10 @@ namespace WinSys {
 		uint64_t CcDirtyPageThreshold; // since THRESHOLD
 		int64_t ResidentAvailablePages; // since THRESHOLD
 		uint64_t SharedCommittedPages; // since THRESHOLD
+		uint64_t MdlPagesAllocated; // since 24H2
+		uint64_t PfnDatabaseCommittedPages; // since 24H2
+		uint64_t SystemPageTableCommittedPages; // since 24H2
+		uint64_t ContiguousPagesAllocated; // since 24H2
 	};
 
 	struct WindowsVersion {
