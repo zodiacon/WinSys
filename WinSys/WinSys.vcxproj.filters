@@ -96,6 +96,9 @@
     <ClInclude Include="ProcessNetwork.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Sessions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="SystemInfo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -168,6 +171,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ProcessNetwork.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Sessions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SystemInfo.cpp">
