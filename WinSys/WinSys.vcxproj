@@ -179,6 +179,7 @@
     <ClInclude Include="ServiceInfo.h" />
     <ClInclude Include="ServiceManager.h" />
     <ClInclude Include="Sid.h" />
+    <ClInclude Include="Network.h" />
     <ClInclude Include="SystemInfo.h" />
     <ClInclude Include="Thread.h" />
     <ClInclude Include="ThreadInfo.h" />
@@ -207,6 +208,7 @@
     <ClCompile Include="Service.cpp" />
     <ClCompile Include="ServiceManager.cpp" />
     <ClCompile Include="Sid.cpp" />
+    <ClCompile Include="Network.cpp" />
     <ClCompile Include="SystemInfo.cpp" />
     <ClCompile Include="SystemInformation.cpp" />
     <ClCompile Include="Thread.cpp" />
