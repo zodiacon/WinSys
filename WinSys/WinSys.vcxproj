@@ -182,6 +182,7 @@
     <ClInclude Include="Disk.h" />
     <ClInclude Include="Network.h" />
     <ClInclude Include="ProcessNetwork.h" />
+    <ClInclude Include="Handles.h" />
     <ClInclude Include="Sessions.h" />
     <ClInclude Include="SystemInfo.h" />
     <ClInclude Include="Thread.h" />
@@ -214,6 +215,7 @@
     <ClCompile Include="Disk.cpp" />
     <ClCompile Include="Network.cpp" />
     <ClCompile Include="ProcessNetwork.cpp" />
+    <ClCompile Include="Handles.cpp" />
     <ClCompile Include="Sessions.cpp" />
     <ClCompile Include="SystemInfo.cpp" />
     <ClCompile Include="SystemInformation.cpp" />
