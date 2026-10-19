@@ -87,6 +87,9 @@
     <ClInclude Include="VdsVolume.h">
       <Filter>VirtualDiskService</Filter>
     </ClInclude>
+    <ClInclude Include="Disk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Network.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -154,6 +157,9 @@
     </ClCompile>
     <ClCompile Include="VdsProvider.cpp">
       <Filter>VirtualDiskService</Filter>
+    </ClCompile>
+    <ClCompile Include="Disk.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Network.cpp">
       <Filter>Source Files</Filter>
