@@ -181,6 +181,7 @@
     <ClInclude Include="Sid.h" />
     <ClInclude Include="Disk.h" />
     <ClInclude Include="Network.h" />
+    <ClInclude Include="ProcessNetwork.h" />
     <ClInclude Include="SystemInfo.h" />
     <ClInclude Include="Thread.h" />
     <ClInclude Include="ThreadInfo.h" />
@@ -211,6 +212,7 @@
     <ClCompile Include="Sid.cpp" />
     <ClCompile Include="Disk.cpp" />
     <ClCompile Include="Network.cpp" />
+    <ClCompile Include="ProcessNetwork.cpp" />
     <ClCompile Include="SystemInfo.cpp" />
     <ClCompile Include="SystemInformation.cpp" />
     <ClCompile Include="Thread.cpp" />
