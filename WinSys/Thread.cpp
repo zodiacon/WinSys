@@ -39,6 +39,12 @@ IoPriority Thread::GetIoPriority() const noexcept {
 	return priority;
 }
 
+uint64_t Thread::GetCycleTime() const noexcept {
+	ULONG64 cycles = 0;
+	::QueryThreadCycleTime(m_handle, &cycles);
+	return cycles;
+}
+
 size_t Thread::GetSubProcessTag() const noexcept {
 	THREAD_BASIC_INFORMATION tbi;
 	auto status = ::NtQueryInformationThread(m_handle, ThreadBasicInformation, &tbi, sizeof(tbi), nullptr);

@@ -73,6 +73,8 @@ namespace WinSys {
 		bool Terminate(uint32_t exitCode = 0) noexcept;
 		int GetMemoryPriority() const noexcept;
 		IoPriority GetIoPriority() const noexcept;
+		// CPU cycles the thread used (QueryThreadCycleTime); 0 on failure
+		uint64_t GetCycleTime() const noexcept;
 		size_t GetSubProcessTag() const noexcept;
 		std::wstring GetServiceNameByTag(uint32_t pid) const noexcept;
 		ComFlags GetComFlags() const noexcept;
