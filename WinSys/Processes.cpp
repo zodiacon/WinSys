@@ -365,38 +365,48 @@ std::wstring Process::GetCurrentDirectory(HANDLE hProcess) noexcept {
 std::vector<std::pair<std::wstring, std::wstring>> Process::GetEnvironment(HANDLE hProcess) noexcept {
 	std::vector<std::pair<std::wstring, std::wstring>> env;
 
-	PEB peb;
-	if(!GetProcessPeb(hProcess, &peb))
-		return env;
-
-	RTL_USER_PROCESS_PARAMETERS processParams;
-	if (!::ReadProcessMemory(hProcess, peb.ProcessParameters, &processParams, sizeof(processParams), nullptr))
-		return env;
-
-	BYTE buffer[1 << 16];
-	int size = sizeof(buffer);
-	for(;;) {
-		if (::ReadProcessMemory(hProcess, processParams.Environment, buffer, size, nullptr))
-			break;
-		size -= 1 << 12;
+	// the block and its size from the process parameters: a WOW64 process's own (32-bit) ones, which its code updates
+	PVOID address = nullptr;
+	SIZE_T size = 0;
+	ULONG_PTR peb32 = 0;
+	if (NT_SUCCESS(::NtQueryInformationProcess(hProcess, ProcessWow64Information, &peb32, sizeof(peb32), nullptr)) && peb32) {
+		PEB32 peb;
+		RTL_USER_PROCESS_PARAMETERS32 params;
+		if (!::ReadProcessMemory(hProcess, (PVOID)peb32, &peb, sizeof(peb), nullptr)
+			|| !::ReadProcessMemory(hProcess, ULongToPtr(peb.ProcessParameters), &params, sizeof(params), nullptr))
+			return env;
+		address = ULongToPtr(params.Environment);
+		size = params.EnvironmentSize;
 	}
+	else {
+		PEB peb;
+		RTL_USER_PROCESS_PARAMETERS params;
+		if (!GetProcessPeb(hProcess, &peb) || !::ReadProcessMemory(hProcess, peb.ProcessParameters, &params, sizeof(params), nullptr))
+			return env;
+		address = params.Environment;
+		size = params.EnvironmentSize;
+	}
+	// a sanity limit: the block is normally a few KB
+	if (address == nullptr || size < sizeof(WCHAR) || size > (16 << 20))
+		return env;
+
+	// two terminators past the end, in case the block lacks its own
+	std::vector<WCHAR> buffer(size / sizeof(WCHAR) + 2);
+	if (!::ReadProcessMemory(hProcess, address, buffer.data(), size, nullptr))
+		return env;
 
 	env.reserve(64);
-
-	for (auto p = (PWSTR)buffer; *p; ) {
-		std::pair<std::wstring, std::wstring> var;
-		auto equal = wcschr(p, L'=');
-		assert(equal);
-		if (!equal)
-			break;
-		*equal = L'\0';
-		var.first = p;
-		p += ::wcslen(p) + 1;
-		var.second = p;
-		p += ::wcslen(p) + 1;
-		env.push_back(std::move(var));
+	auto end = buffer.data() + size / sizeof(WCHAR);
+	for (auto p = buffer.data(); p < end && *p; ) {
+		std::wstring_view entry(p, ::wcsnlen(p, end - p));
+		p += entry.size() + 1;
+		// a name may start with '=' (the hidden per-drive current directories, such as "=C:=C:\Windows")
+		auto equal = entry.find(L'=', 1);
+		if (equal == std::wstring_view::npos)
+			env.emplace_back(std::wstring(entry), std::wstring());
+		else
+			env.emplace_back(std::wstring(entry.substr(0, equal)), std::wstring(entry.substr(equal + 1)));
 	}
-
 	return env;
 }
 

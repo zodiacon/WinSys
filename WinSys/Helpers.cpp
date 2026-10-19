@@ -41,6 +41,9 @@ std::wstring Helpers::GetErrorText(DWORD error) {
 		text = buffer;
 		::LocalFree(buffer);
 	}
+	// system messages end with a line break
+	while (!text.empty() && ::iswspace(text.back()))
+		text.pop_back();
 	return text;
 }
 
