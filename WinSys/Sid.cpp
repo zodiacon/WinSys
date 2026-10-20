@@ -47,7 +47,8 @@ std::wstring Sid::UserName(PSID_NAME_USE use) const {
 	if (use == nullptr)
 		use = &dummy;
 	if (::LookupAccountSid(nullptr, (PSID)m_buffer, name, &lname, domain, &ldomain, use))
-		return std::wstring(domain) + L"\\" + name;
+		// well-known SIDs such as Everyone have no domain
+		return *domain ? std::wstring(domain) + L"\\" + name : std::wstring(name);
 	return L"";
 }
 

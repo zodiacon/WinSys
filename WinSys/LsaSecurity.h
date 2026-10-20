@@ -51,6 +51,8 @@ namespace WinSys {
 	class LsaSecurity final {
 	public:
 		static std::vector<LogonSessionData> EnumLogonSessions();
+		// one logon session (its Index is 0); access denied unless it's the caller's or the caller is elevated
+		static std::optional<LogonSessionData> GetLogonSessionData(LUID const& logonId);
 		static std::wstring GetUserNameByLogonSession(PLUID sessionId);
 	};
 }

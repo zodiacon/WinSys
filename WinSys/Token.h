@@ -35,6 +35,12 @@ namespace WinSys {
 		SidGroupAttributes Attributes;
 	};
 
+	enum class ElevationType {
+		Default = 1,	// no linked token (UAC off, or a standard user, or a service)
+		Full,			// the elevated half of a split token
+		Limited,		// the filtered half of a split token
+	};
+
 	struct TokenPrivilege {
 		LUID Privilege;
 		std::wstring Name;
@@ -59,9 +65,33 @@ namespace WinSys {
 		VirtualizationState GetVirtualizationState() const noexcept;
 		IntegrityLevel GetIntegrityLevel() const noexcept;
 		DWORD GetSessionId() const noexcept;
+		// token ID, logon session (AuthenticationId), modified ID, type, impersonation level, dynamic memory, counts
 		TOKEN_STATISTICS GetStats() const noexcept;
+		// caps: the AppContainer capabilities instead of the groups
 		std::vector<TokenGroup> EnumGroups(bool caps = false) const noexcept;
 		std::vector<TokenPrivilege> EnumPrivileges() const noexcept;
+
+		Sid GetOwner() const noexcept;
+		Sid GetPrimaryGroup() const noexcept;
+		std::optional<ElevationType> GetElevationType() const noexcept;
+		std::optional<bool> HasUIAccess() const noexcept;
+		std::optional<bool> IsSandboxInert() const noexcept;
+		// TOKEN_MANDATORY_POLICY_NO_WRITE_UP, TOKEN_MANDATORY_POLICY_NEW_PROCESS_MIN
+		std::optional<uint32_t> GetMandatoryPolicy() const noexcept;
+		// has restricted SIDs (a restricted token)
+		bool IsRestricted() const noexcept;
+		// filtered: restricted, or without some privileges or groups the original had (TokenHasRestrictions)
+		std::optional<bool> HasRestrictions() const noexcept;
+		bool IsAppContainer() const noexcept;
+		// an invalid Sid for a token not in an AppContainer
+		Sid GetAppContainerSid() const noexcept;
+		std::optional<uint32_t> GetAppContainerNumber() const noexcept;
+		// needs TokenAccessMask::QuerySource
+		std::optional<TOKEN_SOURCE> GetSource() const noexcept;
+		// the logon session that created the token's logon session
+		std::optional<LUID> GetOrigin() const noexcept;
+		// the protection level of a protected process's token; an invalid Sid otherwise
+		Sid GetTrustLevel() const noexcept;
 
 	private:
 		wil::unique_handle m_Handle;
