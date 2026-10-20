@@ -183,6 +183,10 @@
     <ClInclude Include="Network.h" />
     <ClInclude Include="ProcessNetwork.h" />
     <ClInclude Include="Handles.h" />
+    <ClInclude Include="Gpu.h" />
+    <ClInclude Include="Connections.h" />
+    <ClInclude Include="DotNet.h" />
+    <ClInclude Include="SymbolHandler.h" />
     <ClInclude Include="Sessions.h" />
     <ClInclude Include="SystemInfo.h" />
     <ClInclude Include="Thread.h" />
@@ -216,6 +220,10 @@
     <ClCompile Include="Network.cpp" />
     <ClCompile Include="ProcessNetwork.cpp" />
     <ClCompile Include="Handles.cpp" />
+    <ClCompile Include="Gpu.cpp" />
+    <ClCompile Include="Connections.cpp" />
+    <ClCompile Include="DotNet.cpp" />
+    <ClCompile Include="SymbolHandler.cpp" />
     <ClCompile Include="Sessions.cpp" />
     <ClCompile Include="SystemInfo.cpp" />
     <ClCompile Include="SystemInformation.cpp" />

@@ -21,6 +21,24 @@ namespace WinSys {
 		};
 	};
 
+	// the system structures of a process's threads (see Process::GetStructures)
+	struct ThreadStructures {
+		uint32_t ThreadId;
+		uint64_t Teb{ 0 }, Teb32{ 0 };	// the 32-bit TEB of a WOW64 thread
+		// from the TEBs (NT_TIB): the stacks' tops and the limits of their committed parts; 0 if they couldn't be read
+		uint64_t StackBase{ 0 }, StackLimit{ 0 }, Stack32Base{ 0 }, Stack32Limit{ 0 };
+	};
+
+	struct LoadedModule {
+		uint64_t Base;
+		std::wstring Path;
+	};
+
+	struct ProcessStructures {
+		uint64_t Peb{ 0 }, Peb32{ 0 };	// the 32-bit PEB of a WOW64 process
+		std::vector<ThreadStructures> Threads;	// in thread ID order
+	};
+
 	struct ProcessWindowInfo {
 		uint32_t Flags;
 		std::wstring Title;
@@ -69,6 +87,27 @@ namespace WinSys {
 		std::vector<std::pair<std::wstring, std::wstring>> GetEnvironment() const noexcept;
 
 		bool SetPriorityClass(ProcessPriorityClass pc) noexcept;
+		// High needs SeIncreaseBasePriorityPrivilege, which is enabled first (an elevated token has it, disabled).
+		// Needs PROCESS_SET_INFORMATION, as the setters below
+		bool SetIoPriority(IoPriority priority) noexcept;
+		// MEMORY_PRIORITY_VERY_LOW (1) to MEMORY_PRIORITY_NORMAL (5)
+		bool SetMemoryPriority(int priority) noexcept;
+		// false (and a 0 mask) for a process whose threads span processor groups: it has no single mask
+		bool GetAffinity(DWORD_PTR& mask, DWORD_PTR& systemMask) const noexcept;
+		bool SetAffinity(DWORD_PTR mask) noexcept;
+		// EcoQoS: execution speed throttled (Task Manager's efficiency mode also sets the idle priority class); nothing
+		// if it can't be queried
+		[[nodiscard]] std::optional<bool> GetEfficiencyMode() const noexcept;
+		// as Task Manager does it: EcoQoS and the idle priority class; off, the system decides again, at normal priority
+		bool SetEfficiencyMode(bool on) noexcept;
+		// the PEB, and each thread's TEB and stack (the 32-bit ones of a WOW64 process too). hProcess needs
+		// PROCESS_QUERY_INFORMATION (the threads are opened from it), and PROCESS_VM_READ for the stacks
+		[[nodiscard]] static ProcessStructures GetStructures(HANDLE hProcess);
+		// the loaded modules (EnumProcessModulesEx; a WOW64 process's 32-bit ones too); hProcess needs query and VM read
+		// access. Cheaper than ProcessModuleTracker, which walks the address space; no mapped data files
+		[[nodiscard]] static std::vector<LoadedModule> EnumLoadedModules(HANDLE hProcess);
+		// the running processes' IDs and image names, from a ToolHelp snapshot (the Idle process left out)
+		[[nodiscard]] static std::vector<std::pair<uint32_t, std::wstring>> EnumProcessNames();
 		uint32_t GetGdiObjectCount() const noexcept;
 		uint32_t GetPeakGdiObjectCount() const noexcept;
 		uint32_t GetUserObjectCount() const noexcept;

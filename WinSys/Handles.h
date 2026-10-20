@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 #include <string>
 #include <vector>
 #include <optional>
@@ -65,5 +67,61 @@ namespace WinSys {
 		struct Worker;
 		std::shared_ptr<Worker> m_Worker;
 		int m_Abandoned{ 0 };
+	};
+
+	//
+	// NT device paths (\Device\HarddiskVolume3\...) to drive letters, from a table read when it's constructed (unlike
+	// Helpers::GetDosNameFromNtName, whose shared table is built without a lock: this is safe on any thread)
+	//
+	class DosNames {
+	public:
+		DosNames();
+		// the name itself if no drive maps it
+		[[nodiscard]] std::wstring Convert(std::wstring const& ntName) const;
+
+	private:
+		std::vector<std::pair<std::wstring, std::wstring>> m_Devices;	// "\Device\HarddiskVolume3\", "C:\"
+	};
+
+	// a process's image name by ID, for HandleNames::QueryName: a non-owning reference to any callable (a lambda), valid
+	// for the call it's passed to. Not std::function, whose bad_function_call (an exception class) WinSys can't define:
+	// it builds without exceptions, which changes their classes' layout, and an app linking both gets a C4743 mismatch
+	class ProcessNameLookup {
+	public:
+		ProcessNameLookup() noexcept = default;
+		template<typename F> requires (!std::is_same_v<std::remove_cvref_t<F>, ProcessNameLookup>)
+		ProcessNameLookup(F const& f) noexcept : m_Callable(&f),
+			m_Invoke([](void const* callable, DWORD pid) -> std::wstring { return (*static_cast<F const*>(callable))(pid); }) {}
+
+		explicit operator bool() const noexcept {
+			return m_Invoke != nullptr;
+		}
+		std::wstring operator()(DWORD pid) const {
+			return m_Invoke(m_Callable, pid);
+		}
+
+	private:
+		void const* m_Callable{ nullptr };
+		std::wstring(*m_Invoke)(void const*, DWORD) { nullptr };
+	};
+
+	//
+	// Readable names for the objects of another process's handles, and closing them. Safe on any thread.
+	//
+	struct HandleNames final abstract {
+		// \REGISTRY\MACHINE\... and \REGISTRY\USER\<SID>\... as the registry editor shows them (HKLM\..., HKCU\..., HKU\...)
+		[[nodiscard]] static std::wstring RegistryName(std::wstring ntName);
+
+		// the name of a handle's object in another process (hProcess has PROCESS_DUP_HANDLE): processes and threads by ID
+		// and image name (processName: the image name of a process ID, or empty), tokens by user and logon session,
+		// files as DOS paths, keys as HKLM\...; other objects by their names. File names are queried through nameQuery
+		// (a file's query can hang) and only if queryFiles; the rest directly. Empty if it has no name or can't be queried
+		[[nodiscard]] static std::wstring QueryName(HANDLE hProcess, HandleEntry const& entry, ObjectNameQuery& nameQuery,
+			DosNames const& dosNames, ProcessNameLookup processName, bool queryFiles = true);
+
+		// closes the handle in its process (hProcess has PROCESS_DUP_HANDLE), if it still refers to an object of the
+		// type (the value may have been closed and reused since it was listed): false with ERROR_INVALID_HANDLE if not,
+		// or with the close's last error
+		static bool CloseInProcess(HANDLE hProcess, uint64_t value, std::wstring const& type);
 	};
 }

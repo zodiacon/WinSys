@@ -71,6 +71,11 @@ namespace WinSys {
 		bool SetPriority(ThreadPriorityLevel priority) noexcept;
 		CpuNumber GetIdealProcessor() const noexcept;
 		bool Terminate(uint32_t exitCode = 0) noexcept;
+		// one more (or one less) suspension; a thread runs when its count gets to 0. Need THREAD_SUSPEND_RESUME
+		bool Suspend() noexcept;
+		bool Resume() noexcept;
+		// FILETIME units; 0 on failure. With the ID, tells the thread from a later one that reuses the ID
+		[[nodiscard]] int64_t GetCreateTime() const noexcept;
 		int GetMemoryPriority() const noexcept;
 		IoPriority GetIoPriority() const noexcept;
 		// CPU cycles the thread used (QueryThreadCycleTime); 0 on failure

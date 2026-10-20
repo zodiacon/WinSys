@@ -155,3 +155,22 @@ std::unique_ptr<Thread> Thread::OpenById(uint32_t tid, ThreadAccessMask accessMa
 
 	return std::make_unique<Thread>(hThread, true);
 }
+
+bool Thread::Terminate(uint32_t exitCode) noexcept {
+	return ::TerminateThread(m_handle, exitCode);
+}
+
+bool Thread::Suspend() noexcept {
+	return ::SuspendThread(m_handle) != (DWORD)-1;
+}
+
+bool Thread::Resume() noexcept {
+	return ::ResumeThread(m_handle) != (DWORD)-1;
+}
+
+int64_t Thread::GetCreateTime() const noexcept {
+	FILETIME created, exited, kernel, user;
+	if (!::GetThreadTimes(m_handle, &created, &exited, &kernel, &user))
+		return 0;
+	return (int64_t)ULARGE_INTEGER{ created.dwLowDateTime, created.dwHighDateTime }.QuadPart;
+}

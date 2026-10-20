@@ -14,6 +14,7 @@ namespace WinSys {
 		QueryInformation =			PROCESS_QUERY_INFORMATION,
 		QueryLimitedInformation =	PROCESS_QUERY_LIMITED_INFORMATION,
 		SuspendResume =				PROCESS_SUSPEND_RESUME,
+		SetInformation =			PROCESS_SET_INFORMATION,
 		Synchonize =				SYNCHRONIZE,
 		SystemSecurity =			ACCESS_SYSTEM_SECURITY,
 		GenericWrite =				GENERIC_WRITE,
@@ -69,6 +70,7 @@ namespace WinSys {
 		SystemSecurity =			ACCESS_SYSTEM_SECURITY,
 		AllAccess =					THREAD_ALL_ACCESS
 	};
+	DEFINE_ENUM_FLAG_OPERATORS(WinSys::ThreadAccessMask);
 
 	enum class IoPriority {
 		Unknown = -1,

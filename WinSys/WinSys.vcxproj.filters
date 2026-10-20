@@ -99,6 +99,18 @@
     <ClInclude Include="Handles.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Gpu.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Connections.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DotNet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SymbolHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Sessions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -177,6 +189,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Handles.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Gpu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Connections.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DotNet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SymbolHandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Sessions.cpp">
