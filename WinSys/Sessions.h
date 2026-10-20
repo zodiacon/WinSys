@@ -24,7 +24,7 @@ namespace WinSys {
 		int64_t LogonTime, ConnectTime, DisconnectTime;	// FILETIME (UTC), 0 if not known
 	};
 
-	struct SessionManager final abstract {
+	struct SessionManager final {
 		// Sessions on this computer, without the listeners (State Listen). Without details, only the ID, state,
 		// name and user are filled, which is cheap: the details take queries to the session that raise (and handle)
 		// RPC exceptions for sessions without a client, so callers that poll should get them only when a session changes.

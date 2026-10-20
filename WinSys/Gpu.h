@@ -31,7 +31,7 @@ namespace WinSys {
 		uint64_t Dedicated{ 0 }, Shared{ 0 };	// bytes committed
 	};
 
-	struct GpuInfo final abstract {
+	struct GpuInfo final {
 		// the adapters that render (no software ones), read once
 		[[nodiscard]] static std::vector<GpuAdapter> const& GetAdapters();
 

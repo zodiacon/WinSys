@@ -21,7 +21,7 @@ namespace WinSys {
 		uint16_t TypeIndex;	// see ObjectTypes
 	};
 
-	struct ObjectTypes final abstract {
+	struct ObjectTypes final {
 		// the type's name ("File", "Process"...), from NtQueryObject(ObjectTypesInformation), cached; empty if unknown
 		[[nodiscard]] static std::wstring const& GetName(uint16_t typeIndex);
 	};
@@ -108,7 +108,7 @@ namespace WinSys {
 	//
 	// Readable names for the objects of another process's handles, and closing them. Safe on any thread.
 	//
-	struct HandleNames final abstract {
+	struct HandleNames final {
 		// \REGISTRY\MACHINE\... and \REGISTRY\USER\<SID>\... as the registry editor shows them (HKLM\..., HKCU\..., HKU\...)
 		[[nodiscard]] static std::wstring RegistryName(std::wstring ntName);
 

@@ -70,7 +70,7 @@ namespace WinSys {
 		bool DelayedAutoStart;
 	};
 
-	class ServiceManager final abstract {
+	class ServiceManager final {
 		friend class Service;
 	public:
 		static std::vector<ServiceInfo> EnumServices(ServiceEnumType enumType, ServiceEnumState enumState = ServiceEnumState::All);

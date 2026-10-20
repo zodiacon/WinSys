@@ -166,7 +166,6 @@
     <ClInclude Include="Driver.h" />
     <ClInclude Include="Enums.h" />
     <ClInclude Include="Helpers.h" />
-    <ClInclude Include="KernelModuleTracker.h" />
     <ClInclude Include="Keys.h" />
     <ClInclude Include="LsaSecurity.h" />
     <ClInclude Include="pch.h" />
@@ -184,6 +183,7 @@
     <ClInclude Include="ProcessNetwork.h" />
     <ClInclude Include="Handles.h" />
     <ClInclude Include="Gpu.h" />
+    <ClInclude Include="KernelModules.h" />
     <ClInclude Include="Connections.h" />
     <ClInclude Include="DotNet.h" />
     <ClInclude Include="SymbolHandler.h" />
@@ -200,7 +200,6 @@
   <ItemGroup>
     <ClCompile Include="Driver.cpp" />
     <ClCompile Include="Helpers.cpp" />
-    <ClCompile Include="KernelModuleTracker.cpp" />
     <ClCompile Include="LsaSecurity.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -221,6 +220,7 @@
     <ClCompile Include="ProcessNetwork.cpp" />
     <ClCompile Include="Handles.cpp" />
     <ClCompile Include="Gpu.cpp" />
+    <ClCompile Include="KernelModules.cpp" />
     <ClCompile Include="Connections.cpp" />
     <ClCompile Include="DotNet.cpp" />
     <ClCompile Include="SymbolHandler.cpp" />

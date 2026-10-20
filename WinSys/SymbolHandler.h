@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include <wil/resource.h>
@@ -9,6 +10,20 @@ namespace WinSys {
 	struct StackFrameAddress {
 		uint64_t Address;
 		bool Is32Bit;	// a WOW64 thread's 32-bit frame (they follow its native frames)
+	};
+
+	enum class ModuleSymbolsKind {
+		NotLoaded,	// not looked for yet (deferred loads: an address in it hasn't been resolved)
+		None,		// no symbols found: addresses show as module+offset
+		Exports,	// the module's exports only (no PDB found)
+		Pdb,
+		Other,		// COFF, CodeView, .sym...
+	};
+
+	struct ModuleSymbols {
+		std::wstring ImagePath;		// the module's file
+		std::wstring SymbolFile;	// where its symbols came from (the PDB); empty for exports or none
+		ModuleSymbolsKind Kind{ ModuleSymbolsKind::NotLoaded };
 	};
 
 	//
@@ -37,6 +52,9 @@ namespace WinSys {
 		// "module!function+0x10", "module+0x1234", or empty if the address is in no known module; the module list is read
 		// again (at most every 2 s) for an address in none. source: "file(line)" when the symbols have line numbers
 		std::wstring GetSymbol(uint64_t address, std::wstring* source = nullptr);
+		// the symbols of the module the address is in, as far as they were loaded (GetSymbol loads them); nullopt if the
+		// address is in no known module
+		[[nodiscard]] std::optional<ModuleSymbols> GetModuleSymbols(uint64_t address) const;
 
 		// a thread's user-mode stack, innermost first (a WOW64 thread's native frames, then its 32-bit ones): the thread
 		// is suspended only to get its context and copy its stack, and the walk (which may load symbols) reads the copy.
@@ -56,7 +74,7 @@ namespace WinSys {
 		ULONGLONG m_LastRefresh{ 0 };
 	};
 
-	struct MiniDump final abstract {
+	struct MiniDump final {
 		// writes a dump of the process (created, non-zero: its creation time, checked); full: all its memory, else threads,
 		// modules, handles and the memory map. false (with the last error) on failure, and the file is removed
 		static bool Write(uint32_t pid, int64_t created, std::wstring const& path, bool full, uint64_t& size);

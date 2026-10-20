@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "SymbolHandler.h"
+#include "KernelModules.h"
 #define _NO_CVCONST_H
 #include <DbgHelp.h>
 #include <algorithm>
@@ -17,21 +18,6 @@ namespace {
 	// stands for the kernel in DbgHelp, which takes any value as a process handle when it doesn't invade the process
 	HANDLE const KernelSession = (HANDLE)(ULONG_PTR)0x4B524E4C;
 
-	std::wstring ExpandEnvironment(std::wstring const& text) {
-		WCHAR expanded[MAX_PATH * 2];
-		auto len = ::ExpandEnvironmentStrings(text.c_str(), expanded, _countof(expanded));
-		return len > 0 && len <= _countof(expanded) ? expanded : text;
-	}
-
-	// "\SystemRoot\system32\ntoskrnl.exe", "\??\C:\..." to a Win32 path
-	std::wstring KernelModulePath(char const* name) {
-		std::wstring path(name, name + strlen(name));
-		if (::_wcsnicmp(path.c_str(), L"\\SystemRoot\\", 12) == 0)
-			return ExpandEnvironment(L"%SystemRoot%\\") + path.substr(12);
-		if (path.starts_with(L"\\??\\"))
-			return path.substr(4);
-		return path;
-	}
 
 	bool CheckCreated(HANDLE hProcess, int64_t created) {
 		FILETIME time, exited, kernel, user;
@@ -147,26 +133,33 @@ bool SymbolHandler::IsKernel() const {
 	return !m_Process;
 }
 
+std::optional<ModuleSymbols> SymbolHandler::GetModuleSymbols(uint64_t address) const {
+	IMAGEHLP_MODULEW64 module{ sizeof(module) };
+	if (!::SymGetModuleInfoW64(Session(), address, &module))
+		return std::nullopt;
+	ModuleSymbols symbols;
+	symbols.ImagePath = module.LoadedImageName[0] ? module.LoadedImageName : module.ImageName;
+	switch (module.SymType) {
+		case SymDeferred: symbols.Kind = ModuleSymbolsKind::NotLoaded; break;
+		case SymNone: symbols.Kind = ModuleSymbolsKind::None; break;
+		case SymExport: symbols.Kind = ModuleSymbolsKind::Exports; break;
+		case SymPdb: case SymDia: symbols.Kind = ModuleSymbolsKind::Pdb; break;
+		default: symbols.Kind = ModuleSymbolsKind::Other; break;
+	}
+	if (symbols.Kind == ModuleSymbolsKind::Pdb || symbols.Kind == ModuleSymbolsKind::Other)
+		symbols.SymbolFile = module.LoadedPdbName;
+	return symbols;
+}
+
 bool SymbolHandler::LoadKernelModules() {
 	m_LastRefresh = ::GetTickCount64();
-	ULONG size = 1 << 16;
-	std::unique_ptr<BYTE[]> buffer;
-	NTSTATUS status;
-	do {
-		buffer = std::make_unique<BYTE[]>(size);
-		status = ::NtQuerySystemInformation(SystemModuleInformation, buffer.get(), size, &size);
-	} while (status == STATUS_INFO_LENGTH_MISMATCH);
-	if (!NT_SUCCESS(status))
-		return false;
-	auto modules = reinterpret_cast<RTL_PROCESS_MODULES const*>(buffer.get());
-	if (modules->NumberOfModules == 0 || !modules->Modules[0].ImageBase)
+	auto modules = KernelModules::Enum();
+	// without elevation, the bases are zero
+	if (modules.empty() || !modules[0].Base)
 		return false;
 	// a module already loaded fails, which is fine: drivers loaded since are added
-	for (ULONG i = 0; i < modules->NumberOfModules; i++) {
-		auto& m = modules->Modules[i];
-		auto path = KernelModulePath((char const*)m.FullPathName);
-		::SymLoadModuleExW(KernelSession, nullptr, path.c_str(), nullptr, (DWORD64)m.ImageBase, m.ImageSize, nullptr, 0);
-	}
+	for (auto& m : modules)
+		::SymLoadModuleExW(KernelSession, nullptr, m.Path.c_str(), nullptr, m.Base, m.Size, nullptr, 0);
 	return true;
 }
 

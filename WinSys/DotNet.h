@@ -9,7 +9,7 @@ namespace WinSys {
 	// a diagnostics pipe named dotnet-diagnostic-<pid>-... (unless DOTNET_EnableDiagnostics=0). Both appear after the
 	// process starts, once the runtime does.
 	//
-	struct DotNetInfo final abstract {
+	struct DotNetInfo final {
 		// whether the process's section of a .NET Framework CLR exists (another user's counts, though it can't be opened)
 		[[nodiscard]] static bool HasFrameworkRuntime(uint32_t pid, uint32_t sessionId);
 		// the processes with a .NET Core (or later) runtime's diagnostics pipe

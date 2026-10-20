@@ -33,7 +33,7 @@ namespace WinSys {
 	// tables (GetExtendedTcpTable/GetExtendedUdpTable: the owning process and the creation time; no elevation needed).
 	// The header uses no IP Helper types (see Network.h).
 	//
-	struct ConnectionInfo final abstract {
+	struct ConnectionInfo final {
 		// the connections (pid: only that process's); nothing (with the last error set) if none of the tables can be read
 		[[nodiscard]] static std::optional<std::vector<Connection>> Read(std::optional<uint32_t> pid = std::nullopt);
 		[[nodiscard]] static PCWSTR ProtocolName(ConnectionProtocol protocol);

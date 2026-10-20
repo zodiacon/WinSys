@@ -3,7 +3,7 @@
 #include "Processes.h"
 
 namespace WinSys {
-	struct Helpers final abstract {
+	struct Helpers final {
 		static std::wstring GetDosNameFromNtName(PCWSTR name, bool refresh = false);
 		static std::wstring GetErrorText(DWORD error);
 		static int PriorityClassToPriority(ProcessPriorityClass pc);
