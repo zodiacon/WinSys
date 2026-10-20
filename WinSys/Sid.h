@@ -19,6 +19,9 @@ namespace WinSys {
 
 		std::wstring AsString() const;
 		std::wstring UserName(PSID_NAME_USE use = nullptr) const;
+		// an AppContainer SID's package moniker ("Microsoft.Windows.Photos_8wekyb3d8bbwe"); empty if it isn't one or
+		// isn't known. AppContainerLookupMoniker is exported by kernelbase but in no SDK header, so it's resolved at run time
+		[[nodiscard]] std::wstring AppContainerMoniker() const;
 	private:
 		BYTE m_buffer[SECURITY_MAX_SID_SIZE]{};
 	};

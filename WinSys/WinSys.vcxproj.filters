@@ -99,6 +99,21 @@
     <ClInclude Include="Gpu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="WaitChain.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Job.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FileVersion.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FileSignature.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AccessMask.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="KernelModules.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -189,6 +204,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Gpu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WaitChain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Job.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FileVersion.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FileSignature.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AccessMask.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="KernelModules.cpp">

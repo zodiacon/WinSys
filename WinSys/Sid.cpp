@@ -52,3 +52,16 @@ std::wstring Sid::UserName(PSID_NAME_USE use) const {
 	return L"";
 }
 
+std::wstring Sid::AppContainerMoniker() const {
+	using LookupMoniker = HRESULT(WINAPI*)(PSID, PWSTR*);
+	using FreeMemory = BOOLEAN(WINAPI*)(PVOID);
+	static auto hKernelBase = ::GetModuleHandle(L"kernelbase");
+	static auto lookup = reinterpret_cast<LookupMoniker>(::GetProcAddress(hKernelBase, "AppContainerLookupMoniker"));
+	static auto free = reinterpret_cast<FreeMemory>(::GetProcAddress(hKernelBase, "AppContainerFreeMemory"));
+	PWSTR moniker = nullptr;
+	if (!IsValid() || !lookup || !free || FAILED(lookup((PSID)m_buffer, &moniker)) || !moniker)
+		return L"";
+	std::wstring text(moniker);
+	free(moniker);
+	return text;
+}

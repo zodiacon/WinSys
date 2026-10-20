@@ -85,6 +85,9 @@ namespace WinSys {
 		static std::unique_ptr<Service> Install(const std::wstring& name, ServiceType type,	ServiceStartType startType, const std::wstring& imagePath);
 		static std::unique_ptr<Service> Install(const ServiceInstallParams& params);
 		static Sid GetServiceSid(const wchar_t* name);
+		// the DLL a shared service (svchost.exe) runs: the ServiceDll value of its key or its Parameters subkey, expanded; a
+		// user service instance ("Name_1a2b3c") may only have it in its template's key. Empty if there's none
+		static std::wstring GetServiceDll(std::wstring const& name, ServiceType type);
 
 	private:
 		static wil::unique_schandle OpenServiceHandle(const std::wstring& name, ServiceAccessMask accessMask = ServiceAccessMask::QueryConfig | ServiceAccessMask::QueryStatus);

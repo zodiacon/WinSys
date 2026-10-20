@@ -265,3 +265,26 @@ Sid ServiceManager::GetServiceSid(const wchar_t* name) {
 		return Sid((PSID)sid);
 	return Sid{};
 }
+
+namespace {
+	std::wstring ReadServiceDll(std::wstring const& key) {
+		// expanded: REG_EXPAND_SZ, as it usually is
+		WCHAR path[MAX_PATH * 2];
+		auto base = L"SYSTEM\\CurrentControlSet\\Services\\" + key;
+		for (auto subkey : { L"\\Parameters", L"" }) {
+			DWORD size = sizeof(path);
+			if (::RegGetValue(HKEY_LOCAL_MACHINE, (base + subkey).c_str(), L"ServiceDll", RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ,
+				nullptr, path, &size) == ERROR_SUCCESS)
+				return path;
+		}
+		return L"";
+	}
+}
+
+std::wstring ServiceManager::GetServiceDll(std::wstring const& name, ServiceType type) {
+	auto dll = ReadServiceDll(name);
+	if (dll.empty() && (type & ServiceType::UserServiceInstance) == ServiceType::UserServiceInstance)
+		if (auto underscore = name.rfind(L'_'); underscore != std::wstring::npos)
+			dll = ReadServiceDll(name.substr(0, underscore));
+	return dll;
+}
