@@ -42,6 +42,27 @@ namespace WinSys {
 
 	static_assert(sizeof(ServiceTrigger) == sizeof(SERVICE_TRIGGER));
 
+	enum class ServiceTriggerDataType {
+		Binary = SERVICE_TRIGGER_DATA_TYPE_BINARY,
+		String = SERVICE_TRIGGER_DATA_TYPE_STRING,	// UTF-16, possibly several null-separated strings
+		Level = SERVICE_TRIGGER_DATA_TYPE_LEVEL,	// one byte: an ETW level
+		KeywordAny = SERVICE_TRIGGER_DATA_TYPE_KEYWORD_ANY,	// 8 bytes: ETW keywords, any of them
+		KeywordAll = SERVICE_TRIGGER_DATA_TYPE_KEYWORD_ALL,	// all of them
+	};
+
+	struct ServiceTriggerData {
+		ServiceTriggerDataType Type;
+		std::vector<BYTE> Data;
+	};
+
+	// a trigger with its subtype and data copied out (ServiceTrigger's point into a buffer GetTriggers frees)
+	struct ServiceTriggerDetails {
+		ServiceTriggerType Type;
+		ServiceTriggerAction Action;
+		GUID Subtype;	// the event (IP address arrival, domain join...), a device interface class, an ETW provider...
+		std::vector<ServiceTriggerData> Data;
+	};
+
 	enum class ServiceFailureActionType {
 		None = SC_ACTION_NONE,
 		Restart = SC_ACTION_RESTART,
@@ -88,6 +109,11 @@ namespace WinSys {
 
 		ServiceStatusProcess GetStatus() const;
 		std::vector<ServiceTrigger> GetTriggers() const;
+		// SERVICE_QUERY_CONFIG; empty if there are none or they can't be read
+		std::vector<ServiceTriggerDetails> GetTriggerDetails() const;
+		// the name an ETW provider is registered with (a custom trigger's subtype), from the event publishers' keys;
+		// empty if it isn't registered
+		static std::wstring GetEventProviderName(GUID const& provider);
 		std::vector<std::wstring> GetRequiredPrivileges() const;
 
 		ServiceSidType GetSidType() const;

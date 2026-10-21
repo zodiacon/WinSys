@@ -54,6 +54,43 @@ std::vector<ServiceTrigger> Service::GetTriggers() const {
 	return triggers;
 }
 
+std::vector<ServiceTriggerDetails> Service::GetTriggerDetails() const {
+	std::vector<ServiceTriggerDetails> triggers;
+	DWORD needed = 0;
+	::QueryServiceConfig2(m_handle.get(), SERVICE_CONFIG_TRIGGER_INFO, nullptr, 0, &needed);
+	if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+		return triggers;
+	auto buffer = std::make_unique<BYTE[]>(needed);
+	if (!::QueryServiceConfig2(m_handle.get(), SERVICE_CONFIG_TRIGGER_INFO, buffer.get(), needed, &needed))
+		return triggers;
+
+	auto info = reinterpret_cast<SERVICE_TRIGGER_INFO*>(buffer.get());
+	triggers.reserve(info->cTriggers);
+	for (DWORD i = 0; i < info->cTriggers; i++) {
+		auto& t = info->pTriggers[i];
+		ServiceTriggerDetails trigger{ (ServiceTriggerType)t.dwTriggerType, (ServiceTriggerAction)t.dwAction, t.pTriggerSubtype ? *t.pTriggerSubtype : GUID{} };
+		for (DWORD j = 0; j < t.cDataItems; j++) {
+			auto& item = t.pDataItems[j];
+			trigger.Data.push_back({ (ServiceTriggerDataType)item.dwDataType, std::vector<BYTE>(item.pData, item.pData + item.cbData) });
+		}
+		triggers.push_back(std::move(trigger));
+	}
+	return triggers;
+}
+
+std::wstring Service::GetEventProviderName(GUID const& provider) {
+	WCHAR guid[64];
+	if (!::StringFromGUID2(provider, guid, _countof(guid)))
+		return L"";
+	std::wstring key = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\";
+	key += guid;
+	WCHAR name[256];
+	DWORD size = sizeof(name);
+	if (::RegGetValue(HKEY_LOCAL_MACHINE, key.c_str(), nullptr, RRF_RT_REG_SZ, nullptr, name, &size) != ERROR_SUCCESS)
+		return L"";
+	return name;
+}
+
 std::vector<std::wstring> Service::GetRequiredPrivileges() const {
 	std::vector<std::wstring> privileges;
 	DWORD needed;

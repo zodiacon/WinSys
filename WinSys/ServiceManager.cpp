@@ -240,8 +240,13 @@ std::unique_ptr<WinSys::Service> ServiceManager::Install(const ServiceInstallPar
 			account.empty() ? nullptr : account.c_str(),
 			params.Password.empty() ? nullptr : params.Password.c_str()));
 
-	if (!hService)
+	if (!hService) {
+		// closing the SCM handle may change the last error
+		auto error = ::GetLastError();
+		hScm.reset();
+		::SetLastError(error);
 		return nullptr;
+	}
 
 	if (params.DelayedAutoStart) {
 		BOOL autoStart = TRUE;
