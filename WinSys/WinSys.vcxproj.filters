@@ -105,6 +105,9 @@
     <ClInclude Include="Job.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ObjectDetails.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="FileVersion.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -210,6 +213,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Job.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ObjectDetails.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FileVersion.cpp">

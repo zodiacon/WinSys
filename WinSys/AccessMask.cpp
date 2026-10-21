@@ -2,6 +2,7 @@
 #include "AccessMask.h"
 #include <algorithm>
 #include <vector>
+#include <bit>
 
 using namespace WinSys;
 
@@ -117,4 +118,22 @@ std::wstring AccessMaskDecoder::Decode(std::wstring const& type, uint32_t access
 		add(hex);
 	}
 	return text;
+}
+
+std::vector<AccessRight> AccessMaskDecoder::GetSpecificRights(std::wstring const& type) {
+	std::vector<AccessRight> rights;
+	auto it = std::ranges::find_if(s_Types, [&](auto& t) { return type == t.Type; });
+	if (it != s_Types.end())
+		for (auto& r : it->Rights)
+			if ((r.Mask & ~SPECIFIC_RIGHTS_ALL) == 0 && std::has_single_bit(r.Mask))
+				rights.push_back({ r.Mask, r.Name });
+	return rights;
+}
+
+std::vector<AccessRight> AccessMaskDecoder::GetStandardRights() {
+	std::vector<AccessRight> rights;
+	for (auto& r : s_Standard)
+		if (r.Mask & STANDARD_RIGHTS_ALL)
+			rights.push_back({ r.Mask, r.Name });
+	return rights;
 }

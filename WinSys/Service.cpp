@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Service.h"
+#include "Token.h"
 
 using namespace WinSys;
 
@@ -102,4 +103,76 @@ bool Service::Pause() {
 bool Service::Continue() {
 	SERVICE_STATUS status;
 	return ::ControlService(m_handle.get(), SERVICE_CONTROL_CONTINUE, &status) ? true : false;
+}
+
+bool Service::ChangeConfig(ServiceConfigChange const& change) {
+	auto text = [](std::optional<std::wstring> const& value) { return value ? value->c_str() : nullptr; };
+	return ::ChangeServiceConfig(m_handle.get(), SERVICE_NO_CHANGE,
+		change.StartType ? (DWORD)*change.StartType : SERVICE_NO_CHANGE,
+		change.ErrorControl ? (DWORD)*change.ErrorControl : SERVICE_NO_CHANGE,
+		text(change.BinaryPath), nullptr, nullptr, nullptr, text(change.Account), text(change.Password),
+		text(change.DisplayName)) ? true : false;
+}
+
+bool Service::SetDescription(std::wstring const& description) {
+	SERVICE_DESCRIPTION info{ const_cast<PWSTR>(description.c_str()) };
+	return ::ChangeServiceConfig2(m_handle.get(), SERVICE_CONFIG_DESCRIPTION, &info) ? true : false;
+}
+
+bool Service::SetDelayedAutoStart(bool delayed) {
+	SERVICE_DELAYED_AUTO_START_INFO info{ delayed };
+	return ::ChangeServiceConfig2(m_handle.get(), SERVICE_CONFIG_DELAYED_AUTO_START_INFO, &info) ? true : false;
+}
+
+std::optional<ServiceFailureActions> Service::GetFailureActions() const {
+	DWORD needed = 0;
+	::QueryServiceConfig2(m_handle.get(), SERVICE_CONFIG_FAILURE_ACTIONS, nullptr, 0, &needed);
+	if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+		return std::nullopt;
+	auto buffer = std::make_unique<BYTE[]>(needed);
+	if (!::QueryServiceConfig2(m_handle.get(), SERVICE_CONFIG_FAILURE_ACTIONS, buffer.get(), needed, &needed))
+		return std::nullopt;
+
+	auto info = reinterpret_cast<SERVICE_FAILURE_ACTIONS const*>(buffer.get());
+	ServiceFailureActions actions;
+	actions.ResetPeriod = info->dwResetPeriod;
+	if (info->lpRebootMsg)
+		actions.RebootMessage = info->lpRebootMsg;
+	if (info->lpCommand)
+		actions.Command = info->lpCommand;
+	for (DWORD i = 0; i < info->cActions; i++)
+		actions.Actions.push_back({ (ServiceFailureActionType)info->lpsaActions[i].Type, info->lpsaActions[i].Delay });
+
+	SERVICE_FAILURE_ACTIONS_FLAG flag{};
+	if (::QueryServiceConfig2(m_handle.get(), SERVICE_CONFIG_FAILURE_ACTIONS_FLAG, (BYTE*)&flag, sizeof(flag), &needed))
+		actions.OnNonCrashFailures = flag.fFailureActionsOnNonCrashFailures;
+	return actions;
+}
+
+bool Service::SetFailureActions(ServiceFailureActions const& actions) {
+	std::vector<SC_ACTION> list;
+	bool reboot = false;
+	for (auto& a : actions.Actions) {
+		list.push_back({ (SC_ACTION_TYPE)a.Type, a.Delay });
+		reboot |= a.Type == ServiceFailureActionType::Reboot;
+	}
+	// with no actions, a non-null array (of none) deletes them; a null one would leave them
+	SC_ACTION none{};
+	SERVICE_FAILURE_ACTIONS info{ actions.ResetPeriod, const_cast<PWSTR>(actions.RebootMessage.c_str()),
+		const_cast<PWSTR>(actions.Command.c_str()), (DWORD)list.size(), list.empty() ? &none : list.data() };
+
+	// a reboot action is accepted only with SeShutdownPrivilege enabled
+	std::unique_ptr<Token> token;
+	if (reboot && (token = Token::Open(::GetCurrentProcessId(), TokenAccessMask::Query | TokenAccessMask::AdjustPrivileges)))
+		token->EnablePrivilege(SE_SHUTDOWN_NAME, true);
+	auto ok = ::ChangeServiceConfig2(m_handle.get(), SERVICE_CONFIG_FAILURE_ACTIONS, &info);
+	auto error = ::GetLastError();
+	if (token)
+		token->EnablePrivilege(SE_SHUTDOWN_NAME, false);
+	if (!ok) {
+		::SetLastError(error);
+		return false;
+	}
+	SERVICE_FAILURE_ACTIONS_FLAG flag{ actions.OnNonCrashFailures };
+	return ::ChangeServiceConfig2(m_handle.get(), SERVICE_CONFIG_FAILURE_ACTIONS_FLAG, &flag) ? true : false;
 }

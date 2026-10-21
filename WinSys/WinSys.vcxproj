@@ -185,6 +185,7 @@
     <ClInclude Include="Gpu.h" />
     <ClInclude Include="WaitChain.h" />
     <ClInclude Include="Job.h" />
+    <ClInclude Include="ObjectDetails.h" />
     <ClInclude Include="FileVersion.h" />
     <ClInclude Include="FileSignature.h" />
     <ClInclude Include="AccessMask.h" />
@@ -227,6 +228,7 @@
     <ClCompile Include="Gpu.cpp" />
     <ClCompile Include="WaitChain.cpp" />
     <ClCompile Include="Job.cpp" />
+    <ClCompile Include="ObjectDetails.cpp" />
     <ClCompile Include="FileVersion.cpp" />
     <ClCompile Include="FileSignature.cpp" />
     <ClCompile Include="AccessMask.cpp" />

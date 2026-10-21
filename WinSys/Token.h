@@ -14,6 +14,7 @@ namespace WinSys {
 		AdjustGroups = TOKEN_ADJUST_GROUPS,
 		AdjustSessionId = TOKEN_ADJUST_SESSIONID,
 	};
+	DEFINE_ENUM_FLAG_OPERATORS(TokenAccessMask);
 
 	enum class SidGroupAttributes : uint32_t {
 		Enabled = SE_GROUP_ENABLED,
