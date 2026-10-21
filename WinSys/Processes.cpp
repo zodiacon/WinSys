@@ -114,6 +114,77 @@ IntegrityLevel Process::GetIntegrityLevel() const noexcept {
 }
 
 
+namespace {
+	// the first token (quoted, or up to a space) and the rest, trimmed
+	std::pair<std::wstring, std::wstring> SplitCommandLine(std::wstring const& commandLine) {
+		auto start = commandLine.find_first_not_of(L" \t");
+		if (start == std::wstring::npos)
+			return {};
+		size_t end;
+		std::wstring file;
+		if (commandLine[start] == L'"') {
+			end = commandLine.find(L'"', start + 1);
+			file = commandLine.substr(start + 1, end == std::wstring::npos ? std::wstring::npos : end - start - 1);
+			end = end == std::wstring::npos ? commandLine.size() : end + 1;
+		}
+		else {
+			end = commandLine.find_first_of(L" \t", start);
+			if (end == std::wstring::npos)
+				end = commandLine.size();
+			file = commandLine.substr(start, end - start);
+		}
+		auto first = commandLine.find_first_not_of(L" \t", end);
+		return { std::move(file), first == std::wstring::npos ? std::wstring() : commandLine.substr(first) };
+	}
+}
+
+std::optional<uint32_t> Process::Run(std::wstring const& commandLine, bool elevated, HWND hOwner) {
+	auto [file, args] = SplitCommandLine(commandLine);
+	if (file.empty()) {
+		::SetLastError(ERROR_INVALID_PARAMETER);
+		return std::nullopt;
+	}
+	SHELLEXECUTEINFO sei{ sizeof(sei) };
+	sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+	sei.hwnd = hOwner;
+	sei.lpVerb = elevated ? L"runas" : nullptr;
+	sei.lpFile = file.c_str();
+	sei.lpParameters = args.empty() ? nullptr : args.c_str();
+	sei.nShow = SW_SHOWNORMAL;
+	if (!::ShellExecuteEx(&sei))
+		return std::nullopt;
+	// none if a running process took it (a document opened in a window that was open)
+	uint32_t pid = 0;
+	if (sei.hProcess) {
+		pid = ::GetProcessId(sei.hProcess);
+		::CloseHandle(sei.hProcess);
+	}
+	return pid;
+}
+
+std::optional<uint32_t> Process::RunAs(std::wstring const& commandLine, std::wstring const& user, std::wstring const& password,
+	bool loadProfile, bool netOnly) {
+	// DOMAIN\user; a UPN (user@domain) goes as the user name with no domain; a bare name is a local account
+	std::wstring name = user, domain;
+	if (auto slash = user.find(L'\\'); slash != std::wstring::npos) {
+		domain = user.substr(0, slash);
+		name = user.substr(slash + 1);
+	}
+	else if (user.find(L'@') == std::wstring::npos)
+		domain = L".";
+	// CreateProcessWithLogonW may change the command line's buffer
+	std::wstring cmd = commandLine;
+	STARTUPINFO si{ sizeof(si) };
+	PROCESS_INFORMATION pi;
+	DWORD flags = netOnly ? LOGON_NETCREDENTIALS_ONLY : loadProfile ? LOGON_WITH_PROFILE : 0;
+	if (!::CreateProcessWithLogonW(name.c_str(), domain.empty() ? nullptr : domain.c_str(), password.c_str(), flags, nullptr,
+		cmd.data(), CREATE_UNICODE_ENVIRONMENT, nullptr, nullptr, &si, &pi))
+		return std::nullopt;
+	::CloseHandle(pi.hThread);
+	::CloseHandle(pi.hProcess);
+	return pi.dwProcessId;
+}
+
 std::unique_ptr<Process> Process::GetCurrent() {
 	return std::make_unique<Process>(NtCurrentProcess());
 }

@@ -111,6 +111,18 @@ namespace WinSys {
 		[[nodiscard]] static std::vector<LoadedModule> EnumLoadedModules(HANDLE hProcess);
 		// the running processes' IDs and image names, from a ToolHelp snapshot (the Idle process left out)
 		[[nodiscard]] static std::vector<std::pair<uint32_t, std::wstring>> EnumProcessNames();
+
+		// starts a command line as the shell does (ShellExecuteEx: a program, a document, a folder or a URL); its first
+		// token is the file (quoted if it has spaces), the rest the arguments. elevated: with the runas verb (the UAC
+		// prompt). The new process's ID (0 if the shell handed it to a running one); nothing on failure, with the last
+		// error (ERROR_CANCELLED: the prompt was declined)
+		[[nodiscard]] static std::optional<uint32_t> Run(std::wstring const& commandLine, bool elevated = false, HWND hOwner = nullptr);
+		// starts a program as another user (CreateProcessWithLogonW). user: DOMAIN\user, user@domain or a local account's
+		// name; loadProfile: the user's profile is loaded first; netOnly: the credentials are used only for network
+		// access (as runas /netonly), and the process runs as the caller. The new process's ID; nothing on failure, with
+		// the last error
+		[[nodiscard]] static std::optional<uint32_t> RunAs(std::wstring const& commandLine, std::wstring const& user,
+			std::wstring const& password, bool loadProfile = true, bool netOnly = false);
 		uint32_t GetGdiObjectCount() const noexcept;
 		uint32_t GetPeakGdiObjectCount() const noexcept;
 		uint32_t GetUserObjectCount() const noexcept;
