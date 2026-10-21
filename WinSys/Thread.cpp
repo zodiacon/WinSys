@@ -138,6 +138,36 @@ ThreadPriorityLevel Thread::GetPriority() const noexcept {
 	return static_cast<ThreadPriorityLevel>(::GetThreadPriority(m_handle));
 }
 
+bool Thread::SetPriority(ThreadPriorityLevel priority) noexcept {
+	return ::SetThreadPriority(m_handle, static_cast<int>(priority));
+}
+
+bool Thread::GetAffinity(uint16_t& group, KAFFINITY& mask, KAFFINITY& allowed) const noexcept {
+	GROUP_AFFINITY affinity{};
+	if (!::GetThreadGroupAffinity(m_handle, &affinity))
+		return false;
+	group = affinity.Group;
+	mask = affinity.Mask;
+	// a process's mask is its affinity only while it's in one group (0 otherwise)
+	DWORD_PTR processMask = 0, systemMask = 0;
+	if (auto hProcess = ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, ::GetProcessIdOfThread(m_handle))) {
+		::GetProcessAffinityMask(hProcess, &processMask, &systemMask);
+		::CloseHandle(hProcess);
+	}
+	auto count = ::GetActiveProcessorCount(group);
+	KAFFINITY active = count >= sizeof(KAFFINITY) * 8 ? ~KAFFINITY(0) : (KAFFINITY(1) << count) - 1;
+	allowed = processMask ? (KAFFINITY)processMask & active : active;
+	return true;
+}
+
+bool Thread::SetAffinity(KAFFINITY mask) noexcept {
+	GROUP_AFFINITY affinity{};
+	if (!::GetThreadGroupAffinity(m_handle, &affinity))
+		return false;
+	affinity.Mask = mask;
+	return ::SetThreadGroupAffinity(m_handle, &affinity, nullptr);
+}
+
 CpuNumber Thread::GetIdealProcessor() const noexcept {
 	PROCESSOR_NUMBER cpu;
 	ULONG len;

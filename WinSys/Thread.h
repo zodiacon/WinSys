@@ -68,7 +68,14 @@ namespace WinSys {
 		bool IsValid() const noexcept;
 
 		ThreadPriorityLevel GetPriority() const noexcept;
+		// needs THREAD_SET_LIMITED_INFORMATION
 		bool SetPriority(ThreadPriorityLevel priority) noexcept;
+		// the processors the thread may run on, in its processor group (a thread runs in one): its mask, and the ones it
+		// can be given (its process's affinity, when the process is in that group only; else the group's active
+		// processors). Needs THREAD_QUERY_LIMITED_INFORMATION; the process is opened with limited query access
+		bool GetAffinity(uint16_t& group, KAFFINITY& mask, KAFFINITY& allowed) const noexcept;
+		// within the thread's group; needs THREAD_SET_INFORMATION and THREAD_QUERY_INFORMATION
+		bool SetAffinity(KAFFINITY mask) noexcept;
 		CpuNumber GetIdealProcessor() const noexcept;
 		bool Terminate(uint32_t exitCode = 0) noexcept;
 		// one more (or one less) suspension; a thread runs when its count gets to 0. Need THREAD_SUSPEND_RESUME
