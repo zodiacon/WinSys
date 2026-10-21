@@ -29,8 +29,8 @@ namespace WinSys {
 	struct DiskInfo final {
 		// Fixed and removable drives with a drive letter. Drives with no media (an empty card reader) and subst drives are skipped.
 		[[nodiscard]] static std::vector<DiskVolume> GetVolumes();
-		// Refreshes the free space and counters of a volume returned by GetVolumes
-		static bool Refresh(DiskVolume& volume);
+		// Refreshes the counters of a volume returned by GetVolumes, and its free space if space is true
+		static bool Refresh(DiskVolume& volume, bool space = true);
 	};
 
 	//
@@ -53,5 +53,6 @@ namespace WinSys {
 	private:
 		std::vector<Volume> m_Volumes;	// in drive letter order
 		uint32_t m_Drives{ 0 };	// GetLogicalDrives() at the last full enumeration
+		uint64_t m_SpaceTime{ 0 };	// GetTickCount64() when the free space was last read (it changes slowly)
 	};
 }

@@ -11,8 +11,26 @@ namespace {
 		return b >= 'A' && b <= 'Z' ? uint8_t(b | 0x20) : b;
 	}
 
+	// the pattern at data[i], ignoring ASCII case; wide: by UTF-16 units, folding only a unit whose high byte is zero
+	bool MatchesFolded(uint8_t const* data, uint8_t const* pattern, size_t size, bool wide) {
+		if (!wide) {
+			for (size_t j = 0; j < size; j++)
+				if (Fold(data[j]) != Fold(pattern[j]))
+					return false;
+			return true;
+		}
+		for (size_t j = 0; j + 1 < size; j += 2) {
+			if (data[j + 1] != pattern[j + 1])
+				return false;
+			if (pattern[j + 1] == 0 ? Fold(data[j]) != Fold(pattern[j]) : data[j] != pattern[j])
+				return false;
+		}
+		// an odd last byte (not UTF-16 really) exactly
+		return size % 2 == 0 || data[size - 1] == pattern[size - 1];
+	}
+
 	// the first match in the data, or SIZE_MAX
-	size_t Search(uint8_t const* data, size_t count, uint8_t const* pattern, size_t size, bool ignoreCase) {
+	size_t Search(uint8_t const* data, size_t count, uint8_t const* pattern, size_t size, bool ignoreCase, bool wide) {
 		if (count < size)
 			return SIZE_MAX;
 		auto last = count - size;
@@ -29,15 +47,9 @@ namespace {
 			return SIZE_MAX;
 		}
 		auto first = Fold(pattern[0]);
-		for (size_t i = 0; i <= last; i++) {
-			if (Fold(data[i]) != first)
-				continue;
-			size_t j = 1;
-			while (j < size && Fold(data[i + j]) == Fold(pattern[j]))
-				j++;
-			if (j == size)
+		for (size_t i = 0; i <= last; i++)
+			if (Fold(data[i]) == first && MatchesFolded(data + i, pattern, size, wide))
 				return i;
-		}
 		return SIZE_MAX;
 	}
 
@@ -46,7 +58,8 @@ namespace {
 	}
 }
 
-std::optional<uint64_t> ProcessMemory::Find(HANDLE hProcess, uint8_t const* pattern, size_t size, uint64_t from, uint64_t to, bool ignoreCase) {
+std::optional<uint64_t> ProcessMemory::Find(HANDLE hProcess, uint8_t const* pattern, size_t size, uint64_t from, uint64_t to,
+	bool ignoreCase, bool wide) {
 	if (!pattern || size == 0 || from >= to)
 		return std::nullopt;
 	auto buffer = std::make_unique<uint8_t[]>(ChunkSize + size);
@@ -56,6 +69,11 @@ std::optional<uint64_t> ProcessMemory::Find(HANDLE hProcess, uint8_t const* patt
 			break;
 		auto regionEnd = (uint64_t)mbi.BaseAddress + mbi.RegionSize;
 		if (IsReadable(mbi)) {
+			// the readable regions after it too (VirtualQueryEx's are contiguous), so a match may cross into them
+			MEMORY_BASIC_INFORMATION next;
+			while (regionEnd < to && ::VirtualQueryEx(hProcess, (void const*)regionEnd, &next, sizeof(next)) == sizeof(next)
+				&& IsReadable(next))
+				regionEnd = (uint64_t)next.BaseAddress + next.RegionSize;
 			auto end = (std::min)(regionEnd, to);
 			for (auto at = address; at < end; at += ChunkSize) {
 				// the chunk, and what a match starting in it needs of the next
@@ -63,7 +81,7 @@ std::optional<uint64_t> ProcessMemory::Find(HANDLE hProcess, uint8_t const* patt
 				SIZE_T read = 0;
 				if (!::ReadProcessMemory(hProcess, (void const*)at, buffer.get(), count, &read) && read == 0)
 					break;
-				if (auto i = Search(buffer.get(), read, pattern, size, ignoreCase); i != SIZE_MAX)
+				if (auto i = Search(buffer.get(), read, pattern, size, ignoreCase, wide); i != SIZE_MAX)
 					return at + i;
 			}
 		}

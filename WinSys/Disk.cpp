@@ -41,9 +41,9 @@ std::vector<DiskVolume> DiskInfo::GetVolumes() {
 	return volumes;
 }
 
-bool DiskInfo::Refresh(DiskVolume& volume) {
+bool DiskInfo::Refresh(DiskVolume& volume, bool space) {
 	ULARGE_INTEGER total, free;
-	if (::GetDiskFreeSpaceEx(volume.Root.c_str(), nullptr, &total, &free)) {
+	if (space && ::GetDiskFreeSpaceEx(volume.Root.c_str(), nullptr, &total, &free)) {
 		volume.TotalBytes = total.QuadPart;
 		volume.FreeBytes = free.QuadPart;
 	}
@@ -73,16 +73,22 @@ bool DiskInfo::Refresh(DiskVolume& volume) {
 void DiskTracker::Update() {
 	std::vector<DiskVolume> current;
 	auto drives = ::GetLogicalDrives();
+	auto now = ::GetTickCount64();
 	if (drives != m_Drives) {
 		// drives came or went: enumerate again (this also reads the labels, which don't change otherwise)
 		m_Drives = drives;
+		m_SpaceTime = now;
 		current = DiskInfo::GetVolumes();
 	}
 	else {
+		// the free space at most every 5 seconds: it's a file system query per drive
+		bool space = now - m_SpaceTime >= 5000;
+		if (space)
+			m_SpaceTime = now;
 		current.reserve(m_Volumes.size());
 		for (auto& v : m_Volumes) {
 			DiskVolume volume = v;
-			DiskInfo::Refresh(volume);
+			DiskInfo::Refresh(volume, space);
 			current.push_back(std::move(volume));
 		}
 	}

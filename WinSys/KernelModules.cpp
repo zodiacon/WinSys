@@ -6,10 +6,14 @@
 using namespace WinSys;
 
 namespace {
-	std::wstring SystemRoot() {
-		WCHAR path[MAX_PATH];
-		auto len = ::GetSystemWindowsDirectory(path, _countof(path));
-		return len > 0 && len < _countof(path) ? path : L"C:\\Windows";
+	// once: most modules need it, on every enumeration
+	std::wstring const& SystemRoot() {
+		static std::wstring const root = [] {
+			WCHAR path[MAX_PATH];
+			auto len = ::GetSystemWindowsDirectory(path, _countof(path));
+			return std::wstring(len > 0 && len < _countof(path) ? path : L"C:\\Windows");
+		}();
+		return root;
 	}
 
 	// the kernel's names are ANSI
