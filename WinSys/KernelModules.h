@@ -30,5 +30,9 @@ namespace WinSys {
 		// a module's path as the kernel has it ("\SystemRoot\system32\ntoskrnl.exe", "\??\C:\...", "\Windows\...",
 		// "\Device\HarddiskVolume3\...") as a Win32 path; unchanged if it isn't one of those
 		[[nodiscard]] static std::wstring ToWin32Path(std::wstring const& path);
+		// a driver service's image as a Win32 path, comparable with a loaded module's Path: its ImagePath as the SCM keeps
+		// it (as ToWin32Path takes, or relative to the system root: "system32\drivers\x.sys"), or, with none, the default
+		// the kernel loads: System32\drivers\<service name>.sys
+		[[nodiscard]] static std::wstring DriverImagePath(std::wstring const& serviceName, std::wstring const& imagePath);
 	};
 }

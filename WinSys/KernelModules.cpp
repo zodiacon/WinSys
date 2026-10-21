@@ -39,6 +39,15 @@ std::wstring KernelModules::ToWin32Path(std::wstring const& path) {
 	return path;
 }
 
+std::wstring KernelModules::DriverImagePath(std::wstring const& serviceName, std::wstring const& imagePath) {
+	if (imagePath.empty())
+		return SystemRoot() + L"\\System32\\drivers\\" + serviceName + L".sys";
+	// neither rooted nor with a drive: under the system root
+	if (imagePath[0] != L'\\' && (imagePath.size() < 2 || imagePath[1] != L':'))
+		return SystemRoot() + L"\\" + imagePath;
+	return ToWin32Path(imagePath);
+}
+
 namespace {
 	KernelModule ToModule(RTL_PROCESS_MODULE_INFORMATION const& info, std::string const& fullPath, std::string const& fileName) {
 		KernelModule module;
