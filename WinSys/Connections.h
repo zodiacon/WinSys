@@ -39,5 +39,11 @@ namespace WinSys {
 		[[nodiscard]] static PCWSTR ProtocolName(ConnectionProtocol protocol);
 		// "Established", "Listening"...; empty for UDP
 		[[nodiscard]] static PCWSTR StateName(Connection const& c);
+		// the DNS name of an address (a reverse lookup, GetNameInfoW with NI_NAMEREQD), empty if it has none (or with
+		// the last error set on failure). It blocks, seconds for an address without a name, so call it off the UI
+		// thread; it's thread-safe. v6: all 16 bytes with the scope, else the first 4
+		[[nodiscard]] static std::wstring LookupName(std::array<BYTE, 16> const& address, bool v6, uint32_t scope = 0);
+		// 0.0.0.0 or ::, a listening socket's (no name to look up)
+		[[nodiscard]] static bool IsUnspecified(std::array<BYTE, 16> const& address, bool v6);
 	};
 }

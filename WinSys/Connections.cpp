@@ -5,8 +5,11 @@
 #include <ws2ipdef.h>
 #include <iphlpapi.h>
 #include <ip2string.h>
+#include <ws2tcpip.h>
+#include <algorithm>
 
 #pragma comment(lib, "iphlpapi")
+#pragma comment(lib, "ws2_32")
 
 namespace {
 	// the table, or nullptr (with the last error set); query is GetExtendedTcpTable or GetExtendedUdpTable with its
@@ -53,6 +56,44 @@ namespace {
 namespace WinSys {
 	bool Connection::IsTcp() const {
 		return Id.Proto == ConnectionProtocol::Tcp || Id.Proto == ConnectionProtocol::Tcp6;
+	}
+
+	std::wstring ConnectionInfo::LookupName(std::array<BYTE, 16> const& address, bool v6, uint32_t scope) {
+		// once for the process (thread-safe); never cleaned up, as other code may use Winsock too
+		static bool const started = [] {
+			WSADATA data;
+			return ::WSAStartup(MAKEWORD(2, 2), &data) == 0;
+		}();
+		if (!started)
+			return L"";
+		sockaddr_in6 sa6{};
+		sockaddr_in sa4{};
+		sockaddr const* sa;
+		int len;
+		if (v6) {
+			sa6.sin6_family = AF_INET6;
+			memcpy(&sa6.sin6_addr, address.data(), 16);
+			sa6.sin6_scope_id = scope;
+			sa = reinterpret_cast<sockaddr const*>(&sa6);
+			len = sizeof(sa6);
+		}
+		else {
+			sa4.sin_family = AF_INET;
+			memcpy(&sa4.sin_addr, address.data(), 4);
+			sa = reinterpret_cast<sockaddr const*>(&sa4);
+			len = sizeof(sa4);
+		}
+		WCHAR host[NI_MAXHOST];
+		auto error = ::GetNameInfoW(sa, len, host, _countof(host), nullptr, 0, NI_NAMEREQD);
+		if (error) {
+			::SetLastError(error);
+			return L"";
+		}
+		return host;
+	}
+
+	bool ConnectionInfo::IsUnspecified(std::array<BYTE, 16> const& address, bool v6) {
+		return std::all_of(address.begin(), address.begin() + (v6 ? 16 : 4), [](auto b) { return b == 0; });
 	}
 
 	PCWSTR ConnectionInfo::ProtocolName(ConnectionProtocol protocol) {
