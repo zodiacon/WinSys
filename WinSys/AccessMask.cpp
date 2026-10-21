@@ -56,6 +56,11 @@ namespace {
 		{ L"Directory", 0xF000F, {
 			{ 0x0001, L"QUERY" }, { 0x0002, L"TRAVERSE" }, { 0x0004, L"CREATE_OBJECT" }, { 0x0008, L"CREATE_SUBDIRECTORY" } } },
 		{ L"SymbolicLink", 0xF0001, { { 0x0001, L"QUERY" } } },
+		// not an object type: the SCM's services, for an ACL editor
+		{ L"Service", SERVICE_ALL_ACCESS, {
+			{ 0x0001, L"QUERY_CONFIG" }, { 0x0002, L"CHANGE_CONFIG" }, { 0x0004, L"QUERY_STATUS" }, { 0x0008, L"ENUMERATE_DEPENDENTS" },
+			{ 0x0010, L"START" }, { 0x0020, L"STOP" }, { 0x0040, L"PAUSE_CONTINUE" }, { 0x0080, L"INTERROGATE" },
+			{ 0x0100, L"USER_DEFINED_CONTROL" } } },
 		{ L"Job", JOB_OBJECT_ALL_ACCESS, {
 			{ 0x0001, L"ASSIGN_PROCESS" }, { 0x0002, L"SET_ATTRIBUTES" }, { 0x0004, L"QUERY" }, { 0x0008, L"TERMINATE" },
 			{ 0x0010, L"SET_SECURITY_ATTRIBUTES" }, { 0x0020, L"IMPERSONATE" } } },

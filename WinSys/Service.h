@@ -95,6 +95,14 @@ namespace WinSys {
 		// come in the order to stop them (the reverse of their start order). Empty, with the last error, on failure
 		std::vector<ServiceDependent> GetDependents(ServiceEnumState state = ServiceEnumState::All) const;
 
+		// the service's security descriptor, self-relative (QueryServiceObjectSecurity: READ_CONTROL; a SACL also needs
+		// ACCESS_SYSTEM_SECURITY); empty, with the last error, on failure
+		[[nodiscard]] std::vector<BYTE> GetSecurity(SECURITY_INFORMATION info) const;
+		// SetServiceObjectSecurity: WRITE_DAC for the DACL, WRITE_OWNER for the owner and group
+		bool SetSecurity(SECURITY_INFORMATION info, PSECURITY_DESCRIPTOR sd);
+		// how the generic rights map to a service's (an ACL editor needs it; the SCM's objects have no type to ask)
+		static GENERIC_MAPPING const& GetGenericMapping();
+
 		bool Start();
 		bool Start(const std::vector<const wchar_t*>& args);
 		bool Stop(SERVICE_STATUS* status = nullptr);

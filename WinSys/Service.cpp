@@ -109,6 +109,32 @@ std::vector<ServiceDependent> Service::GetDependents(ServiceEnumState state) con
 	return dependents;
 }
 
+std::vector<BYTE> Service::GetSecurity(SECURITY_INFORMATION info) const {
+	std::vector<BYTE> sd;
+	DWORD needed = 0;
+	if (!::QueryServiceObjectSecurity(m_handle.get(), info, nullptr, 0, &needed) && ::GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+		return sd;
+	sd.resize(needed);
+	if (!::QueryServiceObjectSecurity(m_handle.get(), info, sd.data(), needed, &needed))
+		sd.clear();
+	return sd;
+}
+
+bool Service::SetSecurity(SECURITY_INFORMATION info, PSECURITY_DESCRIPTOR sd) {
+	return ::SetServiceObjectSecurity(m_handle.get(), info, sd) ? true : false;
+}
+
+GENERIC_MAPPING const& Service::GetGenericMapping() {
+	// as the SCM documents it
+	static GENERIC_MAPPING const mapping{
+		STANDARD_RIGHTS_READ | SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_INTERROGATE | SERVICE_ENUMERATE_DEPENDENTS,
+		STANDARD_RIGHTS_WRITE | SERVICE_CHANGE_CONFIG,
+		STANDARD_RIGHTS_EXECUTE | SERVICE_START | SERVICE_STOP | SERVICE_PAUSE_CONTINUE | SERVICE_USER_DEFINED_CONTROL,
+		SERVICE_ALL_ACCESS,
+	};
+	return mapping;
+}
+
 std::unique_ptr<WinSys::Service> Service::Open(const std::wstring & name, ServiceAccessMask access) noexcept {
 	auto hService = ServiceManager::OpenServiceHandle(name, access);
 	if (!hService)

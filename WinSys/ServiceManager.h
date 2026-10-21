@@ -22,7 +22,10 @@ namespace WinSys {
 		PauseContinue = SERVICE_PAUSE_CONTINUE,
 		Interrogate = SERVICE_INTERROGATE,
 		UserDefinedControl = SERVICE_USER_DEFINED_CONTROL,
-		Delete = DELETE
+		Delete = DELETE,
+		ReadControl = READ_CONTROL,
+		WriteDac = WRITE_DAC,
+		WriteOwner = WRITE_OWNER,
 	};
 	DEFINE_ENUM_FLAG_OPERATORS(ServiceAccessMask);
 
