@@ -4,33 +4,41 @@
 using namespace WinSys;
 
 std::wstring Helpers::GetDosNameFromNtName(PCWSTR name, bool refresh) {
-	static std::vector<std::pair<std::wstring, std::wstring>> deviceNames;
+	// shared by every thread (the UI's, the property sheets'): built again when the drives change, under a lock
+	static SRWLOCK lock = SRWLOCK_INIT;
+	static std::vector<std::pair<std::wstring, std::wstring>> deviceNames;	// "\Device\HarddiskVolume3", "C:"
+	static DWORD tableDrives = 0;
 	static bool first = true;
-	if (first || refresh) {
+
+	auto drives = ::GetLogicalDrives();
+	::AcquireSRWLockExclusive(&lock);
+	if (first || refresh || drives != tableDrives) {
 		deviceNames.clear();
-		auto drives = ::GetLogicalDrives();
-		int drive = 0;
-		while (drives) {
-			if (drives & 1) {
-				// drive exists
-				WCHAR driveName[] = L"X:";
-				driveName[0] = (WCHAR)(drive + 'A');
-				WCHAR path[MAX_PATH];
-				if (::QueryDosDevice(driveName, path, MAX_PATH)) {
-					deviceNames.push_back({ path, driveName });
-				}
-			}
-			drive++;
-			drives >>= 1;
+		for (int drive = 0; drive < 26; drive++) {
+			if ((drives & (1 << drive)) == 0)
+				continue;
+			WCHAR driveName[] = L"X:";
+			driveName[0] = (WCHAR)(drive + 'A');
+			WCHAR path[MAX_PATH];
+			if (::QueryDosDevice(driveName, path, MAX_PATH))
+				deviceNames.push_back({ path, driveName });
 		}
+		tableDrives = drives;
 		first = false;
 	}
 
+	std::wstring dos;
 	for (auto& [ntName, dosName] : deviceNames) {
-		if (::_wcsnicmp(name, ntName.c_str(), ntName.size()) == 0)
-			return dosName + (name + ntName.size());
+		// the whole device name: \Device\HarddiskVolume1 isn't the start of \Device\HarddiskVolume12\...
+		if (::_wcsnicmp(name, ntName.c_str(), ntName.size()) != 0)
+			continue;
+		if (auto rest = name + ntName.size(); *rest == L'\\' || *rest == 0) {
+			dos = dosName + rest;
+			break;
+		}
 	}
-	return L"";
+	::ReleaseSRWLockExclusive(&lock);
+	return dos;
 }
 
 std::wstring Helpers::GetErrorText(DWORD error) {

@@ -343,7 +343,7 @@ namespace WinSys {
 							m_NewThreads.push_back(thread);
 						}
 						else {
-							thread->CPU = delta == 0 ? 0 : (int32_t)((thread->NativeInfo->KernelTime.QuadPart + thread->NativeInfo->UserTime.QuadPart - cpuTime) * 1000000LL / delta / 1/*_totalProcessors*/);
+							thread->CPU = delta == 0 ? 0 : (int32_t)((thread->NativeInfo->KernelTime.QuadPart + thread->NativeInfo->UserTime.QuadPart - cpuTime) * 1000000LL / delta / s_TotalProcessors);
 							m_threadsByKey.erase(thread->Key);
 						}
 						threadsByKey.insert({ thread->Key, thread });

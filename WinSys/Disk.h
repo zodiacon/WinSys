@@ -35,7 +35,8 @@ namespace WinSys {
 
 	//
 	// Tracks the drives and computes rates on each Update(). Drives that appear (a USB drive plugged in) or disappear
-	// are picked up by the next update. A drive's rates are 0 on the update it first appears in.
+	// are picked up by the next update, media inserted in an empty removable drive within 5 seconds. A drive's rates
+	// are 0 on the update it first appears in.
 	//
 	class DiskTracker {
 	public:
@@ -54,5 +55,7 @@ namespace WinSys {
 		std::vector<Volume> m_Volumes;	// in drive letter order
 		uint32_t m_Drives{ 0 };	// GetLogicalDrives() at the last full enumeration
 		uint64_t m_SpaceTime{ 0 };	// GetTickCount64() when the free space was last read (it changes slowly)
+
+		[[nodiscard]] bool HasNewMedia(uint32_t drives) const;
 	};
 }

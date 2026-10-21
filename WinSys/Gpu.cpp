@@ -117,10 +117,31 @@ namespace {
 	}
 }
 
+namespace {
+	std::vector<WinSys::GpuAdapter>& Adapters() {
+		static std::vector<WinSys::GpuAdapter> adapters = LoadAdapters();
+		return adapters;
+	}
+
+	// a device restarted gets a new LUID: each adapter takes the one of the same name and shape, which keeps the list
+	// (and its users' indices) as it was
+	void RemapLuids() {
+		auto fresh = LoadAdapters();
+		std::vector<bool> used(fresh.size());
+		for (auto& adapter : Adapters())
+			for (size_t i = 0; i < fresh.size(); i++)
+				if (!used[i] && fresh[i].Name == adapter.Name && fresh[i].NodeEngine.size() == adapter.NodeEngine.size()
+					&& fresh[i].ApertureSegments.size() == adapter.ApertureSegments.size()) {
+					adapter.Luid = fresh[i].Luid;
+					used[i] = true;
+					break;
+				}
+	}
+}
+
 namespace WinSys {
 	std::vector<GpuAdapter> const& GpuInfo::GetAdapters() {
-		static const std::vector<GpuAdapter> adapters = LoadAdapters();
-		return adapters;
+		return Adapters();
 	}
 
 	bool GpuTracker::Update() {
@@ -131,13 +152,16 @@ namespace WinSys {
 		if (first)
 			m_PrevTimes.assign(adapters.size(), {});
 		m_Samples.assign(adapters.size(), {});
+		bool stale = false;	// an adapter none of whose nodes could be queried: its LUID may have changed
 
 		for (size_t a = 0; a < adapters.size(); a++) {
 			auto& adapter = adapters[a];
 			auto& sample = m_Samples[a];
 			auto& prev = m_PrevTimes[a];
 			sample.Engines.assign(adapter.Engines.size(), 0);
-			std::vector<int64_t> times(adapter.NodeEngine.size());
+			// -1: not queried, so the next delta doesn't start from 0 (a whole lifetime's running time: 100%)
+			std::vector<int64_t> times(adapter.NodeEngine.size(), -1);
+			bool queried = false;
 			for (size_t node = 0; node < times.size(); node++) {
 				D3DKMT_QUERYSTATISTICS query{};
 				query.Type = D3DKMT_QUERYSTATISTICS_NODE;
@@ -145,13 +169,16 @@ namespace WinSys {
 				query.QueryNode.NodeId = (ULONG)node;
 				if (!Query(query))
 					continue;
+				queried = true;
 				times[node] = query.QueryResult.NodeInformation.GlobalInformation.RunningTime.QuadPart;
-				if (elapsed > 0 && prev.size() == times.size()) {
+				if (elapsed > 0 && prev.size() == times.size() && prev[node] >= 0) {
 					auto busy = std::clamp(100.0f * (times[node] - prev[node]) / elapsed, 0.0f, 100.0f);
 					auto& engine = sample.Engines[adapter.NodeEngine[node]];
 					engine = (std::max)(engine, busy);
 				}
 			}
+			if (!queried && !times.empty())
+				stale = true;
 			prev = std::move(times);
 			sample.Usage = sample.Engines.empty() ? 0 : *std::ranges::max_element(sample.Engines);
 
@@ -163,6 +190,11 @@ namespace WinSys {
 				if (Query(query))
 					(adapter.ApertureSegments[segment] ? sample.SharedUsed : sample.DedicatedUsed) += query.QueryResult.SegmentInformation.BytesResident;
 			}
+		}
+		// not often: it enumerates the adapters (DXGI), and an adapter that's gone (an external GPU) stays stale
+		if (auto tick = ::GetTickCount64(); stale && tick - m_RemapTime >= 10000) {
+			m_RemapTime = tick;
+			RemapLuids();
 		}
 		bool valid = !first && elapsed > 0;
 		m_PrevTime = now;
@@ -209,13 +241,15 @@ namespace WinSys {
 				query.AdapterLuid = adapter.Luid;
 				query.hProcess = hProcess;
 				query.QueryProcessNode.NodeId = (ULONG)node;
-				times.push_back(Query(query) ? query.QueryResult.ProcessNodeInformation.RunningTime.QuadPart : 0);
+				// -1: not queried (see GpuTracker::Update)
+				times.push_back(Query(query) ? query.QueryResult.ProcessNodeInformation.RunningTime.QuadPart : -1);
 			}
 		}
 		auto elapsed = now - state.Time;
 		if (state.NodeTimes.size() == times.size() && elapsed > 0)
 			for (size_t i = 0; i < times.size(); i++)
-				usage.Usage = (std::max)(usage.Usage, std::clamp(100.0f * (times[i] - state.NodeTimes[i]) / elapsed, 0.0f, 100.0f));
+				if (times[i] >= 0 && state.NodeTimes[i] >= 0)
+					usage.Usage = (std::max)(usage.Usage, std::clamp(100.0f * (times[i] - state.NodeTimes[i]) / elapsed, 0.0f, 100.0f));
 		state.NodeTimes = std::move(times);
 		state.Time = now;
 		return usage;

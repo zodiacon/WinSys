@@ -32,7 +32,8 @@ namespace WinSys {
 	};
 
 	struct GpuInfo final {
-		// the adapters that render (no software ones), read once
+		// the adapters that render (no software ones), read once. An adapter's LUID changes when its device restarts
+		// (a driver update): GpuTracker::Update then gives it the new one (the list itself stays as it was)
 		[[nodiscard]] static std::vector<GpuAdapter> const& GetAdapters();
 
 		// a process's usage since the last call with the same state. The handle needs PROCESS_QUERY_INFORMATION (a
@@ -60,6 +61,7 @@ namespace WinSys {
 	private:
 		std::vector<std::vector<int64_t>> m_PrevTimes;	// per adapter, per node: running time
 		int64_t m_PrevTime{ 0 };	// 100 ns units
+		uint64_t m_RemapTime{ 0 };	// GetTickCount64() when the LUIDs were last looked up again
 		std::vector<AdapterSample> m_Samples;
 	};
 }

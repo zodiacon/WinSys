@@ -70,25 +70,43 @@ bool DiskInfo::Refresh(DiskVolume& volume, bool space) {
 	return true;
 }
 
+// a removable drive (a card reader) whose media was inserted since the volumes were enumerated: its letter was there
+// already, so the drive mask didn't change
+bool DiskTracker::HasNewMedia(uint32_t drives) const {
+	DWORD oldMode;
+	::SetThreadErrorMode(SEM_FAILCRITICALERRORS, &oldMode);
+	bool media = false;
+	for (int i = 0; i < 26 && !media; i++) {
+		auto letter = wchar_t(L'A' + i);
+		if ((drives & (1 << i)) == 0 || std::ranges::any_of(m_Volumes, [=](auto& v) { return v.Letter == letter; }))
+			continue;
+		WCHAR root[] = L"X:\\";
+		root[0] = letter;
+		media = ::GetDriveType(root) == DRIVE_REMOVABLE && ::GetVolumeInformation(root, nullptr, 0, nullptr, nullptr, nullptr, nullptr, 0);
+	}
+	::SetThreadErrorMode(oldMode, nullptr);
+	return media;
+}
+
 void DiskTracker::Update() {
 	std::vector<DiskVolume> current;
 	auto drives = ::GetLogicalDrives();
 	auto now = ::GetTickCount64();
-	if (drives != m_Drives) {
+	// the free space (and media in empty removable drives) at most every 5 seconds: file system queries per drive
+	bool slow = now - m_SpaceTime >= 5000;
+	if (drives != m_Drives || (slow && HasNewMedia(drives))) {
 		// drives came or went: enumerate again (this also reads the labels, which don't change otherwise)
 		m_Drives = drives;
 		m_SpaceTime = now;
 		current = DiskInfo::GetVolumes();
 	}
 	else {
-		// the free space at most every 5 seconds: it's a file system query per drive
-		bool space = now - m_SpaceTime >= 5000;
-		if (space)
+		if (slow)
 			m_SpaceTime = now;
 		current.reserve(m_Volumes.size());
 		for (auto& v : m_Volumes) {
 			DiskVolume volume = v;
-			DiskInfo::Refresh(volume, space);
+			DiskInfo::Refresh(volume, slow);
 			current.push_back(std::move(volume));
 		}
 	}
