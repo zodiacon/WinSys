@@ -45,5 +45,11 @@ namespace WinSys {
 		[[nodiscard]] static std::wstring LookupName(std::array<BYTE, 16> const& address, bool v6, uint32_t scope = 0);
 		// 0.0.0.0 or ::, a listening socket's (no name to look up)
 		[[nodiscard]] static bool IsUnspecified(std::array<BYTE, 16> const& address, bool v6);
+		// a TCP connection over IPv4 that has a remote end (not listening, closed or in TIME_WAIT): one Close can reset
+		// (the IP helper has no way for IPv6)
+		[[nodiscard]] static bool CanClose(Connection const& c);
+		// resets the connection (SetTcpEntry with MIB_TCP_STATE_DELETE_TCB), as TCPView's Close Connection; needs
+		// elevation. False with the last error set (ERROR_NOT_SUPPORTED if not CanClose)
+		static bool Close(Connection const& c);
 	};
 }

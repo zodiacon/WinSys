@@ -96,6 +96,31 @@ namespace WinSys {
 		return std::all_of(address.begin(), address.begin() + (v6 ? 16 : 4), [](auto b) { return b == 0; });
 	}
 
+	bool ConnectionInfo::CanClose(Connection const& c) {
+		return c.Id.Proto == ConnectionProtocol::Tcp && c.State != MIB_TCP_STATE_LISTEN && c.State != MIB_TCP_STATE_CLOSED
+			&& c.State != MIB_TCP_STATE_TIME_WAIT && c.State != MIB_TCP_STATE_DELETE_TCB;
+	}
+
+	bool ConnectionInfo::Close(Connection const& c) {
+		if (!CanClose(c)) {
+			::SetLastError(ERROR_NOT_SUPPORTED);
+			return false;
+		}
+		// the addresses as they are in memory (network order), the ports in network order in the low 16 bits
+		MIB_TCPROW row{};
+		row.dwState = MIB_TCP_STATE_DELETE_TCB;
+		memcpy(&row.dwLocalAddr, c.Id.LocalAddress.data(), 4);
+		memcpy(&row.dwRemoteAddr, c.Id.RemoteAddress.data(), 4);
+		row.dwLocalPort = _byteswap_ushort(c.Id.LocalPort);
+		row.dwRemotePort = _byteswap_ushort(c.Id.RemotePort);
+		auto error = ::SetTcpEntry(&row);
+		if (error != NO_ERROR) {
+			::SetLastError(error);
+			return false;
+		}
+		return true;
+	}
+
 	PCWSTR ConnectionInfo::ProtocolName(ConnectionProtocol protocol) {
 		switch (protocol) {
 			case ConnectionProtocol::Tcp: return L"TCP";
