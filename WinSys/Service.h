@@ -32,12 +32,14 @@ namespace WinSys {
 		Stop = 2
 	};
 
+	// SERVICE_TRIGGER's layout; GetTriggers fills in the type, the action and the number of data items only (the subtype
+	// and the data are in a buffer it frees: GetTriggerDetails copies them)
 	struct ServiceTrigger {
 		ServiceTriggerType Type;
 		ServiceTriggerAction Action;
-		GUID* TriggerSubtype;
+		GUID* TriggerSubtype;	// nullptr
 		uint32_t DataItems;
-		void* pSpecificDataItems;
+		void* pSpecificDataItems;	// nullptr
 	};
 
 	static_assert(sizeof(ServiceTrigger) == sizeof(SERVICE_TRIGGER));
@@ -108,6 +110,7 @@ namespace WinSys {
 		static std::unique_ptr<Service> Open(const std::wstring& name, ServiceAccessMask access) noexcept;
 
 		ServiceStatusProcess GetStatus() const;
+		// the type and action of each trigger (and its number of data items); see GetTriggerDetails
 		std::vector<ServiceTrigger> GetTriggers() const;
 		// SERVICE_QUERY_CONFIG; empty if there are none or they can't be read
 		std::vector<ServiceTriggerDetails> GetTriggerDetails() const;

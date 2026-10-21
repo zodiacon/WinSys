@@ -209,13 +209,21 @@ std::unique_ptr<WinSys::Service> ServiceManager::Install(const ServiceInstallPar
 		if (!::CopyFile(params.ImagePath.c_str(), imagePath.c_str(), FALSE))
 			return nullptr;
 	}
-	WCHAR buffer[512] = { 0 };
-	if (!params.Dependencies.empty()) {
-		::wcscpy_s(buffer, params.Dependencies.c_str());
-		for (auto& ch : buffer)
-			if (ch == L';')
-				ch = L'\0';
+	// "a;b;+Group": a double-null-terminated list, empty names (";;", spaces) left out
+	std::wstring dependencies;
+	for (size_t start = 0; start <= params.Dependencies.size(); ) {
+		auto end = params.Dependencies.find(L';', start);
+		if (end == std::wstring::npos)
+			end = params.Dependencies.size();
+		auto name = params.Dependencies.substr(start, end - start);
+		auto first = name.find_first_not_of(L" \t"), last = name.find_last_not_of(L" \t");
+		if (first != std::wstring::npos) {
+			dependencies += name.substr(first, last - first + 1);
+			dependencies += L'\0';
+		}
+		start = end + 1;
 	}
+	dependencies += L'\0';
 
 	std::wstring account;
 	if (params.AccountName == L"Network Service")
@@ -236,7 +244,7 @@ std::unique_ptr<WinSys::Service> ServiceManager::Install(const ServiceInstallPar
 			imagePath.c_str(),
 			params.LoadOrderGroup.c_str(),
 			nullptr,
-			* buffer == 0 ? nullptr : buffer,
+			dependencies.size() < 2 ? nullptr : dependencies.c_str(),
 			account.empty() ? nullptr : account.c_str(),
 			params.Password.empty() ? nullptr : params.Password.c_str()));
 

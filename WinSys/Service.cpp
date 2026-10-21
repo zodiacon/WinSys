@@ -43,10 +43,11 @@ std::vector<ServiceTrigger> Service::GetTriggers() const {
 	triggers.reserve(info->cTriggers);
 	for (DWORD i = 0; i < info->cTriggers; i++) {
 		const auto& tinfo = info->pTriggers[i];
-		ServiceTrigger trigger;
+		// the subtype and data items stay out: they're in the buffer, which goes when this returns
+		ServiceTrigger trigger{};
 		trigger.Type = static_cast<ServiceTriggerType>(tinfo.dwTriggerType);
-		trigger.TriggerSubtype = tinfo.pTriggerSubtype;
 		trigger.Action = static_cast<ServiceTriggerAction>(tinfo.dwAction);
+		trigger.DataItems = tinfo.cDataItems;
 
 		triggers.push_back(trigger);
 	}
