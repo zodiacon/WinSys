@@ -2,6 +2,8 @@
 #include <evntrace.h>
 #include <evntcons.h>
 #include "ProcessNetwork.h"
+#include "Connections.h"
+#include <unordered_set>
 
 using namespace WinSys;
 
@@ -112,6 +114,7 @@ bool ProcessNetworkTracker::Start(PCWSTR sessionPrefix) {
 		::SetLastError(error);
 		return false;
 	}
+	::GetSystemTimeAsFileTime((FILETIME*)&m_StartTime);
 	return true;
 }
 
@@ -133,6 +136,7 @@ void ProcessNetworkTracker::Stop() {
 	auto lock = m_Lock.lock_exclusive();
 	m_Counters.clear();
 	m_Connections.clear();
+	m_StartTime = 0;
 }
 
 bool ProcessNetworkTracker::IsRunning() const {
@@ -174,14 +178,37 @@ ProcessNetworkTracker::Counters ProcessNetworkTracker::GetConnectionCounters(Con
 	return it == m_Connections.end() ? Counters{} : it->second;
 }
 
-void ProcessNetworkTracker::RetainConnections(std::vector<ConnectionId> const& live) {
-	std::unordered_map<ConnectionId, Counters, ConnectionIdHash> kept;
+ProcessNetworkTracker::ConnectionId ProcessNetworkTracker::IdOf(Connection const& c) {
+	ConnectionId id;
+	id.Pid = c.Id.Pid;
+	id.V6 = c.Id.Proto == ConnectionProtocol::Tcp6 || c.Id.Proto == ConnectionProtocol::Udp6;
+	id.Udp = c.Id.Proto == ConnectionProtocol::Udp || c.Id.Proto == ConnectionProtocol::Udp6;
+	id.LocalPort = c.Id.LocalPort;
+	// a UDP endpoint by its port only
+	if (!id.Udp) {
+		size_t length = id.V6 ? 16 : 4;
+		std::copy_n(c.Id.LocalAddress.begin(), length, id.LocalAddress.begin());
+		std::copy_n(c.Id.RemoteAddress.begin(), length, id.RemoteAddress.begin());
+		id.RemotePort = c.Id.RemotePort;
+	}
+	return id;
+}
+
+int64_t ProcessNetworkTracker::GetStartTime() const {
+	return m_StartTime;
+}
+
+void ProcessNetworkTracker::PruneConnections() {
+	// a few milliseconds, outside the lock
+	auto current = ConnectionInfo::Read();
+	if (!current)
+		return;
+	std::unordered_set<ConnectionId, ConnectionIdHash> live;
+	live.reserve(current->size());
+	for (auto& c : *current)
+		live.insert(IdOf(c));
 	auto lock = m_Lock.lock_exclusive();
-	kept.reserve(live.size());
-	for (auto& id : live)
-		if (auto it = m_Connections.find(id); it != m_Connections.end())
-			kept.insert(*it);
-	m_Connections.swap(kept);
+	std::erase_if(m_Connections, [&](auto const& c) { return !live.contains(c.first); });
 }
 
 DWORD WINAPI ProcessNetworkTracker::ProcessThread(void* param) {
@@ -224,6 +251,11 @@ void WINAPI ProcessNetworkTracker::OnEvent(PEVENT_RECORD record) {
 	}
 
 	auto tracker = static_cast<ProcessNetworkTracker*>(record->UserContext);
+	// closed connections' counts go now and then
+	if (auto now = ::GetTickCount64(); now - tracker->m_LastPrune >= 30000) {
+		tracker->m_LastPrune = now;
+		tracker->PruneConnections();
+	}
 	auto lock = tracker->m_Lock.lock_exclusive();
 	auto& counters = tracker->m_Counters[pid];
 	(direction == Direction::Send ? counters.Sent : counters.Received) += size;

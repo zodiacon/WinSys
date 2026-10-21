@@ -11,12 +11,15 @@
 // Bytes each process sent and received over TCP and UDP (IPv4 and IPv6), counted from an ETW real-time session on the
 // Microsoft-Windows-Kernel-Network provider. Enabling that provider needs administrator rights (Performance Log Users
 // can start a session, but not enable it). The counts start when the session does; the events arrive on a background
-// thread about once a second. The same events are counted per connection too (their addresses and ports).
+// thread about once a second. The same events are counted per connection too (their addresses and ports); the
+// connections that are gone are forgotten every 30 seconds (against the connection table), as only the table tells.
 //
 
 struct _EVENT_RECORD;	// evntcons.h
 
 namespace WinSys {
+	struct Connection;	// Connections.h
+
 	class ProcessNetworkTracker {
 	public:
 		struct Counters {
@@ -57,11 +60,15 @@ namespace WinSys {
 
 		// the bytes over a connection since the session started (or since it was first seen, if later)
 		[[nodiscard]] Counters GetConnectionCounters(ConnectionId const& id) const;
-		// forgets the connections not in live (closed ones), so the counts don't pile up
-		void RetainConnections(std::vector<ConnectionId> const& live);
+		// the ID a connection from ConnectionInfo::Read is counted under
+		[[nodiscard]] static ConnectionId IdOf(Connection const& c);
+		// when the session started (FILETIME), 0 if it isn't running: nothing before it is counted
+		[[nodiscard]] int64_t GetStartTime() const;
 
 	private:
 		static void WINAPI OnEvent(_EVENT_RECORD* record);
+		// on the events' thread: forgets the connections no longer in the connection table
+		void PruneConnections();
 		static DWORD WINAPI ProcessThread(void* param);
 
 		std::wstring m_SessionName;
@@ -70,5 +77,7 @@ namespace WinSys {
 		mutable wil::srwlock m_Lock;
 		std::unordered_map<uint32_t, Counters> m_Counters;
 		std::unordered_map<ConnectionId, Counters, ConnectionIdHash> m_Connections;
+		uint64_t m_LastPrune{ 0 };	// GetTickCount64, on the events' thread
+		int64_t m_StartTime{ 0 };
 	};
 }
