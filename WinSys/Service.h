@@ -73,6 +73,13 @@ namespace WinSys {
 		std::optional<std::wstring> Password;	// with Account: empty for the built-in accounts
 	};
 
+	// a service that depends on another (EnumDependentServices)
+	struct ServiceDependent {
+		std::wstring Name;
+		std::wstring DisplayName;
+		ServiceState State;
+	};
+
 	class Service final {
 	public:
 		explicit Service(wil::unique_schandle) noexcept;
@@ -84,6 +91,9 @@ namespace WinSys {
 		std::vector<std::wstring> GetRequiredPrivileges() const;
 
 		ServiceSidType GetSidType() const;
+		// SERVICE_ENUMERATE_DEPENDENTS: every service depending on this one, directly or through others; the active ones
+		// come in the order to stop them (the reverse of their start order). Empty, with the last error, on failure
+		std::vector<ServiceDependent> GetDependents(ServiceEnumState state = ServiceEnumState::All) const;
 
 		bool Start();
 		bool Start(const std::vector<const wchar_t*>& args);

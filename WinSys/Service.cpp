@@ -82,6 +82,33 @@ ServiceSidType WinSys::Service::GetSidType() const {
 	return ServiceSidType::Unknown;
 }
 
+std::vector<ServiceDependent> Service::GetDependents(ServiceEnumState state) const {
+	std::vector<ServiceDependent> dependents;
+	DWORD needed = 0, count = 0;
+	if (::EnumDependentServices(m_handle.get(), (DWORD)state, nullptr, 0, &needed, &count)) {
+		// none
+		::SetLastError(ERROR_SUCCESS);
+		return dependents;
+	}
+	if (::GetLastError() != ERROR_MORE_DATA)
+		return dependents;
+	// dependents may come between the calls
+	for (int i = 0; i < 4; i++) {
+		needed += 1 << 10;
+		auto buffer = std::make_unique<BYTE[]>(needed);
+		if (::EnumDependentServices(m_handle.get(), (DWORD)state, (ENUM_SERVICE_STATUS*)buffer.get(), needed, &needed, &count)) {
+			auto services = (ENUM_SERVICE_STATUS*)buffer.get();
+			dependents.reserve(count);
+			for (DWORD j = 0; j < count; j++)
+				dependents.push_back({ services[j].lpServiceName, services[j].lpDisplayName, (ServiceState)services[j].ServiceStatus.dwCurrentState });
+			return dependents;
+		}
+		if (::GetLastError() != ERROR_MORE_DATA)
+			break;
+	}
+	return dependents;
+}
+
 std::unique_ptr<WinSys::Service> Service::Open(const std::wstring & name, ServiceAccessMask access) noexcept {
 	auto hService = ServiceManager::OpenServiceHandle(name, access);
 	if (!hService)
