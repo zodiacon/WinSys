@@ -33,6 +33,8 @@ namespace WinSys {
 		uint32_t Update() {
 			return Update(false, 0);
 		}
+		// pid: only that process's threads (every process is updated). Asking for another process's threads starts
+		// over: the previous one's aren't reported as terminated, and the new one's are all new
 		uint32_t UpdateWithThreads(uint32_t pid = 0) {
 			return Update(true, pid);
 		}
@@ -82,6 +84,10 @@ namespace WinSys {
 			m_NewProcesses.clear();
 
 			ThreadMap threadsByKey;
+			if (includeThreads && pid != m_ThreadsPid) {
+				m_threadsByKey.clear();
+				m_ThreadsPid = pid;
+			}
 			if (includeThreads) {
 				threadsByKey.reserve(4096);
 				m_NewThreads.clear();
@@ -95,12 +101,14 @@ namespace WinSys {
 				auto p = reinterpret_cast<SYSTEM_PROCESS_INFORMATION*>(buffer);
 
 				for (;;) {
-					if (pid == 0 || pid == HandleToULong(p->UniqueProcessId)) {
+					// every process: the others would be reported as terminated otherwise; pid selects the threads
+					{
 						ProcessOrThreadKey key = { p->CreateTime.QuadPart, HandleToULong(p->UniqueProcessId) };
+						bool threads = includeThreads && (pid == 0 || pid == key.Id);
 						std::shared_ptr<TProcessInfo> pi;
 						if (auto it = m_processesByKey.find(key); it == m_processesByKey.end()) {
 							// new process
-							pi = BuildProcessInfo(p, includeThreads, threadsByKey, delta, pi, extended);
+							pi = BuildProcessInfo(p, threads, threadsByKey, delta, pi, extended);
 							m_NewProcesses.push_back(pi);
 							pi->CPU = pi->KernelCPU = 0;
 						}
@@ -108,7 +116,7 @@ namespace WinSys {
 							const auto& pi2 = it->second;
 							auto kcpu = delta == 0 ? 0 : (int32_t)((p->KernelTime.QuadPart - pi2->NativeInfo->KernelTime.QuadPart) * 1000000 / delta / s_TotalProcessors);
 							auto cpu = delta == 0 ? 0 : (int32_t)((p->KernelTime.QuadPart + p->UserTime.QuadPart - pi2->NativeInfo->UserTime.QuadPart - pi2->NativeInfo->KernelTime.QuadPart) * 1000000 / delta / s_TotalProcessors);
-							pi = BuildProcessInfo(p, includeThreads, threadsByKey, delta, pi2, extended);
+							pi = BuildProcessInfo(p, threads, threadsByKey, delta, pi2, extended);
 							pi->CPU = cpu;
 							pi->KernelCPU = kcpu;
 
@@ -210,7 +218,6 @@ namespace WinSys {
 				auto it = m_ProcessesById.find(p->ParentId);
 				if (p->ParentId == 0 || it == m_ProcessesById.end() || (it != m_ProcessesById.end() && it->second->Key.Created > p->Key.Created)) {
 					// root
-					DbgPrint((PSTR)"Root: %ws (%u) (Parent: %u)\n", p->GetImageName().c_str(), p->Id, p->ParentId);
 					tree.push_back(std::make_pair(p, 0));
 					map.erase(p->Id);
 					if (p->Id == 0)
@@ -368,6 +375,7 @@ namespace WinSys {
 			std::vector<std::shared_ptr<TThreadInfo>> m_TerminatedThreads;
 			std::unordered_map<uint32_t, std::shared_ptr<TThreadInfo>> m_ThreadsById;
 			ThreadMap m_threadsByKey;
+			uint32_t m_ThreadsPid{ 0 };	// the process whose threads were taken last (0: all)
 
 			LARGE_INTEGER m_PrevTicks{};
 			inline static uint32_t s_TotalProcessors;

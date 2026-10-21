@@ -61,8 +61,10 @@ size_t Thread::GetSubProcessTag() const noexcept {
 		return 0;
 
 	size_t tag = 0;
-	if (!is64bit || (process->IsWow64Process() && is64bit)) {
-		auto teb = (TEB32*)tbi.TebBaseAddress;
+	if (!is64bit || process->IsWow64Process()) {
+		// a WOW64 thread's 32-bit code (the service host's) tags its 32-bit TEB, which WOW64 puts two pages after the
+		// 64-bit one that ThreadBasicInformation gives (as in Process::GetStructures)
+		auto teb = (TEB32*)((BYTE*)tbi.TebBaseAddress + (is64bit ? 0x2000 : 0));
 		::ReadProcessMemory(process->Handle(), (BYTE*)teb + offsetof(TEB32, SubProcessTag), &tag, sizeof(ULONG), nullptr);
 	}
 	else {
