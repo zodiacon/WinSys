@@ -76,6 +76,9 @@ namespace WinSys {
 		bool GetAffinity(uint16_t& group, KAFFINITY& mask, KAFFINITY& allowed) const noexcept;
 		// within the thread's group; needs THREAD_SET_INFORMATION and THREAD_QUERY_INFORMATION
 		bool SetAffinity(KAFFINITY mask) noexcept;
+		// moves the thread to the processors of another group (or the same); THREAD_SET_INFORMATION and
+		// THREAD_QUERY_INFORMATION. Fails for a process held to one group by an affinity mask
+		bool SetGroupAffinity(uint16_t group, KAFFINITY mask) noexcept;
 		CpuNumber GetIdealProcessor() const noexcept;
 		bool Terminate(uint32_t exitCode = 0) noexcept;
 		// one more (or one less) suspension; a thread runs when its count gets to 0. Need THREAD_SUSPEND_RESUME

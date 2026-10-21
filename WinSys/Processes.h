@@ -98,6 +98,14 @@ namespace WinSys {
 		// false (and a 0 mask) for a process whose threads span processor groups: it has no single mask
 		bool GetAffinity(DWORD_PTR& mask, DWORD_PTR& systemMask) const noexcept;
 		bool SetAffinity(DWORD_PTR mask) noexcept;
+		// the processor groups the process's threads are in (GetProcessGroupAffinity); empty on failure
+		[[nodiscard]] std::vector<uint16_t> GetGroups() const noexcept;
+		// the default CPU sets (Windows 11 and Server 2022 on; ERROR_NOT_SUPPORTED before): the processors, of any
+		// groups, the threads without CPU sets or an affinity of their own run on. What restricts a process across
+		// groups, as it has no single affinity mask then. Get: empty if none are set (PROCESS_QUERY_LIMITED_INFORMATION);
+		// nothing on failure. Set: empty clears them (PROCESS_SET_LIMITED_INFORMATION)
+		[[nodiscard]] std::optional<std::vector<GROUP_AFFINITY>> GetDefaultCpuSetMasks() const noexcept;
+		bool SetDefaultCpuSetMasks(std::vector<GROUP_AFFINITY> const& masks) noexcept;
 		// EcoQoS: execution speed throttled (Task Manager's efficiency mode also sets the idle priority class); nothing
 		// if it can't be queried
 		[[nodiscard]] std::optional<bool> GetEfficiencyMode() const noexcept;

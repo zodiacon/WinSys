@@ -311,6 +311,13 @@ namespace WinSys {
 		static std::vector<ULONG> GetRootSiloInformation();
 		static std::vector<SYSTEM_CPU_SET_INFORMATION> GetCpuSetInformation(HANDLE hProcess = nullptr);
 		static std::optional<CpuSetList> GetCpuSetTagInformation();
+		// the active processor groups (one on a system with up to 64 logical processors), with their processors
+		struct ProcessorGroup {
+			WORD Group;
+			KAFFINITY ActiveMask;
+			BYTE ActiveCount;
+		};
+		static std::vector<ProcessorGroup> GetProcessorGroups();
 		static std::optional<SYSTEM_SECURE_KERNEL_HYPERGUARD_PROFILE_INFORMATION> GetSecureKernelProfileInformation();
 		static std::vector<BYTE> GetCodeIntegrityPlatformManifestInformation();
 		static std::optional<SYSTEM_INTERRUPT_STEERING_INFORMATION_OUTPUT> GetInterruptSteeringInformation(SYSTEM_INTERRUPT_STEERING_INFORMATION_INPUT const& input);

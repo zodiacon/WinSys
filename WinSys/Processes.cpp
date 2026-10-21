@@ -399,6 +399,56 @@ bool Process::SetAffinity(DWORD_PTR mask) noexcept {
 	return ::SetProcessAffinityMask(m_Handle.get(), mask);
 }
 
+std::vector<uint16_t> Process::GetGroups() const noexcept {
+	std::vector<uint16_t> groups(64);
+	USHORT count = (USHORT)groups.size();
+	if (!::GetProcessGroupAffinity(m_Handle.get(), &count, groups.data())) {
+		if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+			return {};
+		groups.resize(count);
+		if (!::GetProcessGroupAffinity(m_Handle.get(), &count, groups.data()))
+			return {};
+	}
+	groups.resize(count);
+	return groups;
+}
+
+namespace {
+	// Windows 11 and Server 2022 on: looked up, so the library still loads on older systems
+	using GetCpuSetMasksFn = BOOL(WINAPI*)(HANDLE, PGROUP_AFFINITY, USHORT, PUSHORT);
+	using SetCpuSetMasksFn = BOOL(WINAPI*)(HANDLE, PGROUP_AFFINITY, USHORT);
+
+	FARPROC Kernel32Function(PCSTR name) {
+		return ::GetProcAddress(::GetModuleHandle(L"kernel32"), name);
+	}
+}
+
+std::optional<std::vector<GROUP_AFFINITY>> Process::GetDefaultCpuSetMasks() const noexcept {
+	static auto get = (GetCpuSetMasksFn)Kernel32Function("GetProcessDefaultCpuSetMasks");
+	if (!get) {
+		::SetLastError(ERROR_NOT_SUPPORTED);
+		return {};
+	}
+	std::vector<GROUP_AFFINITY> masks(16);
+	USHORT count = 0;
+	while (!get(m_Handle.get(), masks.data(), (USHORT)masks.size(), &count)) {
+		if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER || count <= masks.size())
+			return {};
+		masks.resize(count);
+	}
+	masks.resize(count);
+	return masks;
+}
+
+bool Process::SetDefaultCpuSetMasks(std::vector<GROUP_AFFINITY> const& masks) noexcept {
+	static auto set = (SetCpuSetMasksFn)Kernel32Function("SetProcessDefaultCpuSetMasks");
+	if (!set) {
+		::SetLastError(ERROR_NOT_SUPPORTED);
+		return false;
+	}
+	return set(m_Handle.get(), masks.empty() ? nullptr : const_cast<GROUP_AFFINITY*>(masks.data()), (USHORT)masks.size());
+}
+
 std::optional<bool> Process::GetEfficiencyMode() const noexcept {
 	PROCESS_POWER_THROTTLING_STATE state{ PROCESS_POWER_THROTTLING_CURRENT_VERSION };
 	if (!::GetProcessInformation(m_Handle.get(), ProcessPowerThrottling, &state, sizeof(state)))

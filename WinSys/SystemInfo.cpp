@@ -777,6 +777,19 @@ std::vector<SYSTEM_VA_LIST_INFORMATION> SystemInfo::GetVirtualAddressInformation
 	return QueryArray<SYSTEM_VA_LIST_INFORMATION>(SystemVirtualAddressInformation);
 }
 
+std::vector<SystemInfo::ProcessorGroup> SystemInfo::GetProcessorGroups() {
+	std::vector<ProcessorGroup> groups;
+	for (auto& r : GetLogicalProcessorAndGroupInformation(RelationGroup))
+		for (WORD g = 0; g < (WORD)r.Groups.size(); g++)
+			groups.push_back({ g, r.Groups[g].ActiveProcessorMask, r.Groups[g].ActiveProcessorCount });
+	if (groups.empty()) {
+		// the query failed: one group, as the documented API sees it
+		auto count = ::GetActiveProcessorCount(0);
+		groups.push_back({ 0, count >= 64 ? ~KAFFINITY(0) : (KAFFINITY(1) << count) - 1, (BYTE)count });
+	}
+	return groups;
+}
+
 std::vector<SystemInfo::LogicalProcessorRelationship> SystemInfo::GetLogicalProcessorAndGroupInformation(LOGICAL_PROCESSOR_RELATIONSHIP relationship) {
 	return ParseRelationships(Query(SystemLogicalProcessorAndGroupInformation, 1 << 14, &relationship, sizeof(relationship)));
 }

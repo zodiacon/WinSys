@@ -168,6 +168,11 @@ bool Thread::SetAffinity(KAFFINITY mask) noexcept {
 	return ::SetThreadGroupAffinity(m_handle, &affinity, nullptr);
 }
 
+bool Thread::SetGroupAffinity(uint16_t group, KAFFINITY mask) noexcept {
+	GROUP_AFFINITY affinity{ mask, group };
+	return ::SetThreadGroupAffinity(m_handle, &affinity, nullptr);
+}
+
 CpuNumber Thread::GetIdealProcessor() const noexcept {
 	PROCESSOR_NUMBER cpu;
 	ULONG len;
