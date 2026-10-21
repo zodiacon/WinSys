@@ -4,6 +4,7 @@
 #include <Psapi.h>
 #include <ImageHlp.h>
 #include "Helpers.h"
+#include "ProcessMemory.h"
 
 #pragma comment(lib, "imagehlp")
 
@@ -116,10 +117,8 @@ struct ProcessModuleTracker::Impl {
 					// the start of a mapping (an image or a data file); the key tells a module from another at the same
 					// address after an unload and a load
 					currentBase = mbi.AllocationBase;
-					WCHAR name[MAX_PATH];
-					std::wstring ntPath;
-					if (::GetMappedFileName(_handle.get(), mbi.AllocationBase, name, _countof(name)))
-						ntPath = name;
+					// not GetMappedFileName's MAX_PATH buffer: a longer name was cut
+					auto ntPath = ProcessMemory::GetMappedFileName(_handle.get(), mbi.AllocationBase);
 					auto key = ntPath + L"#" + std::to_wstring((size_t)mbi.AllocationBase);
 					std::shared_ptr<ModuleInfo> mi;
 					if (auto it = _moduleMap.find(key); it != _moduleMap.end())

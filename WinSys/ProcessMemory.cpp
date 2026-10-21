@@ -118,6 +118,25 @@ bool ProcessMemory::Write(HANDLE hProcess, uint64_t address, void const* data, s
 	return true;
 }
 
+std::wstring ProcessMemory::GetMappedFileName(HANDLE hProcess, void const* address) {
+	// a UNICODE_STRING followed by its characters; a longer name than fits reports the size it needs
+	ULONG size = 1024;
+	for (int attempt = 0; attempt < 3; attempt++) {
+		auto buffer = std::make_unique<BYTE[]>(size);
+		SIZE_T needed = 0;
+		auto status = ::NtQueryVirtualMemory(hProcess, (PVOID)address, MemoryMappedFilenameInformation, buffer.get(), size, &needed);
+		if (NT_SUCCESS(status)) {
+			auto name = reinterpret_cast<UNICODE_STRING const*>(buffer.get());
+			return name->Buffer ? std::wstring(name->Buffer, name->Length / sizeof(WCHAR)) : std::wstring();
+		}
+		if (status != STATUS_BUFFER_OVERFLOW && status != STATUS_INFO_LENGTH_MISMATCH && status != STATUS_BUFFER_TOO_SMALL)
+			break;
+		// at most a UNICODE_STRING's 64 KB of characters
+		size = needed > size ? (ULONG)needed : (ULONG)(sizeof(UNICODE_STRING) + 0x10000);
+	}
+	return {};
+}
+
 uint64_t ProcessMemory::MaxAddress() {
 	SYSTEM_INFO si;
 	::GetNativeSystemInfo(&si);

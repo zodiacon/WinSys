@@ -23,5 +23,9 @@ namespace WinSys {
 		static bool Write(HANDLE hProcess, uint64_t address, void const* data, size_t size);
 		// the highest user-mode address
 		[[nodiscard]] static uint64_t MaxAddress();
+		// the NT path of the file mapped at the address (an image or a data file), whatever its length (GetMappedFileName
+		// cuts it to the buffer it's given); empty if nothing is mapped there or it can't be queried. hProcess has
+		// PROCESS_QUERY_INFORMATION (or limited)
+		[[nodiscard]] static std::wstring GetMappedFileName(HANDLE hProcess, void const* address);
 	};
 }
