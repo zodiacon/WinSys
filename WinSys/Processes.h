@@ -47,6 +47,9 @@ namespace WinSys {
 	class Process final {
 	public:
 		static std::unique_ptr<Process> OpenById(uint32_t pid, ProcessAccessMask access = ProcessAccessMask::QueryLimitedInformation);
+		// only the process created at createTime (a FILETIME, as a snapshot's CreateTime), not another one that got its ID
+		// since (ERROR_NOT_FOUND then); QueryLimitedInformation is added to the access to check it
+		static std::unique_ptr<Process> OpenById(uint32_t pid, int64_t createTime, ProcessAccessMask access);
 		static std::unique_ptr<Process> GetCurrent();
 		explicit Process(HANDLE handle = nullptr) noexcept;
 		bool Open(uint32_t pid, ProcessAccessMask access) noexcept;
@@ -117,6 +120,8 @@ namespace WinSys {
 		WinSys::DpiAwareness GetDpiAwareness() const noexcept;
 
 		uint32_t GetId() const noexcept;
+		// a FILETIME; 0 if it can't be queried
+		[[nodiscard]] int64_t GetCreateTime() const noexcept;
 		HANDLE Handle() const noexcept;
 
 		std::optional<WinSys::ProcessWindowInfo> GetWindowInformation() const;

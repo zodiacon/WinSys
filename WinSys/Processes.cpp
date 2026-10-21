@@ -126,6 +126,23 @@ std::unique_ptr<Process> Process::OpenById(uint32_t pid, ProcessAccessMask acces
 	return handle ? std::make_unique<Process>(handle) : nullptr;
 }
 
+std::unique_ptr<Process> Process::OpenById(uint32_t pid, int64_t createTime, ProcessAccessMask access) {
+	auto process = OpenById(pid, access | ProcessAccessMask::QueryLimitedInformation);
+	if (process && process->GetCreateTime() != createTime) {
+		// another process with the same ID
+		::SetLastError(ERROR_NOT_FOUND);
+		return nullptr;
+	}
+	return process;
+}
+
+int64_t Process::GetCreateTime() const noexcept {
+	FILETIME created, exited, kernel, user;
+	if (!::GetProcessTimes(m_Handle.get(), &created, &exited, &kernel, &user))
+		return 0;
+	return (int64_t)ULARGE_INTEGER{ created.dwLowDateTime, created.dwHighDateTime }.QuadPart;
+}
+
 bool Process::Open(uint32_t pid, ProcessAccessMask access) noexcept {
 	m_Handle.reset(::OpenProcess(static_cast<ACCESS_MASK>(access), FALSE, pid));
 	return m_Handle != nullptr;

@@ -186,6 +186,7 @@
     <ClInclude Include="WaitChain.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="ObjectDetails.h" />
+    <ClInclude Include="ProcessMemory.h" />
     <ClInclude Include="FileVersion.h" />
     <ClInclude Include="FileSignature.h" />
     <ClInclude Include="AccessMask.h" />
@@ -229,6 +230,7 @@
     <ClCompile Include="WaitChain.cpp" />
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="ObjectDetails.cpp" />
+    <ClCompile Include="ProcessMemory.cpp" />
     <ClCompile Include="FileVersion.cpp" />
     <ClCompile Include="FileSignature.cpp" />
     <ClCompile Include="AccessMask.cpp" />

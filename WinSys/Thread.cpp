@@ -83,9 +83,12 @@ std::wstring Thread::GetServiceNameByTag(uint32_t pid) const noexcept {
 	info.InParams.dwPid = pid;
 	info.InParams.dwTag = static_cast<uint32_t>(tag);
 	auto err = QueryTagInformation(nullptr, eTagInfoLevelNameFromTag, &info);
-	if (err)
+	if (err || info.OutParams.pszName == nullptr)
 		return L"";
-	return info.OutParams.pszName;
+	// allocated for the caller
+	std::wstring name(info.OutParams.pszName);
+	::LocalFree(info.OutParams.pszName);
+	return name;
 }
 
 ComFlags Thread::GetComFlags() const noexcept {
