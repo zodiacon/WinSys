@@ -119,6 +119,10 @@ namespace WinSys {
 		[[nodiscard]] static std::vector<LoadedModule> EnumLoadedModules(HANDLE hProcess);
 		// the running processes' IDs and image names, from a ToolHelp snapshot (the Idle process left out)
 		[[nodiscard]] static std::vector<std::pair<uint32_t, std::wstring>> EnumProcessNames();
+		// the processes with a visible top-level window that's hung (IsHungAppWindow: no messages taken for 5 seconds),
+		// as Task Manager's "Not responding" (DWM's ghost windows left out); sends no message, so it doesn't wait on them.
+		// Sorted
+		[[nodiscard]] static std::vector<uint32_t> GetHungProcesses();
 
 		// starts a command line as the shell does (ShellExecuteEx: a program, a document, a folder or a URL); its first
 		// token is the file (quoted if it has spaces), the rest the arguments. elevated: with the runas verb (the UAC

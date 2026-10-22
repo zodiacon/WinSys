@@ -537,6 +537,25 @@ std::vector<std::pair<uint32_t, std::wstring>> Process::EnumProcessNames() {
 	return processes;
 }
 
+std::vector<uint32_t> Process::GetHungProcesses() {
+	std::vector<uint32_t> pids;
+	::EnumWindows([](HWND hWnd, LPARAM param) -> BOOL {
+		WCHAR className[8];
+		// a ghost window (DWM's, standing in for a hung one) reports hung too; the hung window itself stays visible
+		if (::IsWindowVisible(hWnd) && ::IsHungAppWindow(hWnd)
+			&& !(::GetClassNameW(hWnd, className, _countof(className)) && ::wcscmp(className, L"Ghost") == 0)) {
+			DWORD pid = 0;
+			::GetWindowThreadProcessId(hWnd, &pid);
+			if (pid)
+				reinterpret_cast<std::vector<uint32_t>*>(param)->push_back(pid);
+		}
+		return TRUE;
+		}, reinterpret_cast<LPARAM>(&pids));
+	std::ranges::sort(pids);
+	pids.erase(std::unique(pids.begin(), pids.end()), pids.end());
+	return pids;
+}
+
 WinSys::ProcessPriorityClass Process::GetPriorityClass() const noexcept {
 	return static_cast<WinSys::ProcessPriorityClass>(::GetPriorityClass(m_Handle.get()));
 }
