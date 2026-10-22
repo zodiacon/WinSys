@@ -93,6 +93,12 @@
     <ClInclude Include="ProcessNetwork.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="EtwSession.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Ipc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Handles.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -204,6 +210,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ProcessNetwork.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Ipc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Handles.cpp">

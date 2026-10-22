@@ -2,6 +2,7 @@
 #include <evntrace.h>
 #include <evntcons.h>
 #include "ProcessNetwork.h"
+#include "EtwSession.h"
 #include "Connections.h"
 #include <unordered_set>
 
@@ -21,47 +22,6 @@ namespace {
 		}
 		return Direction::None;
 	}
-
-	struct SessionProperties {
-		EVENT_TRACE_PROPERTIES Properties;
-		WCHAR Name[1024];
-	};
-
-	SessionProperties MakeProperties() {
-		SessionProperties props{};
-		props.Properties.Wnode.BufferSize = sizeof(props);
-		props.Properties.Wnode.Flags = WNODE_FLAG_TRACED_GUID;
-		props.Properties.Wnode.ClientContext = 1;	// QueryPerformanceCounter time stamps
-		props.Properties.LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
-		props.Properties.FlushTimer = 1;	// seconds
-		props.Properties.LoggerNameOffset = offsetof(SessionProperties, Name);
-		return props;
-	}
-
-	// stops "<prefix> <pid>" sessions whose process is gone
-	void StopOrphanedSessions(std::wstring const& prefix) {
-		std::vector<SessionProperties> sessions(64);	// the most sessions the system allows
-		std::vector<EVENT_TRACE_PROPERTIES*> pointers;
-		for (auto& s : sessions) {
-			s = MakeProperties();
-			pointers.push_back(&s.Properties);
-		}
-		ULONG count = 0;
-		if (::QueryAllTraces(pointers.data(), (ULONG)pointers.size(), &count) != ERROR_SUCCESS)
-			return;
-		for (ULONG i = 0; i < count; i++) {
-			std::wstring_view name(sessions[i].Name);
-			if (!name.starts_with(prefix))
-				continue;
-			auto pid = (DWORD)::_wtoi(name.data() + prefix.size());
-			wil::unique_handle hProcess(::OpenProcess(SYNCHRONIZE, FALSE, pid));
-			if (pid == 0 || (!hProcess && ::GetLastError() == ERROR_INVALID_PARAMETER)
-				|| (hProcess && ::WaitForSingleObject(hProcess.get(), 0) == WAIT_OBJECT_0)) {
-				auto stop = MakeProperties();
-				::ControlTrace(0, sessions[i].Name, &stop.Properties, EVENT_TRACE_CONTROL_STOP);
-			}
-		}
-	}
 }
 
 ProcessNetworkTracker::~ProcessNetworkTracker() {
@@ -72,19 +32,8 @@ bool ProcessNetworkTracker::Start(PCWSTR sessionPrefix) {
 	if (IsRunning())
 		return true;
 
-	std::wstring prefix = std::wstring(sessionPrefix) + L" ";
-	StopOrphanedSessions(prefix);
-	m_SessionName = prefix + std::to_wstring(::GetCurrentProcessId());
-	auto props = MakeProperties();
 	TRACEHANDLE session;
-	auto error = ::StartTrace(&session, m_SessionName.c_str(), &props.Properties);
-	if (error == ERROR_ALREADY_EXISTS) {
-		// this process's, from a tracker that wasn't stopped
-		auto stop = MakeProperties();
-		::ControlTrace(0, m_SessionName.c_str(), &stop.Properties, EVENT_TRACE_CONTROL_STOP);
-		props = MakeProperties();
-		error = ::StartTrace(&session, m_SessionName.c_str(), &props.Properties);
-	}
+	auto error = Etw::StartSession(std::wstring(sessionPrefix) + L" ", m_SessionName, session);
 	if (error != ERROR_SUCCESS) {
 		::SetLastError(error);
 		return false;
@@ -120,7 +69,7 @@ bool ProcessNetworkTracker::Start(PCWSTR sessionPrefix) {
 
 void ProcessNetworkTracker::Stop() {
 	if (m_Session) {
-		auto props = MakeProperties();
+		auto props = Etw::MakeProperties();
 		::ControlTrace(m_Session, nullptr, &props.Properties, EVENT_TRACE_CONTROL_STOP);
 		m_Session = 0;
 	}

@@ -181,6 +181,8 @@
     <ClInclude Include="Disk.h" />
     <ClInclude Include="Network.h" />
     <ClInclude Include="ProcessNetwork.h" />
+    <ClInclude Include="EtwSession.h" />
+    <ClInclude Include="Ipc.h" />
     <ClInclude Include="Handles.h" />
     <ClInclude Include="Gpu.h" />
     <ClInclude Include="WaitChain.h" />
@@ -225,6 +227,7 @@
     <ClCompile Include="Disk.cpp" />
     <ClCompile Include="Network.cpp" />
     <ClCompile Include="ProcessNetwork.cpp" />
+    <ClCompile Include="Ipc.cpp" />
     <ClCompile Include="Handles.cpp" />
     <ClCompile Include="Gpu.cpp" />
     <ClCompile Include="WaitChain.cpp" />
