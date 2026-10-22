@@ -55,7 +55,11 @@ namespace WinSys {
 		Token(HANDLE hProcess, TokenAccessMask access) noexcept;
 		static std::unique_ptr<Token> Open(DWORD pid, TokenAccessMask access = TokenAccessMask::Query);
 
+		// needs TokenAccessMask::AdjustPrivileges; false (ERROR_NOT_ALL_ASSIGNED) if the token doesn't have it
 		bool EnablePrivilege(PCWSTR name, bool enable) const noexcept;
+		bool EnablePrivilege(LUID const& privilege, bool enable) const noexcept;
+		// needs TokenAccessMask::AdjustDefault; raising it needs SeTcbPrivilege, lowering nothing more
+		bool SetIntegrityLevel(IntegrityLevel level) const noexcept;
 
 		std::pair<std::wstring, Sid> GetUserNameAndSid() const;
 		std::wstring GetUserName() const;

@@ -190,22 +190,38 @@ std::vector<TokenPrivilege> Token::EnumPrivileges() const noexcept {
 }
 
 bool Token::EnablePrivilege(PCWSTR privName, bool enable) const noexcept {
+	LUID privilege;
+	return ::LookupPrivilegeValue(nullptr, privName, &privilege) && EnablePrivilege(privilege, enable);
+}
+
+bool Token::EnablePrivilege(LUID const& privilege, bool enable) const noexcept {
 	wil::unique_handle hToken;
 	if (!::DuplicateHandle(::GetCurrentProcess(), m_Handle.get(), ::GetCurrentProcess(), hToken.addressof(), 
 		TOKEN_ADJUST_PRIVILEGES, FALSE, 0))
 		return false;
 
-	bool result = false;
 	TOKEN_PRIVILEGES tp;
 	tp.PrivilegeCount = 1;
+	tp.Privileges[0].Luid = privilege;
 	tp.Privileges[0].Attributes = enable ? SE_PRIVILEGE_ENABLED : 0;
-	if (::LookupPrivilegeValue(nullptr, privName,
-		&tp.Privileges[0].Luid)) {
-		if (::AdjustTokenPrivileges(hToken.get(), FALSE, &tp, sizeof(tp),
-			nullptr, nullptr))
-			result = ::GetLastError() == ERROR_SUCCESS;
+	// succeeds with ERROR_NOT_ALL_ASSIGNED when the token doesn't have the privilege
+	return ::AdjustTokenPrivileges(hToken.get(), FALSE, &tp, sizeof(tp), nullptr, nullptr) && ::GetLastError() == ERROR_SUCCESS;
+}
+
+bool Token::SetIntegrityLevel(IntegrityLevel level) const noexcept {
+	// S-1-16-<level>
+	SID_IDENTIFIER_AUTHORITY authority = SECURITY_MANDATORY_LABEL_AUTHORITY;
+	BYTE sid[SECURITY_MAX_SID_SIZE];
+	if (!::InitializeSid(sid, &authority, 1))
+		return false;
+	*::GetSidSubAuthority(sid, 0) = static_cast<DWORD>(level);
+	TOKEN_MANDATORY_LABEL label{ { sid, SE_GROUP_INTEGRITY } };
+	auto status = ::NtSetInformationToken(m_Handle.get(), TokenIntegrityLevel, &label, sizeof(label) + ::GetLengthSid(sid));
+	if (!NT_SUCCESS(status)) {
+		::SetLastError(::RtlNtStatusToDosError(status));
+		return false;
 	}
-	return result;
+	return true;
 }
 
 Sid Token::GetOwner() const noexcept {
