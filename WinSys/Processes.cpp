@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "SecurityHelper.h"
 #include <TlHelp32.h>
+#include <WinSafer.h>
 #include <algorithm>
 #include "Thread.h"
 #include "Processes.h"
@@ -179,6 +180,51 @@ std::optional<uint32_t> Process::RunAs(std::wstring const& commandLine, std::wst
 	DWORD flags = netOnly ? LOGON_NETCREDENTIALS_ONLY : loadProfile ? LOGON_WITH_PROFILE : 0;
 	if (!::CreateProcessWithLogonW(name.c_str(), domain.empty() ? nullptr : domain.c_str(), password.c_str(), flags, nullptr,
 		cmd.data(), CREATE_UNICODE_ENVIRONMENT, nullptr, nullptr, &si, &pi))
+		return std::nullopt;
+	::CloseHandle(pi.hThread);
+	::CloseHandle(pi.hProcess);
+	return pi.dwProcessId;
+}
+
+std::optional<uint32_t> Process::RunLimited(std::wstring const& commandLine) {
+	SAFER_LEVEL_HANDLE hLevel;
+	if (!::SaferCreateLevel(SAFER_SCOPEID_USER, SAFER_LEVELID_NORMALUSER, SAFER_LEVEL_OPEN, &hLevel, nullptr))
+		return std::nullopt;
+	wil::unique_handle hToken;
+	// from the caller's token
+	auto computed = ::SaferComputeTokenFromLevel(hLevel, nullptr, hToken.addressof(), 0, nullptr);
+	auto error = ::GetLastError();
+	::SaferCloseLevel(hLevel);
+	if (!computed) {
+		::SetLastError(error);
+		return std::nullopt;
+	}
+
+	// the Safer token keeps the caller's integrity level: an elevated caller's is High
+	BYTE buffer[TOKEN_INTEGRITY_LEVEL_MAX_SIZE];
+	ULONG len;
+	if (NT_SUCCESS(::NtQueryInformationToken(hToken.get(), TokenIntegrityLevel, buffer, sizeof(buffer), &len))) {
+		auto sid = reinterpret_cast<TOKEN_MANDATORY_LABEL*>(buffer)->Label.Sid;
+		if (*::GetSidSubAuthority(sid, *::GetSidSubAuthorityCount(sid) - 1) > SECURITY_MANDATORY_MEDIUM_RID) {
+			SID_IDENTIFIER_AUTHORITY authority = SECURITY_MANDATORY_LABEL_AUTHORITY;
+			BYTE medium[SECURITY_MAX_SID_SIZE];
+			::InitializeSid(medium, &authority, 1);
+			*::GetSidSubAuthority(medium, 0) = SECURITY_MANDATORY_MEDIUM_RID;
+			TOKEN_MANDATORY_LABEL label{ { medium, SE_GROUP_INTEGRITY } };
+			auto status = ::NtSetInformationToken(hToken.get(), TokenIntegrityLevel, &label, sizeof(label) + ::GetLengthSid(medium));
+			if (!NT_SUCCESS(status)) {
+				::SetLastError(::RtlNtStatusToDosError(status));
+				return std::nullopt;
+			}
+		}
+	}
+
+	// CreateProcessAsUser may change the command line's buffer
+	std::wstring cmd = commandLine;
+	STARTUPINFO si{ sizeof(si) };
+	PROCESS_INFORMATION pi;
+	if (!::CreateProcessAsUser(hToken.get(), nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_UNICODE_ENVIRONMENT,
+		nullptr, nullptr, &si, &pi))
 		return std::nullopt;
 	::CloseHandle(pi.hThread);
 	::CloseHandle(pi.hProcess);

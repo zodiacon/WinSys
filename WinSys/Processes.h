@@ -150,6 +150,12 @@ namespace WinSys {
 		// the last error
 		[[nodiscard]] static std::optional<uint32_t> RunAs(std::wstring const& commandLine, std::wstring const& user,
 			std::wstring const& password, bool loadProfile = true, bool netOnly = false);
+		// starts a program as the caller without administrator rights: a Safer "normal user" token made from the caller's
+		// (the Administrators group deny-only, most privileges removed), at medium integrity if the caller's is higher
+		// (CreateProcessAsUser, which takes a token filtered from the caller's own without a privilege). The command line's
+		// first token is the program (CreateProcess's rules: an executable, not a document). The new process's ID;
+		// nothing on failure, with the last error
+		[[nodiscard]] static std::optional<uint32_t> RunLimited(std::wstring const& commandLine);
 		uint32_t GetGdiObjectCount() const noexcept;
 		uint32_t GetPeakGdiObjectCount() const noexcept;
 		uint32_t GetUserObjectCount() const noexcept;
