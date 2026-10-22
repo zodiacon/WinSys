@@ -4,6 +4,7 @@
 #include <string>
 #include <optional>
 #include <vector>
+#include <unordered_map>
 #include "Enums.h"
 #include <wil\resource.h>
 
@@ -37,6 +38,22 @@ namespace WinSys {
 	struct ProcessStructures {
 		uint64_t Peb{ 0 }, Peb32{ 0 };	// the 32-bit PEB of a WOW64 process
 		std::vector<ThreadStructures> Threads;	// in thread ID order
+	};
+
+	// the mitigation policies that are on (see Process::GetMitigations)
+	struct ProcessMitigations {
+		bool Dep{ false }, DepPermanent{ false };	// always both for a 64-bit process
+		bool AslrBottomUp{ false }, AslrForceRelocate{ false }, AslrHighEntropy{ false };
+		bool Cfg{ false }, CfgStrict{ false };
+		bool Cet{ false }, CetStrict{ false };	// user-mode shadow stacks
+		bool DynamicCodeProhibited{ false };	// ACG
+		bool MicrosoftSignedOnly{ false };		// CIG
+		bool StrictHandleChecks{ false };
+		bool Win32kDisabled{ false };			// system calls to win32k
+		bool ExtensionPointsDisabled{ false };
+		bool NonSystemFontsDisabled{ false };
+		bool NoRemoteImages{ false }, NoLowLabelImages{ false };
+		bool NoChildProcesses{ false };
 	};
 
 	struct ProcessWindowInfo {
@@ -162,7 +179,17 @@ namespace WinSys {
 		uint32_t GetPeakUserObjectCount() const noexcept;
 		VirtualizationState GetVirtualizationState() const noexcept;
 		HANDLE GetNextThread(HANDLE hThread = nullptr, WinSys::ThreadAccessMask access = WinSys::ThreadAccessMask::QueryLimitedInformation);
+		// from the process's DPI awareness context (Unknown if it can't be queried; limited query access)
 		WinSys::DpiAwareness GetDpiAwareness() const noexcept;
+		// the package's full name of a packaged app's process (GetPackageFullName); empty for an unpackaged one or on
+		// failure. Limited query access
+		[[nodiscard]] std::wstring GetPackageFullName() const;
+		// GetProcessMitigationPolicy for each policy; nothing if none could be queried. Most need
+		// PROCESS_QUERY_INFORMATION; some work with limited access
+		[[nodiscard]] std::optional<ProcessMitigations> GetMitigations() const noexcept;
+		// each process's main window's title, as InternalGetWindowText has it (no message sent): its first visible,
+		// unowned top-level window with a title, not a tool window, in Z order. One pass over the top-level windows
+		[[nodiscard]] static std::unordered_map<uint32_t, std::wstring> GetMainWindowTitles();
 
 		uint32_t GetId() const noexcept;
 		// a FILETIME; 0 if it can't be queried

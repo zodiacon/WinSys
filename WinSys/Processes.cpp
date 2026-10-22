@@ -2,6 +2,7 @@
 #include "SecurityHelper.h"
 #include <TlHelp32.h>
 #include <WinSafer.h>
+#include <appmodel.h>
 #include <algorithm>
 #include "Thread.h"
 #include "Processes.h"
@@ -739,14 +740,97 @@ HANDLE Process::GetNextThread(HANDLE hThread, ThreadAccessMask access) {
 }
 
 DpiAwareness Process::GetDpiAwareness() const noexcept {
-	static const auto pGetProcessDpiAware = (decltype(::GetProcessDpiAwareness)*)::GetProcAddress(::GetModuleHandle(L"shcore"), "GetProcessDpiAwareness");
+	// the context tells per-monitor v2 and GDI scaling apart (GetProcessDpiAwareness doesn't)
+	auto context = m_Handle ? ::GetDpiAwarenessContextForProcess(m_Handle.get()) : nullptr;
+	if (!context)
+		return DpiAwareness::Unknown;
+	if (::AreDpiAwarenessContextsEqual(context, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
+		return DpiAwareness::PerMonitorV2;
+	if (::AreDpiAwarenessContextsEqual(context, DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED))
+		return DpiAwareness::UnawareGdiScaled;
+	auto awareness = ::GetAwarenessFromDpiAwarenessContext(context);
+	return awareness == DPI_AWARENESS_INVALID ? DpiAwareness::Unknown : static_cast<DpiAwareness>(awareness);
+}
 
-	if (!m_Handle || pGetProcessDpiAware == nullptr)
-		return DpiAwareness::None;
+std::wstring Process::GetPackageFullName() const {
+	WCHAR name[PACKAGE_FULL_NAME_MAX_LENGTH + 1];
+	UINT32 len = _countof(name);
+	// APPMODEL_ERROR_NO_PACKAGE for an unpackaged process
+	return ::GetPackageFullName(m_Handle.get(), &len, name) == ERROR_SUCCESS ? std::wstring(name) : L"";
+}
 
-	DpiAwareness da = DpiAwareness::None;
-	pGetProcessDpiAware(m_Handle.get(), reinterpret_cast<PROCESS_DPI_AWARENESS*>(&da));
-	return da;
+std::optional<ProcessMitigations> Process::GetMitigations() const noexcept {
+	auto h = m_Handle.get();
+	ProcessMitigations m;
+	bool any = false;
+	auto query = [&](PROCESS_MITIGATION_POLICY policy, auto& value) {
+		bool ok = ::GetProcessMitigationPolicy(h, policy, &value, sizeof(value));
+		any |= ok;
+		return ok;
+	};
+
+	// DEP is always on for a 64-bit process; the policy describes a 32-bit one
+	BOOL wow64 = FALSE;
+	::IsWow64Process(h, &wow64);
+	if (PROCESS_MITIGATION_DEP_POLICY dep{}; !wow64)
+		m.Dep = m.DepPermanent = true;
+	else if (query(ProcessDEPPolicy, dep)) {
+		m.Dep = dep.Enable;
+		m.DepPermanent = dep.Permanent;
+	}
+	if (PROCESS_MITIGATION_ASLR_POLICY aslr{}; query(ProcessASLRPolicy, aslr)) {
+		m.AslrBottomUp = aslr.EnableBottomUpRandomization;
+		m.AslrForceRelocate = aslr.EnableForceRelocateImages;
+		m.AslrHighEntropy = aslr.EnableHighEntropy;
+	}
+	if (PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY cfg{}; query(ProcessControlFlowGuardPolicy, cfg)) {
+		m.Cfg = cfg.EnableControlFlowGuard;
+		m.CfgStrict = cfg.StrictMode;
+	}
+	if (PROCESS_MITIGATION_USER_SHADOW_STACK_POLICY cet{}; query(ProcessUserShadowStackPolicy, cet)) {
+		m.Cet = cet.EnableUserShadowStack;
+		m.CetStrict = cet.EnableUserShadowStackStrictMode;
+	}
+	if (PROCESS_MITIGATION_DYNAMIC_CODE_POLICY code{}; query(ProcessDynamicCodePolicy, code))
+		m.DynamicCodeProhibited = code.ProhibitDynamicCode;
+	if (PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY signature{}; query(ProcessSignaturePolicy, signature))
+		m.MicrosoftSignedOnly = signature.MicrosoftSignedOnly;
+	if (PROCESS_MITIGATION_STRICT_HANDLE_CHECK_POLICY handles{}; query(ProcessStrictHandleCheckPolicy, handles))
+		m.StrictHandleChecks = handles.RaiseExceptionOnInvalidHandleReference;
+	if (PROCESS_MITIGATION_SYSTEM_CALL_DISABLE_POLICY calls{}; query(ProcessSystemCallDisablePolicy, calls))
+		m.Win32kDisabled = calls.DisallowWin32kSystemCalls;
+	if (PROCESS_MITIGATION_EXTENSION_POINT_DISABLE_POLICY extensions{}; query(ProcessExtensionPointDisablePolicy, extensions))
+		m.ExtensionPointsDisabled = extensions.DisableExtensionPoints;
+	if (PROCESS_MITIGATION_FONT_DISABLE_POLICY fonts{}; query(ProcessFontDisablePolicy, fonts))
+		m.NonSystemFontsDisabled = fonts.DisableNonSystemFonts;
+	if (PROCESS_MITIGATION_IMAGE_LOAD_POLICY images{}; query(ProcessImageLoadPolicy, images)) {
+		m.NoRemoteImages = images.NoRemoteImages;
+		m.NoLowLabelImages = images.NoLowMandatoryLabelImages;
+	}
+	if (PROCESS_MITIGATION_CHILD_PROCESS_POLICY child{}; query(ProcessChildProcessPolicy, child))
+		m.NoChildProcesses = child.NoChildProcessCreation;
+	if (!any)
+		return std::nullopt;
+	return m;
+}
+
+std::unordered_map<uint32_t, std::wstring> Process::GetMainWindowTitles() {
+	std::unordered_map<uint32_t, std::wstring> titles;
+	// in Z order: a process's first window is its frontmost
+	::EnumWindows([](HWND hWnd, LPARAM param) -> BOOL {
+		if (!::IsWindowVisible(hWnd) || ::GetWindow(hWnd, GW_OWNER) || (::GetWindowLongPtr(hWnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW))
+			return TRUE;
+		auto& titles = *reinterpret_cast<std::unordered_map<uint32_t, std::wstring>*>(param);
+		DWORD pid = 0;
+		::GetWindowThreadProcessId(hWnd, &pid);
+		if (!pid || titles.contains(pid))
+			return TRUE;
+		WCHAR text[256];
+		if (int len = ::InternalGetWindowText(hWnd, text, _countof(text)); len > 0)
+			titles.emplace(pid, std::wstring(text, len));
+		return TRUE;
+		}, reinterpret_cast<LPARAM>(&titles));
+	return titles;
 }
 
 std::wstring Process::GetCurrentDirectory() const noexcept {
