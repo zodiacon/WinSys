@@ -111,6 +111,21 @@ namespace WinSys {
 		[[nodiscard]] std::optional<bool> GetEfficiencyMode() const noexcept;
 		// as Task Manager does it: EcoQoS and the idle priority class; off, the system decides again, at normal priority
 		bool SetEfficiencyMode(bool on) noexcept;
+		// trims the working set to nothing (SetProcessWorkingSetSizeEx with -1, -1); the pages go to the standby and
+		// modified lists, and are faulted back in as they're used. Needs PROCESS_SET_QUOTA
+		bool EmptyWorkingSet() noexcept;
+		// starts the process again: its image path, command line, current directory and environment are read, the process
+		// is terminated (and waited for, up to 5 seconds), and a new one is created with them, as the caller
+		// (CreateProcess: not as the process's user if that's another, and not as a service or a packaged app). Needs
+		// PROCESS_TERMINATE, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ and SYNCHRONIZE; nothing is terminated if the
+		// image path can't be read. The new process's ID; nothing on failure, with the last error
+		[[nodiscard]] std::optional<uint32_t> Restart();
+		// starts the postmortem debugger (the Debugger value of the AeDebug key) to attach to the process: its "%ld" is
+		// the process ID, and the arguments that pass a crash's event and JIT_DEBUG_INFO ("-e %ld", "-j 0x%p") are left
+		// out. Nothing on failure, with the last error (ERROR_FILE_NOT_FOUND: no debugger is registered)
+		[[nodiscard]] static std::optional<uint32_t> AttachDebugger(uint32_t pid);
+		// the AeDebug key's Debugger command line; empty if none is registered
+		[[nodiscard]] static std::wstring GetPostmortemDebugger();
 		// the PEB, and each thread's TEB and stack (the 32-bit ones of a WOW64 process too). hProcess needs
 		// PROCESS_QUERY_INFORMATION (the threads are opened from it), and PROCESS_VM_READ for the stacks
 		[[nodiscard]] static ProcessStructures GetStructures(HANDLE hProcess);

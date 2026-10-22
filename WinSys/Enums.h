@@ -15,6 +15,7 @@ namespace WinSys {
 		QueryLimitedInformation =	PROCESS_QUERY_LIMITED_INFORMATION,
 		SuspendResume =				PROCESS_SUSPEND_RESUME,
 		SetInformation =			PROCESS_SET_INFORMATION,
+		SetQuota =					PROCESS_SET_QUOTA,
 		Synchonize =				SYNCHRONIZE,
 		SystemSecurity =			ACCESS_SYSTEM_SECURITY,
 		GenericWrite =				GENERIC_WRITE,

@@ -464,6 +464,93 @@ bool Process::SetEfficiencyMode(bool on) noexcept {
 		&& ::SetPriorityClass(m_Handle.get(), on ? IDLE_PRIORITY_CLASS : NORMAL_PRIORITY_CLASS);
 }
 
+bool Process::EmptyWorkingSet() noexcept {
+	return ::SetProcessWorkingSetSizeEx(m_Handle.get(), (SIZE_T)-1, (SIZE_T)-1, 0);
+}
+
+std::optional<uint32_t> Process::Restart() {
+	// everything is read before the process goes
+	auto image = GetFullImageName();
+	if (image.empty())
+		return std::nullopt;
+	auto commandLine = GetCommandLine();
+	if (commandLine.empty())
+		commandLine = L"\"" + image + L"\"";
+	auto directory = GetCurrentDirectory(m_Handle.get());
+	while (!directory.empty() && directory.back() == L'\0')
+		directory.pop_back();
+	if (!directory.empty() && ::GetFileAttributes(directory.c_str()) == INVALID_FILE_ATTRIBUTES)
+		directory.clear();
+	// name=value strings, then an empty one; none read: the caller's
+	std::wstring environment;
+	for (auto& [name, value] : GetEnvironment(m_Handle.get())) {
+		environment += name;
+		environment += L'=';
+		environment += value;
+		environment += L'\0';
+	}
+	if (!environment.empty())
+		environment += L'\0';
+
+	if (auto status = ::NtTerminateProcess(m_Handle.get(), 1); !NT_SUCCESS(status)) {
+		::SetLastError(::RtlNtStatusToDosError(status));
+		return std::nullopt;
+	}
+	// a single instance app may refuse to start while its old process is still exiting
+	::WaitForSingleObject(m_Handle.get(), 5000);
+
+	STARTUPINFO si{ sizeof(si) };
+	PROCESS_INFORMATION pi;
+	if (!::CreateProcess(image.c_str(), commandLine.data(), nullptr, nullptr, FALSE, CREATE_UNICODE_ENVIRONMENT,
+		environment.empty() ? nullptr : environment.data(), directory.empty() ? nullptr : directory.c_str(), &si, &pi))
+		return std::nullopt;
+	::CloseHandle(pi.hThread);
+	::CloseHandle(pi.hProcess);
+	return pi.dwProcessId;
+}
+
+std::wstring Process::GetPostmortemDebugger() {
+	// RRF_RT_REG_SZ takes a REG_EXPAND_SZ value too, expanded
+	auto key = L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\AeDebug";
+	DWORD size = 0;
+	if (::RegGetValue(HKEY_LOCAL_MACHINE, key, L"Debugger", RRF_RT_REG_SZ, nullptr, nullptr, &size) != ERROR_SUCCESS || size < sizeof(WCHAR))
+		return L"";
+	std::wstring value(size / sizeof(WCHAR), L'\0');
+	if (::RegGetValue(HKEY_LOCAL_MACHINE, key, L"Debugger", RRF_RT_REG_SZ, nullptr, value.data(), &size) != ERROR_SUCCESS)
+		return L"";
+	value.resize(::wcsnlen(value.c_str(), value.size()));
+	return value;
+}
+
+std::optional<uint32_t> Process::AttachDebugger(uint32_t pid) {
+	auto command = GetPostmortemDebugger();
+	if (command.empty()) {
+		::SetLastError(ERROR_FILE_NOT_FOUND);
+		return std::nullopt;
+	}
+	// a crash's event to signal and its JIT_DEBUG_INFO: there are none
+	for (PCWSTR arg : { L" -e %ld", L" -j 0x%p", L" -j %p" })
+		for (size_t pos; (pos = command.find(arg)) != std::wstring::npos; )
+			command.erase(pos, ::wcslen(arg));
+	auto id = std::to_wstring(pid);
+	bool replaced = false;
+	for (size_t pos; (pos = command.find(L"%ld")) != std::wstring::npos; replaced = true)
+		command.replace(pos, 3, id);
+	if (!replaced) {
+		// it wouldn't know which process
+		::SetLastError(ERROR_BAD_FORMAT);
+		return std::nullopt;
+	}
+
+	STARTUPINFO si{ sizeof(si) };
+	PROCESS_INFORMATION pi;
+	if (!::CreateProcess(nullptr, command.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi))
+		return std::nullopt;
+	::CloseHandle(pi.hThread);
+	::CloseHandle(pi.hProcess);
+	return pi.dwProcessId;
+}
+
 ProcessStructures Process::GetStructures(HANDLE hProcess) {
 	ProcessStructures result;
 	PROCESS_BASIC_INFORMATION pbi;
