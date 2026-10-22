@@ -511,6 +511,22 @@ bool Process::SetEfficiencyMode(bool on) noexcept {
 		&& ::SetPriorityClass(m_Handle.get(), on ? IDLE_PRIORITY_CLASS : NORMAL_PRIORITY_CLASS);
 }
 
+std::optional<bool> Process::IsCritical() const noexcept {
+	ULONG critical = 0;
+	if (!NT_SUCCESS(::NtQueryInformationProcess(m_Handle.get(), ProcessBreakOnTermination, &critical, sizeof(critical), nullptr)))
+		return std::nullopt;
+	return critical != 0;
+}
+
+bool Process::SetCritical(bool critical) noexcept {
+	SecurityHelper::EnablePrivilege(SE_DEBUG_NAME, true);
+	ULONG value = critical ? 1 : 0;
+	auto status = ::NtSetInformationProcess(m_Handle.get(), ProcessBreakOnTermination, &value, sizeof(value));
+	if (!NT_SUCCESS(status))
+		::SetLastError(::RtlNtStatusToDosError(status));
+	return NT_SUCCESS(status);
+}
+
 bool Process::EmptyWorkingSet() noexcept {
 	return ::SetProcessWorkingSetSizeEx(m_Handle.get(), (SIZE_T)-1, (SIZE_T)-1, 0);
 }

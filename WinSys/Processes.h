@@ -128,6 +128,12 @@ namespace WinSys {
 		[[nodiscard]] std::optional<bool> GetEfficiencyMode() const noexcept;
 		// as Task Manager does it: EcoQoS and the idle priority class; off, the system decides again, at normal priority
 		bool SetEfficiencyMode(bool on) noexcept;
+		// a critical process (ProcessBreakOnTermination): when it exits, however it does, the system bugchecks
+		// (CRITICAL_PROCESS_DIED). Nothing if it can't be queried (limited query access)
+		[[nodiscard]] std::optional<bool> IsCritical() const noexcept;
+		// needs PROCESS_SET_INFORMATION and SeDebugPrivilege, which is enabled first (an elevated token has it);
+		// protected processes (csrss, smss, wininit, services...) can't be opened for it
+		bool SetCritical(bool critical) noexcept;
 		// trims the working set to nothing (SetProcessWorkingSetSizeEx with -1, -1); the pages go to the standby and
 		// modified lists, and are faulted back in as they're used. Needs PROCESS_SET_QUOTA
 		bool EmptyWorkingSet() noexcept;
