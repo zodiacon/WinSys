@@ -7,8 +7,9 @@
 using namespace WinSys;
 
 namespace {
-	std::vector<std::wstring> LoadTypeNames() {
-		std::vector<std::wstring> names;
+	// calls f with each type's OBJECT_TYPE_INFORMATION; false if the query failed
+	template<typename F>
+	bool ForEachType(F&& f) {
 		ULONG size = 1 << 16;
 		std::unique_ptr<BYTE[]> buffer;
 		NTSTATUS status;
@@ -21,22 +22,62 @@ namespace {
 			size = std::max(size * 2, needed + 4096);
 		}
 		if (!NT_SUCCESS(status))
-			return names;
+			return false;
 
 		auto types = reinterpret_cast<OBJECT_TYPES_INFORMATION const*>(buffer.get());
 		// the entries follow the header, each followed by its name, aligned to a pointer
 		auto align = [](ULONG_PTR p) { return (p + sizeof(ULONG_PTR) - 1) & ~(sizeof(ULONG_PTR) - 1); };
 		auto type = reinterpret_cast<OBJECT_TYPE_INFORMATION const*>(align((ULONG_PTR)types + sizeof(*types)));
 		for (ULONG i = 0; i < types->NumberOfTypes; i++) {
-			auto index = type->TypeIndex;
-			if (index >= names.size())
-				names.resize(index + 1);
-			names[index].assign(type->TypeName.Buffer, type->TypeName.Length / sizeof(WCHAR));
+			f(*type);
 			type = reinterpret_cast<OBJECT_TYPE_INFORMATION const*>(
 				align((ULONG_PTR)type + sizeof(OBJECT_TYPE_INFORMATION) + type->TypeName.MaximumLength));
 		}
+		return true;
+	}
+
+	std::vector<std::wstring> LoadTypeNames() {
+		std::vector<std::wstring> names;
+		ForEachType([&](OBJECT_TYPE_INFORMATION const& type) {
+			auto index = type.TypeIndex;
+			if (index >= names.size())
+				names.resize(index + 1);
+			names[index].assign(type.TypeName.Buffer, type.TypeName.Length / sizeof(WCHAR));
+			});
 		return names;
 	}
+}
+
+std::vector<ObjectTypeInfo> ObjectTypes::Enum() {
+	std::vector<ObjectTypeInfo> types;
+	ForEachType([&](OBJECT_TYPE_INFORMATION const& type) {
+		ObjectTypeInfo info;
+		info.Index = type.TypeIndex;
+		info.Name.assign(type.TypeName.Buffer, type.TypeName.Length / sizeof(WCHAR));
+		info.Objects = type.TotalNumberOfObjects;
+		info.Handles = type.TotalNumberOfHandles;
+		info.PeakObjects = type.HighWaterNumberOfObjects;
+		info.PeakHandles = type.HighWaterNumberOfHandles;
+		info.InvalidAttributes = type.InvalidAttributes;
+		info.ValidAccessMask = type.ValidAccessMask;
+		info.GenericMapping = type.GenericMapping;
+		info.PoolType = type.PoolType;
+		info.DefaultPagedPoolCharge = type.DefaultPagedPoolCharge;
+		info.DefaultNonPagedPoolCharge = type.DefaultNonPagedPoolCharge;
+		info.SecurityRequired = type.SecurityRequired;
+		info.MaintainHandleCount = type.MaintainHandleCount;
+		types.push_back(std::move(info));
+		});
+	return types;
+}
+
+std::wstring ObjectTypes::PoolTypeName(uint32_t poolType) {
+	switch (poolType) {
+		case 0: return L"Non-paged";
+		case 1: return L"Paged";
+		case 512: return L"Non-paged NX";
+	}
+	return std::to_wstring(poolType);
 }
 
 std::wstring const& ObjectTypes::GetName(uint16_t typeIndex) {

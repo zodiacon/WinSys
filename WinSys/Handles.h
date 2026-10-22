@@ -21,9 +21,26 @@ namespace WinSys {
 		uint16_t TypeIndex;	// see ObjectTypes
 	};
 
+	// an object type, with its counts as of the query
+	struct ObjectTypeInfo {
+		uint16_t Index{ 0 };
+		std::wstring Name;
+		uint32_t Objects{ 0 }, Handles{ 0 }, PeakObjects{ 0 }, PeakHandles{ 0 };
+		uint32_t InvalidAttributes{ 0 };	// OBJ_* the type doesn't allow
+		uint32_t ValidAccessMask{ 0 };
+		GENERIC_MAPPING GenericMapping{};
+		uint32_t PoolType{ 0 };	// POOL_TYPE: 0 non-paged, 1 paged, 512 non-paged no-execute
+		uint32_t DefaultPagedPoolCharge{ 0 }, DefaultNonPagedPoolCharge{ 0 };
+		bool SecurityRequired{ false }, MaintainHandleCount{ false };
+	};
+
 	struct ObjectTypes final {
 		// the type's name ("File", "Process"...), from NtQueryObject(ObjectTypesInformation), cached; empty if unknown
 		[[nodiscard]] static std::wstring const& GetName(uint16_t typeIndex);
+		// every type with its current counts (one query, cheap enough for every refresh); empty on failure
+		[[nodiscard]] static std::vector<ObjectTypeInfo> Enum();
+		// "Non-paged", "Paged", "Non-paged NX", else the number
+		[[nodiscard]] static std::wstring PoolTypeName(uint32_t poolType);
 	};
 
 	//
