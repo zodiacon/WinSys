@@ -2,6 +2,7 @@
 #include "Gpu.h"
 #include <d3dkmthk.h>
 #include <dxgi.h>
+#include <dxcore_interface.h>
 #include <wil/com.h>
 #include <algorithm>
 
@@ -52,8 +53,53 @@ namespace {
 		return L"";
 	}
 
-	std::vector<WinSys::GpuAdapter> LoadAdapters() {
+	// the NPUs' LUIDs and descriptions, from DXCore: D3DKMT tells only that an adapter is compute-only. dxcore.dll is
+	// loaded at run time (Windows 10 2004 on), and the NPU attribute is known from Windows 11 24H2
+	std::vector<std::pair<LUID, std::wstring>> GetNpus() {
+		std::vector<std::pair<LUID, std::wstring>> npus;
+		using CreateFactory = HRESULT(WINAPI*)(REFIID, void**);
+		static auto create = [] {
+			auto module = ::LoadLibraryExW(L"dxcore.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+			return module ? (CreateFactory)::GetProcAddress(module, "DXCoreCreateAdapterFactory") : nullptr;
+		}();
+		wil::com_ptr_nothrow<IDXCoreAdapterFactory> factory;
+		if (!create || FAILED(create(IID_PPV_ARGS(&factory))))
+			return npus;
+		// DXCORE_HARDWARE_TYPE_ATTRIBUTE_NPU, copied, so nothing depends on where the GUID is defined
+		const GUID npuAttribute = { 0xd46140c4, 0xadd7, 0x451b, { 0x9e, 0x56, 0x06, 0xfe, 0x8c, 0x3b, 0x58, 0xed } };
+		wil::com_ptr_nothrow<IDXCoreAdapterList> list;
+		if (FAILED(factory->CreateAdapterList(1, &npuAttribute, IID_PPV_ARGS(&list))))
+			return npus;
+		for (uint32_t i = 0; i < list->GetAdapterCount(); i++) {
+			wil::com_ptr_nothrow<IDXCoreAdapter> adapter;
+			LUID luid;
+			if (FAILED(list->GetAdapter(i, IID_PPV_ARGS(&adapter))) || !adapter->IsValid()
+				|| FAILED(adapter->GetProperty(DXCoreAdapterProperty::InstanceLuid, &luid)))
+				continue;
+			std::wstring name;
+			if (size_t size = 0; SUCCEEDED(adapter->GetPropertySize(DXCoreAdapterProperty::DriverDescription, &size)) && size > 1) {
+				std::string text(size, '\0');
+				if (SUCCEEDED(adapter->GetProperty(DXCoreAdapterProperty::DriverDescription, size, text.data()))) {
+					text.resize(::strnlen(text.c_str(), size));
+					name.resize(text.size());
+					name.resize(::MultiByteToWideChar(CP_UTF8, 0, text.c_str(), (int)text.size(), name.data(), (int)name.size()));
+				}
+			}
+			npus.emplace_back(luid, std::move(name));
+		}
+		return npus;
+	}
+
+	bool SameLuid(LUID const& a, LUID const& b) {
+		return a.LowPart == b.LowPart && a.HighPart == b.HighPart;
+	}
+
+	std::vector<WinSys::GpuAdapter> LoadAdapters(WinSys::GpuAdapterKind kind) {
 		std::vector<WinSys::GpuAdapter> adapters;
+		bool npu = kind == WinSys::GpuAdapterKind::Npu;
+		auto npus = GetNpus();
+		if (npu && npus.empty())
+			return adapters;
 		D3DKMT_ENUMADAPTERS2 enumAdapters{};
 		if (!NT_SUCCESS(::D3DKMTEnumAdapters2(&enumAdapters)) || enumAdapters.NumAdapters == 0)
 			return adapters;
@@ -69,7 +115,11 @@ namespace {
 
 			D3DKMT_ADAPTERTYPE type{};
 			D3DKMT_QUERYADAPTERINFO queryType{ info.hAdapter, KMTQAITYPE_ADAPTERTYPE, &type, sizeof(type) };
-			if (!NT_SUCCESS(::D3DKMTQueryAdapterInfo(&queryType)) || type.SoftwareDevice || !type.RenderSupported)
+			if (!NT_SUCCESS(::D3DKMTQueryAdapterInfo(&queryType)) || type.SoftwareDevice)
+				continue;
+			// an NPU is compute-only; one that renders too is counted as a GPU only
+			auto npuInfo = std::ranges::find_if(npus, [&](auto& n) { return SameLuid(n.first, info.AdapterLuid); });
+			if (npu ? npuInfo == npus.end() : (!type.RenderSupported || npuInfo != npus.end()))
 				continue;
 
 			D3DKMT_QUERYSTATISTICS query{};
@@ -82,7 +132,7 @@ namespace {
 
 			WinSys::GpuAdapter adapter;
 			adapter.Luid = info.AdapterLuid;
-			adapter.Name = GetAdapterName(info.AdapterLuid);
+			adapter.Name = npu ? npuInfo->second : GetAdapterName(info.AdapterLuid);
 			for (ULONG node = 0; node < nodes; node++) {
 				// the engine's name: the driver's, else its type's
 				D3DKMT_NODEMETADATA meta{};
@@ -110,7 +160,7 @@ namespace {
 				adapter.ApertureSegments.push_back(aperture);
 			}
 			if (adapter.Name.empty())
-				adapter.Name = L"GPU " + std::to_wstring(adapters.size());
+				adapter.Name = (npu ? L"NPU " : L"GPU ") + std::to_wstring(adapters.size());
 			adapters.push_back(std::move(adapter));
 		}
 		return adapters;
@@ -118,17 +168,18 @@ namespace {
 }
 
 namespace {
-	std::vector<WinSys::GpuAdapter>& Adapters() {
-		static std::vector<WinSys::GpuAdapter> adapters = LoadAdapters();
-		return adapters;
+	std::vector<WinSys::GpuAdapter>& Adapters(WinSys::GpuAdapterKind kind) {
+		static std::vector<WinSys::GpuAdapter> gpus = LoadAdapters(WinSys::GpuAdapterKind::Gpu);
+		static std::vector<WinSys::GpuAdapter> npus = LoadAdapters(WinSys::GpuAdapterKind::Npu);
+		return kind == WinSys::GpuAdapterKind::Npu ? npus : gpus;
 	}
 
 	// a device restarted gets a new LUID: each adapter takes the one of the same name and shape, which keeps the list
 	// (and its users' indices) as it was
-	void RemapLuids() {
-		auto fresh = LoadAdapters();
+	void RemapLuids(WinSys::GpuAdapterKind kind) {
+		auto fresh = LoadAdapters(kind);
 		std::vector<bool> used(fresh.size());
-		for (auto& adapter : Adapters())
+		for (auto& adapter : Adapters(kind))
 			for (size_t i = 0; i < fresh.size(); i++)
 				if (!used[i] && fresh[i].Name == adapter.Name && fresh[i].NodeEngine.size() == adapter.NodeEngine.size()
 					&& fresh[i].ApertureSegments.size() == adapter.ApertureSegments.size()) {
@@ -140,12 +191,12 @@ namespace {
 }
 
 namespace WinSys {
-	std::vector<GpuAdapter> const& GpuInfo::GetAdapters() {
-		return Adapters();
+	std::vector<GpuAdapter> const& GpuInfo::GetAdapters(GpuAdapterKind kind) {
+		return Adapters(kind);
 	}
 
 	bool GpuTracker::Update() {
-		auto& adapters = GpuInfo::GetAdapters();
+		auto& adapters = GpuInfo::GetAdapters(m_Kind);
 		auto now = Now();
 		auto elapsed = m_PrevTime ? now - m_PrevTime : 0;
 		bool first = m_PrevTimes.size() != adapters.size();
@@ -194,7 +245,7 @@ namespace WinSys {
 		// not often: it enumerates the adapters (DXGI), and an adapter that's gone (an external GPU) stays stale
 		if (auto tick = ::GetTickCount64(); stale && tick - m_RemapTime >= 10000) {
 			m_RemapTime = tick;
-			RemapLuids();
+			RemapLuids(m_Kind);
 		}
 		bool valid = !first && elapsed > 0;
 		m_PrevTime = now;
@@ -205,9 +256,9 @@ namespace WinSys {
 		return m_Samples;
 	}
 
-	GpuProcessUsage GpuInfo::QueryProcess(HANDLE hProcess, GpuProcessState& state) {
+	GpuProcessUsage GpuInfo::QueryProcess(HANDLE hProcess, GpuProcessState& state, GpuAdapterKind kind) {
 		GpuProcessUsage usage;
-		auto& adapters = GetAdapters();
+		auto& adapters = GetAdapters(kind);
 		if (!hProcess || adapters.empty())
 			return usage;
 
