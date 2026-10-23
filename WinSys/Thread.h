@@ -90,6 +90,9 @@ namespace WinSys {
 		IoPriority GetIoPriority() const noexcept;
 		// CPU cycles the thread used (QueryThreadCycleTime); 0 on failure
 		uint64_t GetCycleTime() const noexcept;
+		// the address the thread was created with (ThreadQuerySetWin32StartAddress): needs THREAD_QUERY_INFORMATION,
+		// unlike the process snapshots' copy, which only an elevated caller gets (zero otherwise); 0 on failure
+		[[nodiscard]] void* GetStartAddress() const noexcept;
 		size_t GetSubProcessTag() const noexcept;
 		std::wstring GetServiceNameByTag(uint32_t pid) const noexcept;
 		ComFlags GetComFlags() const noexcept;

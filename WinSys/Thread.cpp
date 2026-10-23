@@ -45,6 +45,13 @@ uint64_t Thread::GetCycleTime() const noexcept {
 	return cycles;
 }
 
+void* Thread::GetStartAddress() const noexcept {
+	void* address = nullptr;
+	if (!NT_SUCCESS(::NtQueryInformationThread(m_handle, ThreadQuerySetWin32StartAddress, &address, sizeof(address), nullptr)))
+		return nullptr;
+	return address;
+}
+
 size_t Thread::GetSubProcessTag() const noexcept {
 	THREAD_BASIC_INFORMATION tbi;
 	auto status = ::NtQueryInformationThread(m_handle, ThreadBasicInformation, &tbi, sizeof(tbi), nullptr);
