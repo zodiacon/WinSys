@@ -8,6 +8,8 @@
 #include <memory>
 #include <cstdint>
 
+struct _SYSTEM_HANDLE_INFORMATION_EX;	// phnt
+
 //
 // Handles of a process, object type names and object names.
 //
@@ -19,6 +21,11 @@ namespace WinSys {
 		uint32_t Access;	// granted access
 		uint32_t Attributes;	// OBJ_INHERIT, OBJ_PROTECT_CLOSE (HANDLE_FLAG_* are different)
 		uint16_t TypeIndex;	// see ObjectTypes
+	};
+
+	// a handle of any process, from the system's handle table
+	struct SystemHandleEntry : HandleEntry {
+		uint32_t Pid;
 	};
 
 	// an object type, with its counts as of the query
@@ -56,8 +63,13 @@ namespace WinSys {
 		// nothing if the process can't be queried
 		[[nodiscard]] static std::optional<std::vector<HandleEntry>> EnumProcessHandles(uint32_t pid);
 		[[nodiscard]] std::optional<std::vector<HandleEntry>> EnumProcessHandlesWithAddresses(uint32_t pid);
+		// every process's handles, from the system's table (the object addresses only when elevated)
+		[[nodiscard]] std::optional<std::vector<SystemHandleEntry>> EnumSystemHandles();
 
 	private:
+		// the system's handle table into m_Buffer
+		[[nodiscard]] _SYSTEM_HANDLE_INFORMATION_EX const* QuerySystemHandles();
+
 		std::unique_ptr<uint8_t[]> m_Buffer;
 		size_t m_Size{ 0 };
 	};

@@ -117,7 +117,7 @@ std::optional<std::vector<HandleEntry>> HandleEnumerator::EnumProcessHandles(uin
 	return handles;
 }
 
-std::optional<std::vector<HandleEntry>> HandleEnumerator::EnumProcessHandlesWithAddresses(uint32_t pid) {
+SYSTEM_HANDLE_INFORMATION_EX const* HandleEnumerator::QuerySystemHandles() {
 	if (m_Size == 0) {
 		m_Size = 1 << 22;
 		m_Buffer = std::make_unique<uint8_t[]>(m_Size);
@@ -132,15 +132,38 @@ std::optional<std::vector<HandleEntry>> HandleEnumerator::EnumProcessHandlesWith
 		m_Size = std::max<size_t>(m_Size * 2, needed + (1 << 16));
 		m_Buffer = std::make_unique<uint8_t[]>(m_Size);
 	}
-	if (!NT_SUCCESS(status))
-		return std::nullopt;
+	return NT_SUCCESS(status) ? reinterpret_cast<SYSTEM_HANDLE_INFORMATION_EX const*>(m_Buffer.get()) : nullptr;
+}
 
-	auto info = reinterpret_cast<SYSTEM_HANDLE_INFORMATION_EX const*>(m_Buffer.get());
+std::optional<std::vector<HandleEntry>> HandleEnumerator::EnumProcessHandlesWithAddresses(uint32_t pid) {
+	auto info = QuerySystemHandles();
+	if (!info)
+		return std::nullopt;
 	std::vector<HandleEntry> handles;
 	for (ULONG_PTR i = 0; i < info->NumberOfHandles; i++) {
 		auto& h = info->Handles[i];
 		if (HandleToULong(h.UniqueProcessId) == pid)
 			handles.push_back({ (uint64_t)h.HandleValue, h.Object, h.GrantedAccess, h.HandleAttributes, h.ObjectTypeIndex });
+	}
+	return handles;
+}
+
+std::optional<std::vector<SystemHandleEntry>> HandleEnumerator::EnumSystemHandles() {
+	auto info = QuerySystemHandles();
+	if (!info)
+		return std::nullopt;
+	std::vector<SystemHandleEntry> handles;
+	handles.reserve(info->NumberOfHandles);
+	for (ULONG_PTR i = 0; i < info->NumberOfHandles; i++) {
+		auto& h = info->Handles[i];
+		SystemHandleEntry entry{};
+		entry.Value = (uint64_t)h.HandleValue;
+		entry.Object = h.Object;
+		entry.Access = h.GrantedAccess;
+		entry.Attributes = h.HandleAttributes;
+		entry.TypeIndex = h.ObjectTypeIndex;
+		entry.Pid = HandleToULong(h.UniqueProcessId);
+		handles.push_back(entry);
 	}
 	return handles;
 }

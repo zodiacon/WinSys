@@ -99,6 +99,9 @@
     <ClInclude Include="Ipc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FileIo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Handles.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -231,6 +234,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Ipc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FileIo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Handles.cpp">

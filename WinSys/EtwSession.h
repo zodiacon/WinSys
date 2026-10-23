@@ -1,6 +1,6 @@
 #pragma once
 
-// Internal to WinSys: what the real-time ETW trackers (ProcessNetworkTracker, IpcTracker) share. Include after
+// Internal to WinSys: what the real-time ETW trackers (ProcessNetworkTracker, IpcTracker, FileIoTracker) share. Include after
 // <evntrace.h>.
 
 #include <string>
