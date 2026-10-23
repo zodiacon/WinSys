@@ -46,14 +46,22 @@ namespace WinSys {
 		LARGE_INTEGER PasswordLastSet;
 		LARGE_INTEGER PasswordCanChange;
 		LARGE_INTEGER PasswordMustChange;
+
+		// ERROR_SUCCESS, else why the details couldn't be read (then only Index and LogonId are set): another user's
+		// session needs elevation
+		DWORD Error{ ERROR_SUCCESS };
 	};
 
 	class LsaSecurity final {
 	public:
-		static std::vector<LogonSessionData> EnumLogonSessions();
+		// every logon session (LsaEnumerateLogonSessions) with its details; inaccessible: also those whose details can't
+		// be read (another user's, unless elevated), with Error set, else they're left out
+		static std::vector<LogonSessionData> EnumLogonSessions(bool inaccessible = false);
 		// one logon session (its Index is 0); access denied unless it's the caller's or the caller is elevated
 		static std::optional<LogonSessionData> GetLogonSessionData(LUID const& logonId);
 		static std::wstring GetUserNameByLogonSession(PLUID sessionId);
+		// "Interactive", "Network", "Remote interactive"...; "System" for none (the SYSTEM session's)
+		[[nodiscard]] static PCWSTR LogonTypeName(SecurityLogonType type);
 	};
 }
 

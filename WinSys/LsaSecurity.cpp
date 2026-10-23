@@ -43,7 +43,7 @@ static LogonSessionData ToSessionData(SECURITY_LOGON_SESSION_DATA const* data) {
 	return sd;
 }
 
-std::vector<LogonSessionData> LsaSecurity::EnumLogonSessions() {
+std::vector<LogonSessionData> LsaSecurity::EnumLogonSessions(bool inaccessible) {
 	std::vector<LogonSessionData> sessions;
 
 	LUID* luid;
@@ -54,12 +54,20 @@ std::vector<LogonSessionData> LsaSecurity::EnumLogonSessions() {
 	sessions.reserve(count);
 	for (ULONG i = 0; i < count; i++) {
 		SECURITY_LOGON_SESSION_DATA* data;
-		if (NT_SUCCESS(::LsaGetLogonSessionData(luid + i, &data))) {
+		auto status = ::LsaGetLogonSessionData(luid + i, &data);
+		if (NT_SUCCESS(status)) {
 			auto sd = ToSessionData(data);
 			sd.Index = i + 1;
 			sessions.emplace_back(std::move(sd));
 
 			::LsaFreeReturnBuffer(data);
+		}
+		else if (inaccessible) {
+			LogonSessionData sd{};
+			sd.Index = i + 1;
+			sd.LogonId = luid[i];
+			sd.Error = ::LsaNtStatusToWinError(status);
+			sessions.emplace_back(std::move(sd));
 		}
 	}
 
@@ -75,6 +83,24 @@ std::optional<LogonSessionData> LsaSecurity::GetLogonSessionData(LUID const& log
 	auto sd = ToSessionData(data);
 	::LsaFreeReturnBuffer(data);
 	return sd;
+}
+
+PCWSTR LsaSecurity::LogonTypeName(SecurityLogonType type) {
+	switch (type) {
+		case SecurityLogonType::Interactive: return L"Interactive";
+		case SecurityLogonType::Network: return L"Network";
+		case SecurityLogonType::Batch: return L"Batch";
+		case SecurityLogonType::Service: return L"Service";
+		case SecurityLogonType::Proxy: return L"Proxy";
+		case SecurityLogonType::Unlock: return L"Unlock";
+		case SecurityLogonType::NetworkCleartext: return L"Network (cleartext)";
+		case SecurityLogonType::NewCredentials: return L"New credentials";
+		case SecurityLogonType::RemoteInteractive: return L"Remote interactive";
+		case SecurityLogonType::CachedInteractive: return L"Cached interactive";
+		case SecurityLogonType::CachedRemoteInteractive: return L"Cached remote interactive";
+		case SecurityLogonType::CachedUnlock: return L"Cached unlock";
+	}
+	return L"System";
 }
 
 std::wstring LsaSecurity::GetUserNameByLogonSession(PLUID sessionId) {
