@@ -191,6 +191,7 @@
     <ClInclude Include="Firmware.h" />
     <ClInclude Include="ObjectNamespace.h" />
     <ClInclude Include="VirusTotal.h" />
+    <ClInclude Include="PoolTags.h" />
     <ClInclude Include="ProcessWindows.h" />
     <ClInclude Include="ObjectDetails.h" />
     <ClInclude Include="ProcessMemory.h" />
@@ -241,6 +242,7 @@
     <ClCompile Include="Firmware.cpp" />
     <ClCompile Include="ObjectNamespace.cpp" />
     <ClCompile Include="VirusTotal.cpp" />
+    <ClCompile Include="PoolTags.cpp" />
     <ClCompile Include="ProcessWindows.cpp" />
     <ClCompile Include="ObjectDetails.cpp" />
     <ClCompile Include="ProcessMemory.cpp" />
