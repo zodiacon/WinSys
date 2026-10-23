@@ -35,7 +35,14 @@ namespace WinSys {
 		void AddThread(shared_ptr<ThreadInfo> thread);
 		void ClearThreads();
 
+		// For a process that exited (ProcessManager::GetTerminatedProcesses), before the next Update(): copies its
+		// snapshot entry (the process, its threads and the extension) into a buffer of its own and points NativeInfo,
+		// ExtendedInfo and the package name there, so it can still be shown after the snapshot buffer is reused. Its
+		// thread objects are dropped, their pointers being the snapshot's. Once only; later calls do nothing
+		void Detach();
+
 	private:
+		unique_ptr<BYTE[]> m_Detached;	// the entry, after Detach
 		wstring m_ProcessName;
 		wstring m_NativeImagePath;
 		mutable std::wstring m_UserName;
