@@ -184,6 +184,7 @@
     <ClInclude Include="EtwSession.h" />
     <ClInclude Include="Ipc.h" />
     <ClInclude Include="FileIo.h" />
+    <ClInclude Include="ProcessorFrequency.h" />
     <ClInclude Include="Handles.h" />
     <ClInclude Include="Gpu.h" />
     <ClInclude Include="WaitChain.h" />
@@ -236,6 +237,7 @@
     <ClCompile Include="ProcessNetwork.cpp" />
     <ClCompile Include="Ipc.cpp" />
     <ClCompile Include="FileIo.cpp" />
+    <ClCompile Include="ProcessorFrequency.cpp" />
     <ClCompile Include="Handles.cpp" />
     <ClCompile Include="Gpu.cpp" />
     <ClCompile Include="WaitChain.cpp" />
