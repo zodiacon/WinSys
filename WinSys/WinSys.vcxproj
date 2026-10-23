@@ -188,6 +188,7 @@
     <ClInclude Include="WaitChain.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="Zombies.h" />
+    <ClInclude Include="Firmware.h" />
     <ClInclude Include="ProcessWindows.h" />
     <ClInclude Include="ObjectDetails.h" />
     <ClInclude Include="ProcessMemory.h" />
@@ -235,6 +236,7 @@
     <ClCompile Include="WaitChain.cpp" />
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="Zombies.cpp" />
+    <ClCompile Include="Firmware.cpp" />
     <ClCompile Include="ProcessWindows.cpp" />
     <ClCompile Include="ObjectDetails.cpp" />
     <ClCompile Include="ProcessMemory.cpp" />
