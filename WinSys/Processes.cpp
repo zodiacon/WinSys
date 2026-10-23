@@ -714,6 +714,13 @@ bool Process::SetPriorityClass(WinSys::ProcessPriorityClass pc) noexcept {
 	return ::SetPriorityClass(m_Handle.get(), static_cast<DWORD>(pc));
 }
 
+std::optional<uint32_t> Process::GetPeakHandleCount() const noexcept {
+	PROCESS_HANDLE_INFORMATION info;
+	if (!NT_SUCCESS(::NtQueryInformationProcess(m_Handle.get(), ProcessHandleCount, &info, sizeof(info), nullptr)))
+		return std::nullopt;
+	return info.HandleCountHighWatermark;
+}
+
 uint32_t Process::GetGdiObjectCount() const noexcept {
 	return ::GetGuiResources(m_Handle.get(), GR_GDIOBJECTS);
 }

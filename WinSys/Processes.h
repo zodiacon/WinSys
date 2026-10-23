@@ -179,6 +179,9 @@ namespace WinSys {
 		// first token is the program (CreateProcess's rules: an executable, not a document). The new process's ID;
 		// nothing on failure, with the last error
 		[[nodiscard]] static std::optional<uint32_t> RunLimited(std::wstring const& commandLine);
+		// the most handles the process has had at once (ProcessHandleCount); nothing if it can't be queried (limited
+		// query access)
+		[[nodiscard]] std::optional<uint32_t> GetPeakHandleCount() const noexcept;
 		uint32_t GetGdiObjectCount() const noexcept;
 		uint32_t GetPeakGdiObjectCount() const noexcept;
 		uint32_t GetUserObjectCount() const noexcept;
