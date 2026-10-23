@@ -65,7 +65,7 @@ std::optional<std::vector<ZombieProcess>> ZombieProcesses::Find() {
 		if (!type->second || (entry.Object && live.contains(entry.Object)))
 			continue;
 
-		ZombieHolder holder{ (uint32_t)pid, (uint64_t)entry.HandleValue, entry.GrantedAccess };
+		ZombieHolder holder{ (uint32_t)pid, (uint64_t)entry.HandleValue, entry.GrantedAccess, entry.HandleAttributes };
 		// another handle to a zombie already found
 		if (entry.Object)
 			if (auto it = byObject.find(entry.Object); it != byObject.end()) {

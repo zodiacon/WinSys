@@ -17,6 +17,7 @@ namespace WinSys {
 		uint32_t Pid;		// the process holding it
 		uint64_t Handle;	// its value in that process
 		uint32_t Access;
+		uint32_t Attributes;	// the handle table's: OBJ_PROTECT_CLOSE (1), OBJ_INHERIT (2)
 	};
 
 	struct ZombieProcess {
