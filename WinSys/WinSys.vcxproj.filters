@@ -162,6 +162,15 @@
     <ClInclude Include="Connections.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Http.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ZipArchive.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LogonTask.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Power.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -315,6 +324,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Connections.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Http.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ZipArchive.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LogonTask.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Power.cpp">

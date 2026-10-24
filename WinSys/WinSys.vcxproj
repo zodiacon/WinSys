@@ -204,6 +204,9 @@
     <ClInclude Include="AccessMask.h" />
     <ClInclude Include="KernelModules.h" />
     <ClInclude Include="Connections.h" />
+    <ClInclude Include="Http.h" />
+    <ClInclude Include="ZipArchive.h" />
+    <ClInclude Include="LogonTask.h" />
     <ClInclude Include="Power.h" />
     <ClInclude Include="Pipes.h" />
     <ClInclude Include="NetworkShares.h" />
@@ -262,6 +265,9 @@
     <ClCompile Include="AccessMask.cpp" />
     <ClCompile Include="KernelModules.cpp" />
     <ClCompile Include="Connections.cpp" />
+    <ClCompile Include="Http.cpp" />
+    <ClCompile Include="ZipArchive.cpp" />
+    <ClCompile Include="LogonTask.cpp" />
     <ClCompile Include="Power.cpp" />
     <ClCompile Include="Pipes.cpp" />
     <ClCompile Include="NetworkShares.cpp" />
