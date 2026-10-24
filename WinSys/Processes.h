@@ -61,6 +61,19 @@ namespace WinSys {
 		std::wstring Title;
 	};
 
+	enum class DllInjectionResult {
+		Success,
+		FileNotFound,		// the DLL file doesn't exist
+		Wow64Target,		// a 32-bit (WOW64) target: this 64-bit build can't give it a valid LoadLibraryW address
+		OpenFailed,			// the process couldn't be opened (the last error set)
+		AllocFailed,		// VirtualAllocEx failed (the last error set)
+		WriteFailed,		// WriteProcessMemory failed (the last error set)
+		ThreadFailed,		// CreateRemoteThread failed (the last error set)
+		Timeout,			// the remote LoadLibraryW didn't return in time (the remote memory is left allocated)
+		LoadLibraryFailed,	// the remote LoadLibraryW returned null: the DLL didn't load (wrong architecture, a failed
+							// DllMain, missing dependencies...)
+	};
+
 	class Process final {
 	public:
 		static std::unique_ptr<Process> OpenById(uint32_t pid, ProcessAccessMask access = ProcessAccessMask::QueryLimitedInformation);
@@ -151,6 +164,14 @@ namespace WinSys {
 		[[nodiscard]] static std::optional<uint32_t> AttachDebugger(uint32_t pid);
 		// the AeDebug key's Debugger command line; empty if none is registered
 		[[nodiscard]] static std::wstring GetPostmortemDebugger();
+		// injects a DLL by its path (absolute, as the target's current directory and search path are its own): a remote
+		// thread runs LoadLibraryW with it. Needs PROCESS_CREATE_THREAD, PROCESS_VM_OPERATION, PROCESS_VM_WRITE and
+		// PROCESS_QUERY_LIMITED_INFORMATION, so usually elevation for another user's or a system process; the target's
+		// own protection may still refuse a thread (anti-malware, protected processes). A 32-bit (WOW64) target isn't
+		// supported from this 64-bit build (Wow64Target). createTime (a snapshot's CreateTime) guards against a reused
+		// PID. The remote thread is waited for up to timeoutMs; Success means LoadLibraryW returned a module
+		[[nodiscard]] static DllInjectionResult InjectDll(uint32_t pid, int64_t createTime, std::wstring const& dllPath,
+			uint32_t timeoutMs = 10000);
 		// the PEB, and each thread's TEB and stack (the 32-bit ones of a WOW64 process too). hProcess needs
 		// PROCESS_QUERY_INFORMATION (the threads are opened from it), and PROCESS_VM_READ for the stacks
 		[[nodiscard]] static ProcessStructures GetStructures(HANDLE hProcess);

@@ -624,6 +624,58 @@ std::optional<uint32_t> Process::AttachDebugger(uint32_t pid) {
 	return pi.dwProcessId;
 }
 
+DllInjectionResult Process::InjectDll(uint32_t pid, int64_t createTime, std::wstring const& dllPath, uint32_t timeoutMs) {
+	if (::GetFileAttributes(dllPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+		::SetLastError(ERROR_FILE_NOT_FOUND);
+		return DllInjectionResult::FileNotFound;
+	}
+	auto process = OpenById(pid, createTime, ProcessAccessMask::CreateThread | ProcessAccessMask::VmOperation |
+		ProcessAccessMask::VmWrite | ProcessAccessMask::QueryLimitedInformation);
+	if (!process)
+		return DllInjectionResult::OpenFailed;
+	// LoadLibraryW sits at kernel32's base, the same in every process of the architecture; a 64-bit build has no valid
+	// address for a WOW64 target's 32-bit kernel32, and a 64-bit DLL couldn't load there anyway
+	if (process->IsWow64Process()) {
+		::SetLastError(ERROR_NOT_SUPPORTED);
+		return DllInjectionResult::Wow64Target;
+	}
+	auto hProcess = process->Handle();
+
+	// the path (with its null) in the target, for the remote thread's argument
+	auto bytes = (dllPath.size() + 1) * sizeof(WCHAR);
+	auto remote = ::VirtualAllocEx(hProcess, nullptr, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	if (!remote)
+		return DllInjectionResult::AllocFailed;
+
+	DllInjectionResult result = DllInjectionResult::Success;
+	bool freeRemote = true;
+	if (!::WriteProcessMemory(hProcess, remote, dllPath.c_str(), bytes, nullptr))
+		result = DllInjectionResult::WriteFailed;
+	else {
+		auto loadLibrary = (LPTHREAD_START_ROUTINE)::GetProcAddress(::GetModuleHandle(L"kernel32"), "LoadLibraryW");
+		wil::unique_handle thread(::CreateRemoteThread(hProcess, nullptr, 0, loadLibrary, remote, 0, nullptr));
+		if (!thread)
+			result = DllInjectionResult::ThreadFailed;
+		else if (::WaitForSingleObject(thread.get(), timeoutMs) != WAIT_OBJECT_0) {
+			// the thread may still read the buffer, so leave it allocated
+			result = DllInjectionResult::Timeout;
+			freeRemote = false;
+		}
+		else {
+			// the exit code is the low 32 bits of the HMODULE LoadLibraryW returned (null on failure)
+			DWORD exitCode = 0;
+			::GetExitCodeThread(thread.get(), &exitCode);
+			if (exitCode == 0)
+				result = DllInjectionResult::LoadLibraryFailed;
+		}
+	}
+	auto error = ::GetLastError();
+	if (freeRemote)
+		::VirtualFreeEx(hProcess, remote, 0, MEM_RELEASE);
+	::SetLastError(error);
+	return result;
+}
+
 ProcessStructures Process::GetStructures(HANDLE hProcess) {
 	ProcessStructures result;
 	PROCESS_BASIC_INFORMATION pbi;
