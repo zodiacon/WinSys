@@ -204,6 +204,7 @@
     <ClInclude Include="AccessMask.h" />
     <ClInclude Include="KernelModules.h" />
     <ClInclude Include="Connections.h" />
+    <ClInclude Include="Pipes.h" />
     <ClInclude Include="NetworkShares.h" />
     <ClInclude Include="DotNet.h" />
     <ClInclude Include="SymbolHandler.h" />
@@ -260,6 +261,7 @@
     <ClCompile Include="AccessMask.cpp" />
     <ClCompile Include="KernelModules.cpp" />
     <ClCompile Include="Connections.cpp" />
+    <ClCompile Include="Pipes.cpp" />
     <ClCompile Include="NetworkShares.cpp" />
     <ClCompile Include="DotNet.cpp" />
     <ClCompile Include="SymbolHandler.cpp" />
