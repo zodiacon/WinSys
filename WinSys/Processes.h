@@ -78,6 +78,8 @@ namespace WinSys {
 
 		std::wstring GetFullImageName() const;
 		std::wstring GetCommandLine() const;
+		// once it exited (GetExitCodeProcess); nothing while it runs or if it can't be queried
+		[[nodiscard]] std::optional<uint32_t> GetExitCode() const;
 		std::wstring GetUserName() const noexcept;
 		std::wstring GetName() const;
 		std::wstring GetWindowTitle() const;

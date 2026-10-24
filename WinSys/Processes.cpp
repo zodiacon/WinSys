@@ -277,6 +277,16 @@ std::wstring Process::GetFullImageName() const {
 	return success ? std::wstring(name) : L"";
 }
 
+std::optional<uint32_t> Process::GetExitCode() const {
+	DWORD code;
+	if (!::GetExitCodeProcess(m_Handle.get(), &code))
+		return std::nullopt;
+	// STILL_ACTIVE (259) may also be a real exit code: the process object's state tells
+	if (code == STILL_ACTIVE && ::WaitForSingleObject(m_Handle.get(), 0) == WAIT_TIMEOUT)
+		return std::nullopt;
+	return code;
+}
+
 std::wstring Process::GetCommandLine() const {
 	ULONG size = 8192;
 	auto buffer = std::make_unique<BYTE[]>(size);

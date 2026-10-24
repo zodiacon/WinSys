@@ -16,7 +16,8 @@ namespace WinSys {
 		SuspendResume =				PROCESS_SUSPEND_RESUME,
 		SetInformation =			PROCESS_SET_INFORMATION,
 		SetQuota =					PROCESS_SET_QUOTA,
-		Synchonize =				SYNCHRONIZE,
+		Synchonize =				SYNCHRONIZE,	// (misspelled; kept for existing callers)
+		Synchronize =				SYNCHRONIZE,
 		SystemSecurity =			ACCESS_SYSTEM_SECURITY,
 		GenericWrite =				GENERIC_WRITE,
 		GenericRead =				GENERIC_READ,
