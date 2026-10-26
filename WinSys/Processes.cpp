@@ -333,15 +333,24 @@ ProcessProtection Process::GetProtection() const noexcept {
 }
 
 bool Process::Terminate(uint32_t exitCode) noexcept {
-	return NT_SUCCESS(NtTerminateProcess(m_Handle.get(), exitCode));
+	auto status = NtTerminateProcess(m_Handle.get(), exitCode);
+	if (!NT_SUCCESS(status))
+		::SetLastError(::RtlNtStatusToDosError(status));
+	return NT_SUCCESS(status);
 }
 
 bool Process::Suspend() noexcept {
-	return NT_SUCCESS(::NtSuspendProcess(m_Handle.get()));
+	auto status = ::NtSuspendProcess(m_Handle.get());
+	if (!NT_SUCCESS(status))
+		::SetLastError(::RtlNtStatusToDosError(status));
+	return NT_SUCCESS(status);
 }
 
 bool Process::Resume() noexcept {
-	return NT_SUCCESS(::NtResumeProcess(m_Handle.get()));
+	auto status = ::NtResumeProcess(m_Handle.get());
+	if (!NT_SUCCESS(status))
+		::SetLastError(::RtlNtStatusToDosError(status));
+	return NT_SUCCESS(status);
 }
 
 bool Process::IsImmersive() const noexcept {
