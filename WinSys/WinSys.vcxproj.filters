@@ -108,6 +108,9 @@
     <ClInclude Include="MemoryLists.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PhysicalMemory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="PageFiles.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -270,6 +273,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MemoryLists.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PhysicalMemory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="PageFiles.cpp">
