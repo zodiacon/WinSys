@@ -44,70 +44,98 @@ namespace {
 	wil::unique_bstr Bstr(std::wstring const& text) {
 		return wil::unique_bstr(::SysAllocString(text.c_str()));
 	}
+
+	// logon: the current user's logon trigger; else none, run only on demand (Run), and an instance per request
+	bool RegisterTask(std::wstring const& name, std::wstring const& path, std::wstring const& arguments, bool highest,
+		std::wstring const& description, bool logon) {
+		Scheduler scheduler;
+		auto hr = scheduler.Open();
+		if (FAILED(hr))
+			return Fail(hr);
+		auto user = CurrentUser();
+		if (user.empty())
+			return false;
+
+		wil::com_ptr_nothrow<ITaskDefinition> task;
+		if (FAILED(hr = scheduler.Service->NewTask(0, &task)))
+			return Fail(hr);
+
+		wil::com_ptr_nothrow<IRegistrationInfo> info;
+		if (SUCCEEDED(task->get_RegistrationInfo(&info))) {
+			info->put_Author(Bstr(user).get());
+			if (!description.empty())
+				info->put_Description(Bstr(description).get());
+		}
+
+		wil::com_ptr_nothrow<IPrincipal> principal;
+		if (FAILED(hr = task->get_Principal(&principal)))
+			return Fail(hr);
+		principal->put_UserId(Bstr(user).get());
+		principal->put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
+		principal->put_RunLevel(highest ? TASK_RUNLEVEL_HIGHEST : TASK_RUNLEVEL_LUA);
+
+		wil::com_ptr_nothrow<ITaskSettings> settings;
+		if (FAILED(hr = task->get_Settings(&settings)))
+			return Fail(hr);
+		settings->put_DisallowStartIfOnBatteries(VARIANT_FALSE);
+		settings->put_StopIfGoingOnBatteries(VARIANT_FALSE);
+		settings->put_ExecutionTimeLimit(Bstr(L"PT0S").get());
+		settings->put_Priority(4);
+
+		if (logon) {
+			wil::com_ptr_nothrow<ITriggerCollection> triggers;
+			wil::com_ptr_nothrow<ITrigger> trigger;
+			if (FAILED(hr = task->get_Triggers(&triggers)) || FAILED(hr = triggers->Create(TASK_TRIGGER_LOGON, &trigger)))
+				return Fail(hr);
+			auto logonTrigger = trigger.try_query<ILogonTrigger>();
+			if (!logonTrigger)
+				return Fail(E_NOINTERFACE);
+			logonTrigger->put_UserId(Bstr(user).get());
+		}
+		else {
+			// the default, IgnoreNew, would drop a request while an earlier instance still runs
+			settings->put_MultipleInstances(TASK_INSTANCES_PARALLEL);
+		}
+
+		wil::com_ptr_nothrow<IActionCollection> actions;
+		wil::com_ptr_nothrow<IAction> action;
+		if (FAILED(hr = task->get_Actions(&actions)) || FAILED(hr = actions->Create(TASK_ACTION_EXEC, &action)))
+			return Fail(hr);
+		auto exec = action.try_query<IExecAction>();
+		if (!exec)
+			return Fail(E_NOINTERFACE);
+		exec->put_Path(Bstr(path).get());
+		exec->put_Arguments(Bstr(arguments).get());
+		auto slash = path.rfind(L'\\');
+		if (slash != std::wstring::npos)
+			exec->put_WorkingDirectory(Bstr(path.substr(0, slash)).get());
+
+		VARIANT empty{};
+		wil::com_ptr_nothrow<IRegisteredTask> registered;
+		hr = scheduler.Root->RegisterTaskDefinition(Bstr(name).get(), task.get(), TASK_CREATE_OR_UPDATE, empty, empty,
+			TASK_LOGON_INTERACTIVE_TOKEN, empty, &registered);
+		return SUCCEEDED(hr) ? true : Fail(hr);
+	}
 }
 
 bool LogonTask::Register(std::wstring const& name, std::wstring const& path, std::wstring const& arguments, bool highest,
 	std::wstring const& description) {
+	return RegisterTask(name, path, arguments, highest, description, true);
+}
+
+bool LogonTask::RegisterOnDemand(std::wstring const& name, std::wstring const& path, std::wstring const& arguments, bool highest,
+	std::wstring const& description) {
+	return RegisterTask(name, path, arguments, highest, description, false);
+}
+
+bool LogonTask::Run(std::wstring const& name) {
 	Scheduler scheduler;
 	auto hr = scheduler.Open();
-	if (FAILED(hr))
-		return Fail(hr);
-	auto user = CurrentUser();
-	if (user.empty())
-		return false;
-
-	wil::com_ptr_nothrow<ITaskDefinition> task;
-	if (FAILED(hr = scheduler.Service->NewTask(0, &task)))
-		return Fail(hr);
-
-	wil::com_ptr_nothrow<IRegistrationInfo> info;
-	if (SUCCEEDED(task->get_RegistrationInfo(&info))) {
-		info->put_Author(Bstr(user).get());
-		if (!description.empty())
-			info->put_Description(Bstr(description).get());
-	}
-
-	wil::com_ptr_nothrow<IPrincipal> principal;
-	if (FAILED(hr = task->get_Principal(&principal)))
-		return Fail(hr);
-	principal->put_UserId(Bstr(user).get());
-	principal->put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
-	principal->put_RunLevel(highest ? TASK_RUNLEVEL_HIGHEST : TASK_RUNLEVEL_LUA);
-
-	wil::com_ptr_nothrow<ITaskSettings> settings;
-	if (FAILED(hr = task->get_Settings(&settings)))
-		return Fail(hr);
-	settings->put_DisallowStartIfOnBatteries(VARIANT_FALSE);
-	settings->put_StopIfGoingOnBatteries(VARIANT_FALSE);
-	settings->put_ExecutionTimeLimit(Bstr(L"PT0S").get());
-	settings->put_Priority(4);
-
-	wil::com_ptr_nothrow<ITriggerCollection> triggers;
-	wil::com_ptr_nothrow<ITrigger> trigger;
-	if (FAILED(hr = task->get_Triggers(&triggers)) || FAILED(hr = triggers->Create(TASK_TRIGGER_LOGON, &trigger)))
-		return Fail(hr);
-	auto logon = trigger.try_query<ILogonTrigger>();
-	if (!logon)
-		return Fail(E_NOINTERFACE);
-	logon->put_UserId(Bstr(user).get());
-
-	wil::com_ptr_nothrow<IActionCollection> actions;
-	wil::com_ptr_nothrow<IAction> action;
-	if (FAILED(hr = task->get_Actions(&actions)) || FAILED(hr = actions->Create(TASK_ACTION_EXEC, &action)))
-		return Fail(hr);
-	auto exec = action.try_query<IExecAction>();
-	if (!exec)
-		return Fail(E_NOINTERFACE);
-	exec->put_Path(Bstr(path).get());
-	exec->put_Arguments(Bstr(arguments).get());
-	auto slash = path.rfind(L'\\');
-	if (slash != std::wstring::npos)
-		exec->put_WorkingDirectory(Bstr(path.substr(0, slash)).get());
-
-	VARIANT empty{};
-	wil::com_ptr_nothrow<IRegisteredTask> registered;
-	hr = scheduler.Root->RegisterTaskDefinition(Bstr(name).get(), task.get(), TASK_CREATE_OR_UPDATE, empty, empty,
-		TASK_LOGON_INTERACTIVE_TOKEN, empty, &registered);
+	wil::com_ptr_nothrow<IRegisteredTask> task;
+	wil::com_ptr_nothrow<IRunningTask> running;
+	VARIANT none{};
+	if (SUCCEEDED(hr) && SUCCEEDED(hr = scheduler.Root->GetTask(Bstr(name).get(), &task)))
+		hr = task->Run(none, &running);
 	return SUCCEEDED(hr) ? true : Fail(hr);
 }
 
