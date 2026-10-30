@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "SystemInfo.h"
 #include <algorithm>
+#include <bit>
 
 using namespace WinSys;
 
@@ -788,6 +789,38 @@ std::vector<SystemInfo::ProcessorGroup> SystemInfo::GetProcessorGroups() {
 		groups.push_back({ 0, count >= 64 ? ~KAFFINITY(0) : (KAFFINITY(1) << count) - 1, (BYTE)count });
 	}
 	return groups;
+}
+
+std::vector<SystemInfo::LogicalProcessorCore> SystemInfo::GetLogicalProcessorCores() {
+	// a group's processors are numbered by their places among its active ones, after the earlier groups'
+	auto groups = GetProcessorGroups();
+	std::vector<size_t> first(groups.size());
+	size_t total = 0;
+	for (size_t g = 0; g < groups.size(); g++) {
+		first[g] = total;
+		total += groups[g].ActiveCount;
+	}
+	std::vector<LogicalProcessorCore> cores(total);
+	uint32_t core = 0;
+	for (auto& r : GetLogicalProcessorAndGroupInformation(RelationProcessorCore)) {
+		for (auto& mask : r.GroupMasks) {
+			if (mask.Group >= groups.size())
+				continue;
+			auto active = (uint64_t)groups[mask.Group].ActiveMask;
+			for (int bit = 0; bit < 64; bit++) {
+				auto b = uint64_t(1) << bit;
+				if ((mask.Mask & b) == 0 || (active & b) == 0)
+					continue;
+				auto n = first[mask.Group] + std::popcount(active & (b - 1));
+				if (n < total)
+					cores[n] = { core, r.EfficiencyClass };
+			}
+		}
+		core++;
+	}
+	if (core == 0)
+		cores.clear();
+	return cores;
 }
 
 std::vector<SystemInfo::LogicalProcessorRelationship> SystemInfo::GetLogicalProcessorAndGroupInformation(LOGICAL_PROCESSOR_RELATIONSHIP relationship) {

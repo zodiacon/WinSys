@@ -318,6 +318,15 @@ namespace WinSys {
 			BYTE ActiveCount;
 		};
 		static std::vector<ProcessorGroup> GetProcessorGroups();
+		// a logical processor's physical core, and that core's efficiency class: higher is faster; every core has the same
+		// one unless the processor is hybrid (P- and E-cores)
+		struct LogicalProcessorCore {
+			uint32_t Core;	// the core's index, in the order the system lists the cores
+			BYTE EfficiencyClass;
+		};
+		// one per logical processor, numbered group by group as the per-processor queries number them; empty if the
+		// query fails
+		static std::vector<LogicalProcessorCore> GetLogicalProcessorCores();
 		static std::optional<SYSTEM_SECURE_KERNEL_HYPERGUARD_PROFILE_INFORMATION> GetSecureKernelProfileInformation();
 		static std::vector<BYTE> GetCodeIntegrityPlatformManifestInformation();
 		static std::optional<SYSTEM_INTERRUPT_STEERING_INFORMATION_OUTPUT> GetInterruptSteeringInformation(SYSTEM_INTERRUPT_STEERING_INFORMATION_INPUT const& input);
