@@ -151,9 +151,10 @@ namespace WinSys {
 		// handle's access, which limits what can be queried. type: the type the handle was listed with, as the value may
 		// have been closed and reused since: nullopt with ERROR_INVALID_HANDLE if it isn't that type's anymore, or with
 		// the duplication's error. A file's queries can block (as its name's: see ObjectNameQuery), so they run on a
-		// thread that's abandoned after fileTimeoutMs
+		// thread that's abandoned after fileTimeoutMs. ownHandles: handles to the object the caller holds besides the
+		// duplicate (the one it queries, a security editor's...), left out of the counts as the duplicate is
 		[[nodiscard]] static std::optional<ObjectDetails> QueryHandle(HANDLE hProcess, uint64_t value, std::wstring const& type,
-			uint32_t fileTimeoutMs = 500);
+			uint32_t fileTimeoutMs = 500, uint32_t ownHandles = 0);
 		// the statistics and generic mapping of an object's type (any handle; no access needed), and its name; nothing on failure
 		[[nodiscard]] static std::optional<ObjectTypeStatistics> QueryTypeStatistics(HANDLE h, std::wstring* typeName = nullptr);
 		// a duplicate of a handle in a process (hProcess has PROCESS_DUP_HANDLE) with the handle's access, if it still refers

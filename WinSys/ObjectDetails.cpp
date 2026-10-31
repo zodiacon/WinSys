@@ -220,7 +220,7 @@ namespace {
 	}
 }
 
-std::optional<ObjectDetails> ObjectInspector::QueryHandle(HANDLE hProcess, uint64_t value, std::wstring const& type, uint32_t fileTimeoutMs) {
+std::optional<ObjectDetails> ObjectInspector::QueryHandle(HANDLE hProcess, uint64_t value, std::wstring const& type, uint32_t fileTimeoutMs, uint32_t ownHandles) {
 	auto source = (HANDLE)(ULONG_PTR)value;
 	wil::unique_handle h;
 	if (!::DuplicateHandle(hProcess, source, ::GetCurrentProcess(), h.addressof(), 0, FALSE, DUPLICATE_SAME_ACCESS))
@@ -243,10 +243,12 @@ std::optional<ObjectDetails> ObjectInspector::QueryHandle(HANDLE hProcess, uint6
 	if (counts) {
 		details.GrantedAccess = basic.GrantedAccess;
 		details.Attributes = basic.Attributes;
-		// without the duplicate's handle and references
-		auto handleReferences = ::IsWindows8Point1OrGreater() && sizeof(void*) == 8 ? 0x8000u : 1u;
-		details.Handles = basic.HandleCount ? basic.HandleCount - 1 : 0;
-		details.References = basic.PointerCount >= handleReferences ? basic.PointerCount - handleReferences : 0;
+		// without the duplicate's and the caller's other handles and their references (theirs as if unused, the
+		// estimate References always is)
+		auto handleReferences = ::IsWindows8Point1OrGreater() && sizeof(void*) == 8 ? 0x8000ull : 1ull;
+		auto own = 1ull + ownHandles;
+		details.Handles = basic.HandleCount >= own ? uint32_t(basic.HandleCount - own) : 0;
+		details.References = basic.PointerCount >= handleReferences * own ? uint32_t(basic.PointerCount - handleReferences * own) : 0;
 		details.PagedPoolCharge = basic.PagedPoolCharge;
 		details.NonPagedPoolCharge = basic.NonPagedPoolCharge;
 		details.CreationTime = basic.CreationTime.QuadPart;
