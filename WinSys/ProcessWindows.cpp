@@ -52,6 +52,10 @@ namespace {
 	}
 }
 
+WindowInfo ProcessWindows::Describe(HWND hWnd) {
+	return Read(hWnd, -1);
+}
+
 std::vector<WindowInfo> ProcessWindows::Enum(uint32_t pid) {
 	// the top-level windows first, in Z order (then the tree is built: a window may go while it's read)
 	std::vector<HWND> topLevel;

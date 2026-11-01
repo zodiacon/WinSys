@@ -30,6 +30,8 @@ namespace WinSys {
 		// the process's top-level windows in Z order, then its message-only windows, each followed by its child windows
 		// (depth first; a child of another process's is listed too, as it's in the window)
 		[[nodiscard]] static std::vector<WindowInfo> Enum(uint32_t pid);
+		// one top-level window, as Enum reads it (WindowStations::EnumDesktopWindows)
+		[[nodiscard]] static WindowInfo Describe(HWND hWnd);
 
 		// ShowWindowAsync, so a hung window doesn't hold up the caller; false with the last error
 		static bool Show(HWND hWnd, bool show);
