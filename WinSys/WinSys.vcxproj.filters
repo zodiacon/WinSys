@@ -195,6 +195,12 @@
     <ClInclude Include="WindowStations.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PowerRequests.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Devices.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="EtwSessions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -375,6 +381,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WindowStations.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PowerRequests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Devices.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="EtwSessions.cpp">
