@@ -201,3 +201,21 @@ std::wstring EtwSessions::LevelName(uint8_t level) {
 	}
 	return std::to_wstring(level);
 }
+
+bool EtwSessions::Stop(std::wstring const& name) {
+	// the properties with room for the names ControlTrace writes back
+	struct {
+		EVENT_TRACE_PROPERTIES Properties;
+		WCHAR Names[2048];
+	} props{};
+	props.Properties.Wnode.BufferSize = sizeof(props);
+	props.Properties.LoggerNameOffset = offsetof(decltype(props), Names);
+	props.Properties.LogFileNameOffset = offsetof(decltype(props), Names) + 1024 * sizeof(WCHAR);
+	auto error = ::ControlTraceW(0, name.c_str(), &props.Properties, EVENT_TRACE_CONTROL_STOP);
+	// ERROR_MORE_DATA: stopped, but the statistics didn't fit
+	if (error != ERROR_SUCCESS && error != ERROR_MORE_DATA) {
+		::SetLastError(error);
+		return false;
+	}
+	return true;
+}

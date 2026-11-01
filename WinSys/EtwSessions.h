@@ -6,7 +6,7 @@
 #include <vector>
 
 //
-// The running ETW sessions and the providers enabled in them, read-only:
+// The running ETW sessions and the providers enabled in them (and Stop, the one change):
 // - the sessions from QueryAllTraces (their properties: mode, buffers, events and buffers lost, log file)
 // - the providers from EnumerateTraceGuidsEx: every registered provider's instances (the processes that registered
 //   it) and, for each, the sessions (by logger ID) that enabled it, with the level and keywords; a provider's name from
@@ -41,5 +41,9 @@ namespace WinSys {
 		// nothing (with the last error set) if the sessions can't be queried at all (ERROR_ACCESS_DENIED, not elevated)
 		[[nodiscard]] static std::optional<std::vector<EtwSession>> Enum();
 		[[nodiscard]] static std::wstring LevelName(uint8_t level);
+		// stops a session by name (ControlTrace, EVENT_TRACE_CONTROL_STOP): its consumers' ProcessTrace returns and its
+		// controller's handle stops working. Needs the rights to control it (administrators for most; some system
+		// sessions refuse even them). Failures set the last error
+		static bool Stop(std::wstring const& name);
 	};
 }
