@@ -192,6 +192,9 @@
     <ClInclude Include="Sessions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SystemDetails.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="SystemInfo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -357,6 +360,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Sessions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SystemDetails.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SystemInfo.cpp">
