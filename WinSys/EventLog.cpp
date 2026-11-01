@@ -108,6 +108,14 @@ bool EventLogEntry::IsAuditSuccess() const {
 	return (Keywords & AuditSuccessKeyword) != 0;
 }
 
+bool EventLog::Exists(std::wstring const& channel) {
+	if (auto h = ::EvtOpenLog(nullptr, channel.c_str(), EvtOpenChannelPath)) {
+		::EvtClose(h);
+		return true;
+	}
+	return ::GetLastError() != ERROR_EVT_CHANNEL_NOT_FOUND;
+}
+
 PCWSTR EventLog::LevelText(EventLogEntry const& entry) {
 	if (entry.IsAuditFailure())
 		return L"Audit Failure";
@@ -176,13 +184,20 @@ bool EventLogWatcher::IsRunning() const {
 }
 
 bool EventLogWatcher::Start(std::vector<std::wstring> const& channels, uint8_t maxLevel, EventLogSink& sink) {
+	auto query = L"*[System[" + LevelsXPath(maxLevel) + L"]]";
+	std::vector<std::pair<std::wstring, std::wstring>> queries;
+	for (auto& channel : channels)
+		queries.push_back({ channel, query });
+	return Start(queries, sink);
+}
+
+bool EventLogWatcher::Start(std::vector<std::pair<std::wstring, std::wstring>> const& queries, EventLogSink& sink) {
 	Stop();
 	m_State = new State;
 	m_State->Sink = &sink;
 	m_State->Context = ::EvtCreateRenderContext(0, nullptr, EvtRenderContextSystem);
-	auto query = L"*[System[" + LevelsXPath(maxLevel) + L"]]";
-	DWORD error = 0;
-	for (auto& channel : channels) {
+	DWORD error = ERROR_INVALID_PARAMETER;
+	for (auto& [channel, query] : queries) {
 		auto h = ::EvtSubscribe(nullptr, nullptr, channel.c_str(), query.c_str(), nullptr, m_State,
 			(EVT_SUBSCRIBE_CALLBACK)SubscriptionCallback, EvtSubscribeToFutureEvents);
 		if (h)

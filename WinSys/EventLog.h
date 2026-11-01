@@ -48,6 +48,8 @@ namespace WinSys {
 		[[nodiscard]] static PCWSTR LevelName(uint8_t level);
 		// the level's name, or Audit Failure / Audit Success for the Security log's events
 		[[nodiscard]] static PCWSTR LevelText(EventLogEntry const& entry);
+		// the channel is registered (EvtOpenLog; one the caller may not read, Security without elevation, counts)
+		[[nodiscard]] static bool Exists(std::wstring const& channel);
 	};
 
 	class EventLogWatcher {
@@ -56,6 +58,8 @@ namespace WinSys {
 		// a subscription per channel to the events of the levels up to maxLevel written from now on; false (the last error
 		// set) if none could be made. The sink must outlive the watcher (Stop waits for a callback in progress)
 		bool Start(std::vector<std::wstring> const& channels, uint8_t maxLevel, EventLogSink& sink);
+		// the same with a query of the caller's per channel: (channel, XPath such as "*[System[EventID=7031]]")
+		bool Start(std::vector<std::pair<std::wstring, std::wstring>> const& queries, EventLogSink& sink);
 		void Stop();
 		[[nodiscard]] bool IsRunning() const;
 
