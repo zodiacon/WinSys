@@ -54,15 +54,21 @@ Token::Token(HANDLE hProcess, TokenAccessMask access) noexcept {
 	::OpenProcessToken(hProcess, static_cast<DWORD>(access), m_Handle.addressof());
 }
 
-std::unique_ptr<Token> Token::Open(DWORD pid, TokenAccessMask access) {
+std::optional<Token> Token::Duplicate(TokenAccessMask access, ImpersonationLevel level, TokenType type, SECURITY_ATTRIBUTES* sa) {
+	HANDLE hToken;
+	return ::DuplicateTokenEx(m_Handle.get(), static_cast<ACCESS_MASK>(access), sa, static_cast<SECURITY_IMPERSONATION_LEVEL>(level), 
+		static_cast<TOKEN_TYPE>(type), &hToken) ? Token(hToken) : std::optional<Token>();
+}
+
+std::optional<Token> Token::Open(DWORD pid, TokenAccessMask access) {
 	HANDLE hToken;
 	// the token's own security decides; limited access to the process is enough to open it
 	wil::unique_handle hProcess(::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
 	if (hProcess) {
 		if (::OpenProcessToken(hProcess.get(), static_cast<DWORD>(access), &hToken))
-			return std::make_unique<Token>(hToken);
+			return Token(hToken);
 	}
-	return nullptr;
+	return std::nullopt;
 }
 
 std::pair<std::wstring, Sid> Token::GetUserNameAndSid() const {
@@ -100,6 +106,10 @@ bool Token::IsElevated() const noexcept {
 	DWORD len;
 	::NtQueryInformationToken(m_Handle.get(), TokenElevation, &elevated, sizeof(elevated), &len);
 	return elevated ? true : false;
+}
+
+HANDLE WinSys::Token::Handle() const noexcept {
+	return m_Handle.get();
 }
 
 VirtualizationState Token::GetVirtualizationState() const noexcept {

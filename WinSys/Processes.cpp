@@ -5,10 +5,21 @@
 #include <appmodel.h>
 #include <algorithm>
 #include "Thread.h"
+#include "Token.h"
 #include "Processes.h"
 #include "SystemInformation.h"
 
 using namespace WinSys;
+
+namespace {
+	uint32_t FindProcess(std::wstring const& name) {
+		for (auto& p : Process::EnumProcessNames()) {
+			if (_wcsicmp(p.second.c_str(), name.c_str()) == 0)
+				return p.first;
+		}
+		return 0;
+	}
+}
 
 static bool GetProcessPeb(HANDLE hProcess, PPEB peb) {
 	PROCESS_BASIC_INFORMATION info;
@@ -140,11 +151,11 @@ namespace {
 	}
 }
 
-std::optional<uint32_t> Process::Run(std::wstring const& commandLine, bool elevated, HWND hOwner) {
+uint32_t Process::Run(std::wstring const& commandLine, bool elevated, HWND hOwner) {
 	auto [file, args] = SplitCommandLine(commandLine);
 	if (file.empty()) {
 		::SetLastError(ERROR_INVALID_PARAMETER);
-		return std::nullopt;
+		return 0;
 	}
 	SHELLEXECUTEINFO sei{ sizeof(sei) };
 	sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
@@ -154,7 +165,7 @@ std::optional<uint32_t> Process::Run(std::wstring const& commandLine, bool eleva
 	sei.lpParameters = args.empty() ? nullptr : args.c_str();
 	sei.nShow = SW_SHOWNORMAL;
 	if (!::ShellExecuteEx(&sei))
-		return std::nullopt;
+		return 0;
 	// none if a running process took it (a document opened in a window that was open)
 	uint32_t pid = 0;
 	if (sei.hProcess) {
@@ -164,7 +175,7 @@ std::optional<uint32_t> Process::Run(std::wstring const& commandLine, bool eleva
 	return pid;
 }
 
-std::optional<uint32_t> Process::RunAs(std::wstring const& commandLine, std::wstring const& user, std::wstring const& password,
+uint32_t Process::RunAs(std::wstring const& commandLine, std::wstring const& user, std::wstring const& password,
 	bool loadProfile, bool netOnly) {
 	// DOMAIN\user; a UPN (user@domain) goes as the user name with no domain; a bare name is a local account
 	std::wstring name = user, domain;
@@ -181,16 +192,42 @@ std::optional<uint32_t> Process::RunAs(std::wstring const& commandLine, std::wst
 	DWORD flags = netOnly ? LOGON_NETCREDENTIALS_ONLY : loadProfile ? LOGON_WITH_PROFILE : 0;
 	if (!::CreateProcessWithLogonW(name.c_str(), domain.empty() ? nullptr : domain.c_str(), password.c_str(), flags, nullptr,
 		cmd.data(), CREATE_UNICODE_ENVIRONMENT, nullptr, nullptr, &si, &pi))
-		return std::nullopt;
+		return 0;
 	::CloseHandle(pi.hThread);
 	::CloseHandle(pi.hProcess);
 	return pi.dwProcessId;
 }
 
-std::optional<uint32_t> Process::RunLimited(std::wstring const& commandLine) {
+uint32_t Process::RunAsSystem(std::wstring const& commandLine, HWND hOwner) {
+	auto pid = FindProcess(L"smss.exe");
+	if (pid == 0)
+		return 0;
+
+	auto t = Token::Open(pid, TokenAccessMask::Duplicate);
+	if(!t)
+		return 0;
+
+	auto sysToken = t->Duplicate(TokenAccessMask::MaximumAllowed, ImpersonationLevel::Impersonation, TokenType::Primary);
+	if (!sysToken)
+		return 0;
+
+	std::wstring cmd(commandLine);
+	PROCESS_INFORMATION pi;
+	STARTUPINFO si = { sizeof(si) };
+	auto ok = CreateProcessWithTokenW(sysToken.value().Handle(), 0, nullptr, cmd.data(),
+		CREATE_NEW_CONSOLE, nullptr, nullptr, &si, &pi);
+	if (ok) {
+		::CloseHandle(pi.hProcess);
+		::CloseHandle(pi.hThread);
+		return pi.dwProcessId;
+	}
+	return 0;
+}
+
+uint32_t Process::RunLimited(std::wstring const& commandLine) {
 	SAFER_LEVEL_HANDLE hLevel;
 	if (!::SaferCreateLevel(SAFER_SCOPEID_USER, SAFER_LEVELID_NORMALUSER, SAFER_LEVEL_OPEN, &hLevel, nullptr))
-		return std::nullopt;
+		return 0;
 	wil::unique_handle hToken;
 	// from the caller's token
 	auto computed = ::SaferComputeTokenFromLevel(hLevel, nullptr, hToken.addressof(), 0, nullptr);
@@ -198,7 +235,7 @@ std::optional<uint32_t> Process::RunLimited(std::wstring const& commandLine) {
 	::SaferCloseLevel(hLevel);
 	if (!computed) {
 		::SetLastError(error);
-		return std::nullopt;
+		return 0;
 	}
 
 	// the Safer token keeps the caller's integrity level: an elevated caller's is High
@@ -215,7 +252,7 @@ std::optional<uint32_t> Process::RunLimited(std::wstring const& commandLine) {
 			auto status = ::NtSetInformationToken(hToken.get(), TokenIntegrityLevel, &label, sizeof(label) + ::GetLengthSid(medium));
 			if (!NT_SUCCESS(status)) {
 				::SetLastError(::RtlNtStatusToDosError(status));
-				return std::nullopt;
+				return 0;
 			}
 		}
 	}
@@ -226,7 +263,7 @@ std::optional<uint32_t> Process::RunLimited(std::wstring const& commandLine) {
 	PROCESS_INFORMATION pi;
 	if (!::CreateProcessAsUser(hToken.get(), nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_UNICODE_ENVIRONMENT,
 		nullptr, nullptr, &si, &pi))
-		return std::nullopt;
+		return 0;
 	::CloseHandle(pi.hThread);
 	::CloseHandle(pi.hProcess);
 	return pi.dwProcessId;

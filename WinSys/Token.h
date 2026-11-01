@@ -5,6 +5,15 @@
 #include "Enums.h"
 
 namespace WinSys {
+#ifdef TokenType
+#undef TokenType
+#endif
+
+	enum class TokenType {
+		Primary = TokenPrimary,
+		Impersonation = TokenImpersonation
+	};
+
 	enum class TokenAccessMask : uint32_t {
 		Query = TOKEN_QUERY,
 		QuerySource = TOKEN_QUERY_SOURCE,
@@ -13,6 +22,9 @@ namespace WinSys {
 		AdjustDefault = TOKEN_ADJUST_DEFAULT,
 		AdjustGroups = TOKEN_ADJUST_GROUPS,
 		AdjustSessionId = TOKEN_ADJUST_SESSIONID,
+		Duplicate = TOKEN_DUPLICATE,
+
+		MaximumAllowed = MAXIMUM_ALLOWED,
 	};
 	DEFINE_ENUM_FLAG_OPERATORS(TokenAccessMask);
 
@@ -36,6 +48,13 @@ namespace WinSys {
 		SidGroupAttributes Attributes;
 	};
 
+	enum class ImpersonationLevel {
+		Anonymous = SecurityAnonymous,
+		Identification = SecurityIdentification,
+		Impersonation = SecurityImpersonation,
+		Deletaion = SecurityDelegation
+	};
+
 	enum class ElevationType {
 		Default = 1,	// no linked token (UAC off, or a standard user, or a service)
 		Full,			// the elevated half of a split token
@@ -53,7 +72,9 @@ namespace WinSys {
 		explicit Token(HANDLE hToken) noexcept;
 		bool OpenProcessToken(DWORD pid, TokenAccessMask access) noexcept;
 		Token(HANDLE hProcess, TokenAccessMask access) noexcept;
-		static std::unique_ptr<Token> Open(DWORD pid, TokenAccessMask access = TokenAccessMask::Query);
+		// the process's token (the process opened with limited query access, which is enough: the token's own security
+		// decides); nothing on failure, with the last error
+		static std::optional<Token> Open(DWORD pid, TokenAccessMask access = TokenAccessMask::Query);
 
 		// needs TokenAccessMask::AdjustPrivileges; false (ERROR_NOT_ALL_ASSIGNED) if the token doesn't have it
 		bool EnablePrivilege(PCWSTR name, bool enable) const noexcept;
@@ -63,10 +84,13 @@ namespace WinSys {
 
 		std::pair<std::wstring, Sid> GetUserNameAndSid() const;
 		std::wstring GetUserName() const;
+		std::optional<Token> Duplicate(TokenAccessMask access, ImpersonationLevel level, TokenType type, SECURITY_ATTRIBUTES* sa = nullptr);
 
 		bool IsValid() const noexcept;
 		operator bool() const noexcept;
 		bool IsElevated() const noexcept;
+		HANDLE Handle() const noexcept;
+
 		VirtualizationState GetVirtualizationState() const noexcept;
 		IntegrityLevel GetIntegrityLevel() const noexcept;
 		DWORD GetSessionId() const noexcept;

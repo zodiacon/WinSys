@@ -253,7 +253,7 @@ bool Service::SetFailureActions(ServiceFailureActions const& actions) {
 		const_cast<PWSTR>(actions.Command.c_str()), (DWORD)list.size(), list.empty() ? &none : list.data() };
 
 	// a reboot action is accepted only with SeShutdownPrivilege enabled
-	std::unique_ptr<Token> token;
+	std::optional<Token> token;
 	if (reboot && (token = Token::Open(::GetCurrentProcessId(), TokenAccessMask::Query | TokenAccessMask::AdjustPrivileges)))
 		token->EnablePrivilege(SE_SHUTDOWN_NAME, true);
 	auto ok = ::ChangeServiceConfig2(m_handle.get(), SERVICE_CONFIG_FAILURE_ACTIONS, &info);

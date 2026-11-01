@@ -189,21 +189,22 @@ namespace WinSys {
 		// token is the file (quoted if it has spaces), the rest the arguments. elevated: with the runas verb (the UAC
 		// prompt). The new process's ID (0 if the shell handed it to a running one); nothing on failure, with the last
 		// error (ERROR_CANCELLED: the prompt was declined)
-		[[nodiscard]] static std::optional<uint32_t> Run(std::wstring const& commandLine, bool elevated = false, HWND hOwner = nullptr);
+		[[nodiscard]] static uint32_t Run(std::wstring const& commandLine, bool elevated = false, HWND hOwner = nullptr);
 		// starts a program as another user (CreateProcessWithLogonW). user: DOMAIN\user, user@domain or a local account's
 		// name; loadProfile: the user's profile is loaded first; netOnly: the credentials are used only for network
 		// access (as runas /netonly), and the process runs as the caller. The new process's ID; nothing on failure, with
 		// the last error
-		[[nodiscard]] static std::optional<uint32_t> RunAs(std::wstring const& commandLine, std::wstring const& user,
+		[[nodiscard]] static uint32_t RunAs(std::wstring const& commandLine, std::wstring const& user,
 			std::wstring const& password, bool loadProfile = true, bool netOnly = false);
 		// starts a program as the caller without administrator rights: a Safer "normal user" token made from the caller's
 		// (the Administrators group deny-only, most privileges removed), at medium integrity if the caller's is higher
 		// (CreateProcessAsUser, which takes a token filtered from the caller's own without a privilege). The command line's
 		// first token is the program (CreateProcess's rules: an executable, not a document). The new process's ID;
 		// nothing on failure, with the last error
-		[[nodiscard]] static std::optional<uint32_t> RunLimited(std::wstring const& commandLine);
+		[[nodiscard]] static uint32_t RunLimited(std::wstring const& commandLine);
 		// the most handles the process has had at once (ProcessHandleCount); nothing if it can't be queried (limited
 		// query access)
+		[[nodiscard]] static uint32_t RunAsSystem(std::wstring const& commandLine, HWND hOwner = nullptr);
 		[[nodiscard]] std::optional<uint32_t> GetPeakHandleCount() const noexcept;
 		uint32_t GetGdiObjectCount() const noexcept;
 		uint32_t GetPeakGdiObjectCount() const noexcept;
