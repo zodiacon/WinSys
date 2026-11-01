@@ -256,13 +256,16 @@ namespace WinSys {
 		return m_Samples;
 	}
 
-	GpuProcessUsage GpuInfo::QueryProcess(HANDLE hProcess, GpuProcessState& state, GpuAdapterKind kind) {
+	GpuProcessUsage GpuInfo::QueryProcess(HANDLE hProcess, GpuProcessState& state, GpuAdapterKind kind, bool details) {
 		GpuProcessUsage usage;
 		auto& adapters = GetAdapters(kind);
 		if (!hProcess || adapters.empty())
 			return usage;
+		if (details)
+			usage.Adapters.resize(adapters.size());
 
-		for (auto& adapter : adapters) {
+		for (size_t a = 0; a < adapters.size(); a++) {
+			auto& adapter = adapters[a];
 			for (size_t segment = 0; segment < adapter.ApertureSegments.size(); segment++) {
 				D3DKMT_QUERYSTATISTICS query{};
 				query.Type = D3DKMT_QUERYSTATISTICS_PROCESS_SEGMENT;
@@ -272,7 +275,10 @@ namespace WinSys {
 				if (!Query(query))
 					continue;
 				usage.Known = true;
-				(adapter.ApertureSegments[segment] ? usage.Shared : usage.Dedicated) += query.QueryResult.ProcessSegmentInformation.BytesCommitted;
+				auto bytes = query.QueryResult.ProcessSegmentInformation.BytesCommitted;
+				(adapter.ApertureSegments[segment] ? usage.Shared : usage.Dedicated) += bytes;
+				if (details)
+					(adapter.ApertureSegments[segment] ? usage.Adapters[a].Shared : usage.Adapters[a].Dedicated) += bytes;
 			}
 		}
 		if (!usage.Known)
@@ -297,10 +303,26 @@ namespace WinSys {
 			}
 		}
 		auto elapsed = now - state.Time;
-		if (state.NodeTimes.size() == times.size() && elapsed > 0)
-			for (size_t i = 0; i < times.size(); i++)
-				if (times[i] >= 0 && state.NodeTimes[i] >= 0)
-					usage.Usage = (std::max)(usage.Usage, std::clamp(100.0f * (times[i] - state.NodeTimes[i]) / elapsed, 0.0f, 100.0f));
+		if (state.NodeTimes.size() == times.size() && elapsed > 0) {
+			// times has every adapter's nodes, in order
+			size_t i = 0;
+			for (size_t a = 0; a < adapters.size(); a++) {
+				auto& adapter = adapters[a];
+				if (details)
+					usage.Adapters[a].Engines.assign(adapter.Engines.size(), 0.0f);
+				for (size_t node = 0; node < adapter.NodeEngine.size(); node++, i++) {
+					if (times[i] < 0 || state.NodeTimes[i] < 0)
+						continue;
+					auto percent = std::clamp(100.0f * (times[i] - state.NodeTimes[i]) / elapsed, 0.0f, 100.0f);
+					usage.Usage = (std::max)(usage.Usage, percent);
+					// an engine is its busiest node
+					if (details && adapter.NodeEngine[node] < (int)adapter.Engines.size()) {
+						auto& engine = usage.Adapters[a].Engines[adapter.NodeEngine[node]];
+						engine = (std::max)(engine, percent);
+					}
+				}
+			}
+		}
 		state.NodeTimes = std::move(times);
 		state.Time = now;
 		return usage;

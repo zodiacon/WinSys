@@ -31,10 +31,17 @@ namespace WinSys {
 		int64_t Time{ 0 };
 	};
 
+	// a process's usage of one adapter (GpuInfo::QueryProcess with details)
+	struct GpuProcessAdapterUsage {
+		std::vector<float> Engines;	// percent, in GpuAdapter::Engines order (the busiest node of each); empty without a previous sample
+		uint64_t Dedicated{ 0 }, Shared{ 0 };	// bytes committed
+	};
+
 	struct GpuProcessUsage {
 		bool Known{ false };	// the process could be queried (and has a previous sample, for Usage)
 		float Usage{ 0 };	// percent: the busiest engine of all adapters
 		uint64_t Dedicated{ 0 }, Shared{ 0 };	// bytes committed
+		std::vector<GpuProcessAdapterUsage> Adapters;	// with details only: in GpuInfo::GetAdapters order
 	};
 
 	struct GpuInfo final {
@@ -44,8 +51,10 @@ namespace WinSys {
 
 		// a process's usage of the kind's adapters since the last call with the same state. The handle needs
 		// PROCESS_QUERY_INFORMATION (a limited one gets STATUS_INVALID_PARAMETER). A process without memory on them isn't
-		// queried for its engines (most processes: a call per engine is the cost); nothing is queried without adapters
-		static GpuProcessUsage QueryProcess(HANDLE hProcess, GpuProcessState& state, GpuAdapterKind kind = GpuAdapterKind::Gpu);
+		// queried for its engines (most processes: a call per engine is the cost); nothing is queried without adapters.
+		// details: each adapter's engines and memory too (Adapters), which costs nothing more to query
+		static GpuProcessUsage QueryProcess(HANDLE hProcess, GpuProcessState& state, GpuAdapterKind kind = GpuAdapterKind::Gpu,
+			bool details = false);
 	};
 
 	//
