@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ProcessMemory.h"
+#include <algorithm>
 
 using namespace WinSys;
 
@@ -88,6 +89,120 @@ std::optional<uint64_t> ProcessMemory::Find(HANDLE hProcess, uint8_t const* patt
 		address = regionEnd;
 	}
 	return std::nullopt;
+}
+
+namespace {
+	// printable ASCII and tab; a wide string's Latin-1 letters too (as single bytes they're mostly binary noise)
+	bool IsTextChar(uint32_t ch, bool wide) {
+		return (ch >= 0x20 && ch < 0x7F) || ch == L'\t' || (wide && ch >= 0xA0 && ch <= 0xFF);
+	}
+
+	// a run of text being collected, single-byte or wide
+	struct StringRun {
+		uint64_t Start{ 0 };
+		uint32_t Length{ 0 };
+		std::wstring Text;
+
+		void Add(uint64_t address, wchar_t ch, uint32_t maxText) {
+			if (Length == 0)
+				Start = address;
+			Length++;
+			if (Text.size() < maxText)
+				Text += ch;
+		}
+		// ends the run; a long enough one is kept
+		void End(bool wide, StringScanOptions const& options, std::vector<MemoryString>& results) {
+			if (Length >= options.MinLength && results.size() < options.MaxResults)
+				results.push_back({ Start, Length, wide, std::move(Text) });
+			Length = 0;
+			Text.clear();
+		}
+	};
+}
+
+std::vector<MemoryString> ProcessMemory::FindStrings(HANDLE hProcess, uint64_t from, uint64_t to, StringScanOptions const& options,
+	StringScanProgress* progress, bool* truncated) {
+	std::vector<MemoryString> results;
+	if (truncated)
+		*truncated = false;
+	if (from >= to || (!options.Ascii && !options.Unicode))
+		return results;
+
+	// the readable runs of regions first, for the progress
+	struct Range {
+		uint64_t Start, End;
+	};
+	std::vector<Range> ranges;
+	uint64_t total = 0;
+	MEMORY_BASIC_INFORMATION mbi;
+	for (auto address = from; address < to; ) {
+		if (::VirtualQueryEx(hProcess, (void const*)address, &mbi, sizeof(mbi)) != sizeof(mbi))
+			break;
+		auto regionEnd = (std::min)((uint64_t)mbi.BaseAddress + mbi.RegionSize, to);
+		if (IsReadable(mbi)) {
+			if (!ranges.empty() && ranges.back().End == address)
+				ranges.back().End = regionEnd;
+			else
+				ranges.push_back({ address, regionEnd });
+			total += regionEnd - address;
+		}
+		address = (uint64_t)mbi.BaseAddress + mbi.RegionSize;
+	}
+
+	auto buffer = std::make_unique<uint8_t[]>(ChunkSize);
+	uint64_t scanned = 0;
+	auto full = [&] { return results.size() >= options.MaxResults; };
+	for (auto& range : ranges) {
+		StringRun ascii, wide;
+		// a wide string starts at an even address: the range starts on a page, and chunks are even
+		for (auto at = range.Start; at < range.End && !full(); at += ChunkSize) {
+			auto count = (size_t)(std::min)((uint64_t)ChunkSize, range.End - at);
+			SIZE_T read = 0;
+			if (!::ReadProcessMemory(hProcess, (void const*)at, buffer.get(), count, &read) && read == 0) {
+				// a page that went away: what was collected ends here
+				ascii.End(false, options, results);
+				wide.End(true, options, results);
+				scanned += count;
+				continue;
+			}
+			auto data = buffer.get();
+			for (size_t i = 0; i < read; i++) {
+				if (options.Ascii) {
+					if (IsTextChar(data[i], false))
+						ascii.Add(at + i, (wchar_t)data[i], options.MaxText);
+					else if (ascii.Length)
+						ascii.End(false, options, results);
+				}
+				if (options.Unicode && (i & 1) == 0 && i + 1 < read) {
+					auto ch = (uint32_t)(data[i] | (data[i + 1] << 8));
+					if (IsTextChar(ch, true))
+						wide.Add(at + i, (wchar_t)ch, options.MaxText);
+					else if (wide.Length)
+						wide.End(true, options, results);
+				}
+			}
+			if (read < count) {
+				ascii.End(false, options, results);
+				wide.End(true, options, results);
+			}
+			scanned += count;
+			if (progress && !progress->OnProgress(scanned, total)) {
+				if (truncated)
+					*truncated = true;
+				ascii.End(false, options, results);
+				wide.End(true, options, results);
+				goto done;
+			}
+		}
+		ascii.End(false, options, results);
+		wide.End(true, options, results);
+	}
+done:
+	if (truncated && full())
+		*truncated = true;
+	// each kind is in address order; together they're merged
+	std::stable_sort(results.begin(), results.end(), [](auto& a, auto& b) { return a.Address < b.Address; });
+	return results;
 }
 
 size_t ProcessMemory::Read(HANDLE hProcess, uint64_t address, void* buffer, size_t size) {
