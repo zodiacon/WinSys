@@ -108,6 +108,31 @@ bool EventLogEntry::IsAuditSuccess() const {
 	return (Keywords & AuditSuccessKeyword) != 0;
 }
 
+std::optional<std::wstring> EventLog::GetXml(std::wstring const& channel, uint64_t recordId) {
+	auto query = L"*[System[EventRecordID=" + std::to_wstring(recordId) + L"]]";
+	wil::unique_any<EVT_HANDLE, decltype(&::EvtClose), ::EvtClose> hQuery(::EvtQuery(nullptr, channel.c_str(), query.c_str(), EvtQueryChannelPath));
+	if (!hQuery)
+		return std::nullopt;
+	EVT_HANDLE hEvent = nullptr;
+	DWORD returned = 0;
+	if (!::EvtNext(hQuery.get(), 1, &hEvent, INFINITE, 0, &returned) || returned == 0) {
+		if (::GetLastError() == ERROR_NO_MORE_ITEMS)
+			::SetLastError(ERROR_NOT_FOUND);
+		return std::nullopt;
+	}
+	wil::unique_any<EVT_HANDLE, decltype(&::EvtClose), ::EvtClose> event(hEvent);
+	DWORD used = 0, count = 0;
+	std::vector<WCHAR> buffer(4096);
+	if (!::EvtRender(nullptr, event.get(), EvtRenderEventXml, (DWORD)(buffer.size() * sizeof(WCHAR)), buffer.data(), &used, &count)) {
+		if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+			return std::nullopt;
+		buffer.resize(used / sizeof(WCHAR) + 1);
+		if (!::EvtRender(nullptr, event.get(), EvtRenderEventXml, (DWORD)(buffer.size() * sizeof(WCHAR)), buffer.data(), &used, &count))
+			return std::nullopt;
+	}
+	return std::wstring(buffer.data());
+}
+
 bool EventLog::Exists(std::wstring const& channel) {
 	if (auto h = ::EvtOpenLog(nullptr, channel.c_str(), EvtOpenChannelPath)) {
 		::EvtClose(h);

@@ -41,8 +41,9 @@ namespace WinSys {
 	struct EventLog final {
 		// a channel's events of the levels up to maxLevel (1-5; level 0 events count as information, audit failures as
 		// warnings, so the Security log's failures come with the warnings and its successes with the information) from
-		// the last hours, newest first, at most maxEvents; nothing, with the last error set, if the channel can't be read
-		// (Security without elevation: ERROR_ACCESS_DENIED... or ERROR_PRIVILEGE_NOT_HELD)
+		// the last hours, in reverse log order (by record ID: newest first unless the clock was set back, as a new VM does
+		// when it syncs), at most maxEvents; nothing, with the last error set, if the channel can't be read (Security
+		// without elevation: ERROR_ACCESS_DENIED... or ERROR_PRIVILEGE_NOT_HELD)
 		[[nodiscard]] static std::optional<std::vector<EventLogEntry>> Query(std::wstring const& channel, uint8_t maxLevel,
 			uint32_t hours, size_t maxEvents);
 		[[nodiscard]] static PCWSTR LevelName(uint8_t level);
@@ -50,6 +51,9 @@ namespace WinSys {
 		[[nodiscard]] static PCWSTR LevelText(EventLogEntry const& entry);
 		// the channel is registered (EvtOpenLog; one the caller may not read, Security without elevation, counts)
 		[[nodiscard]] static bool Exists(std::wstring const& channel);
+		// an event's XML (EvtRender with EvtRenderEventXml: the system values and the event's data, which the message is
+		// made from), found by its record ID; on one line, as rendered. Nothing (the last error set) if it's gone
+		[[nodiscard]] static std::optional<std::wstring> GetXml(std::wstring const& channel, uint64_t recordId);
 	};
 
 	class EventLogWatcher {
