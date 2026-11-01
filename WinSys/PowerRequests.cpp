@@ -194,20 +194,26 @@ std::optional<std::vector<PowerRequest>> PowerRequests::Enum(bool activeOnly) {
 	auto buffer = Query(GetPowerRequestListLevel);
 	if (!buffer)
 		return std::nullopt;
-	auto base = buffer->data();
-	auto end = base + buffer->size();
-	auto count = *reinterpret_cast<ULONG_PTR const*>(base);
-	auto offsets = reinterpret_cast<ULONG_PTR const*>(base + sizeof(ULONG_PTR));
-	if (sizeof(ULONG_PTR) * (count + 1) > buffer->size())
-		return std::vector<PowerRequest>();
-	DosNames dosNames;
+	return ParseRequestList(buffer->data(), buffer->size(), activeOnly);
+}
+
+std::vector<PowerRequest> PowerRequests::ParseRequestList(uint8_t const* base, size_t size, bool activeOnly) {
 	std::vector<PowerRequest> requests;
+	if (size < sizeof(ULONG_PTR))
+		return requests;
+	auto end = base + size;
+	auto count = *reinterpret_cast<ULONG_PTR const*>(base);
+	// the offsets must fit (a count that doesn't is a bad buffer)
+	if (count > size / sizeof(ULONG_PTR) - 1)
+		return requests;
+	auto offsets = reinterpret_cast<ULONG_PTR const*>(base + sizeof(ULONG_PTR));
+	DosNames dosNames;
 	for (ULONG_PTR i = 0; i < count; i++) {
-		if (offsets[i] + sizeof(RequestV4) > buffer->size())
+		if (offsets[i] > size || size - offsets[i] < sizeof(RequestV4))
 			continue;
 		auto& raw = *reinterpret_cast<RequestV4 const*>(base + offsets[i]);
 		// an entry's strings stay before the next entry
-		auto entryEnd = i + 1 < count && offsets[i + 1] > offsets[i] ? base + offsets[i + 1] : end;
+		auto entryEnd = i + 1 < count && offsets[i + 1] > offsets[i] && offsets[i + 1] <= size ? base + offsets[i + 1] : end;
 		PowerRequest request;
 		for (int t = 0; t < (int)PowerRequestType::_Count; t++)
 			request.Counts[t] = raw.Counts[t];
@@ -223,25 +229,27 @@ std::optional<std::vector<WakeTimer>> PowerRequests::EnumWakeTimers() {
 	auto buffer = Query(WakeTimerListLevel);
 	if (!buffer)
 		return std::nullopt;
-	auto base = buffer->data();
-	auto end = base + buffer->size();
 	FILETIME now;
 	::GetSystemTimeAsFileTime(&now);
-	auto nowTime = (int64_t)ULARGE_INTEGER{ now.dwLowDateTime, now.dwHighDateTime }.QuadPart;
+	return ParseWakeTimers(buffer->data(), buffer->size(), (int64_t)ULARGE_INTEGER{ now.dwLowDateTime, now.dwHighDateTime }.QuadPart);
+}
+
+std::vector<WakeTimer> PowerRequests::ParseWakeTimers(uint8_t const* base, size_t size, int64_t now) {
+	auto end = base + size;
 	DosNames dosNames;
 	std::vector<WakeTimer> timers;
 	// an empty list is one entry with nothing in it
-	for (auto p = base; p + sizeof(WakeTimerInfo) <= end; ) {
+	for (auto p = base; (size_t)(end - p) >= sizeof(WakeTimerInfo); ) {
 		auto& raw = *reinterpret_cast<WakeTimerInfo const*>(p);
-		auto entryEnd = raw.OffsetToNext ? p + raw.OffsetToNext : end;
+		auto entryEnd = raw.OffsetToNext && raw.OffsetToNext <= (size_t)(end - p) ? p + raw.OffsetToNext : end;
 		if (raw.Diag.Size) {
 			WakeTimer timer;
-			timer.DueTime = nowTime + raw.DueTime.QuadPart;
+			timer.DueTime = now + raw.DueTime.QuadPart;
 			timer.PeriodMs = raw.Period;
-			ReadSource(timer, raw.Diag, (std::min)(entryEnd, end), dosNames);
+			ReadSource(timer, raw.Diag, entryEnd, dosNames);
 			timers.push_back(std::move(timer));
 		}
-		if (!raw.OffsetToNext)
+		if (!raw.OffsetToNext || raw.OffsetToNext > (size_t)(end - p))
 			break;
 		p += raw.OffsetToNext;
 	}

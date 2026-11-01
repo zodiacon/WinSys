@@ -39,11 +39,25 @@ namespace WinSys {
 		[[nodiscard]] bool IsHidden() const;	// DN_NO_SHOW_IN_DM
 	};
 
+	enum class DeviceChangeResult {
+		Done,
+		RestartNeeded,	// made, takes effect after a restart
+		Failed,			// the last error says why
+	};
+
 	struct Devices final {
 		// the tree depth-first (a parent before its children), then the disconnected devices if asked for; nothing (the
 		// last error set) if the root can't be located
 		[[nodiscard]] static std::optional<std::vector<DeviceInfo>> Enum(bool disconnected = false);
 		// a CM_PROB_* code in words ("The device can't start (code 10)")
 		[[nodiscard]] static std::wstring ProblemText(uint32_t problem);
+
+		// Enables or disables a device as Device Manager does: SetupAPI's DIF_PROPERTYCHANGE with DICS_ENABLE or
+		// DICS_DISABLE in the global scope (kept across restarts). Needs elevation (ERROR_ACCESS_DENIED otherwise); a device
+		// that can't be stopped now asks for a restart (the change is made at the next boot)
+		[[nodiscard]] static DeviceChangeResult SetEnabled(std::wstring const& instanceId, bool enable);
+		// Device Manager's Scan for hardware changes: the tree enumerated again from the root (CM_Reenumerate_DevNode,
+		// asynchronous; arrivals come as device notifications). Needs elevation
+		static bool ScanForChanges();
 	};
 }

@@ -82,5 +82,10 @@ namespace WinSys {
 		// runtime (or with diagnostics disabled) gives an empty result once the timeout passes. Failures set the last error.
 		[[nodiscard]] static std::optional<DotNetProcessDetails> QueryProcess(uint32_t pid, PCWSTR sessionPrefix,
 			uint32_t timeoutMs = 10000, HANDLE hCancel = nullptr);
+		// one rundown event's payload added to details, by its ID and version (QueryProcess's parsing, apart for the tests):
+		// RuntimeInformationDCStart (187), AppDomainDCStart (157), AssemblyDCStart (155), ModuleDCStart (153), DCStartComplete
+		// (145, whose runtimes go to completed); a truncated payload adds nothing. True when every runtime is complete
+		static bool ApplyRundownEvent(uint16_t eventId, uint8_t version, uint8_t const* data, size_t size, DotNetProcessDetails& details,
+			std::vector<uint16_t>& completed);
 	};
 }

@@ -43,7 +43,7 @@ The library's parts are described in detail in `docs/`. Read the file for the ar
 
 - [docs/processes.md](docs/processes.md): processes and threads (operations, environment, memory, modules, windows, tokens, jobs, wait chains, zombies, .NET, symbols).
 - [docs/objects.md](docs/objects.md): handles and their names, object details, the object namespace, access masks, window stations.
-- [docs/system.md](docs/system.md): system information, processors, memory, page files, disks, power, firmware and TPM, GPU, kernel modules, services, autoruns, power requests and wake timers, devices, the logon task, sessions, pool tags, pipes, shares, files, VDS.
+- [docs/system.md](docs/system.md): system information, processors, memory, page files, disks, power, firmware and TPM, GPU, kernel modules, services, autoruns, power requests and wake timers, devices, event logs, the logon task, sessions, pool tags, pipes, shares, files, VDS.
 - [docs/network-etw.md](docs/network-etw.md): network interfaces, connections and tables, HTTP, VirusTotal, the ETW trackers (network, IPC, file I/O) and ETW sessions.
 
 ## Conventions

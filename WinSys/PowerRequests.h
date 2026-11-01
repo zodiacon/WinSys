@@ -46,5 +46,11 @@ namespace WinSys {
 		[[nodiscard]] static std::optional<std::vector<WakeTimer>> EnumWakeTimers();
 		[[nodiscard]] static std::optional<TimerResolution> GetTimerResolution();
 		[[nodiscard]] static PCWSTR TypeName(PowerRequestType type);
+
+		// the lists' parsing, apart from the queries (for the tests, and buffers kept from elsewhere): the request list
+		// (a count, offsets from the start, the entries) and the wake timer list (entries linked by their offsets, the
+		// time left in each made a FILETIME from now). Bad offsets and counts are skipped, not read past the buffer
+		[[nodiscard]] static std::vector<PowerRequest> ParseRequestList(uint8_t const* buffer, size_t size, bool activeOnly);
+		[[nodiscard]] static std::vector<WakeTimer> ParseWakeTimers(uint8_t const* buffer, size_t size, int64_t now);
 	};
 }

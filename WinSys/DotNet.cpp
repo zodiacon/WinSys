@@ -122,90 +122,95 @@ namespace {
 		auto& context = *static_cast<RundownContext*>(record->UserContext);
 		if (record->EventHeader.ProviderId != RundownProvider || record->EventHeader.ProcessId != context.Pid)
 			return;
-		auto data = static_cast<BYTE const*>(record->UserData);
-		PayloadReader r{ data, data + record->UserDataLength };
-		auto version = record->EventHeader.EventDescriptor.Version;
-		auto& details = context.Details;
-		switch (record->EventHeader.EventDescriptor.Id) {
-			case RuntimeInformationDCStart:
-			{
-				DotNetRuntime rt;
-				rt.ClrInstanceId = r.Get<uint16_t>();
-				rt.Core = r.Get<uint16_t>() == 2;	// Sku: 1 the desktop CLR, 2 CoreCLR
-				uint16_t v[8];
-				for (auto& n : v)
-					n = r.Get<uint16_t>();
-				rt.BclVersion = VersionText(v[0], v[1], v[2], v[3]);
-				rt.Version = VersionText(v[4], v[5], v[6], v[7]);
-				rt.StartupFlags = r.Get<uint32_t>();
-				r.Get<uint8_t>();	// StartupMode
-				rt.CommandLine = r.String();
-				r.Get<GUID>();	// ComObjectGuid
-				rt.RuntimePath = r.String();
-				if (r.Ok)
-					details.Runtimes.push_back(std::move(rt));
-				break;
-			}
-			case AppDomainDCStart:
-			{
-				DotNetAppDomain d;
-				d.Id = r.Get<uint64_t>();
-				d.Flags = r.Get<uint32_t>();
-				d.Name = r.String();
-				if (version >= 1)
-					d.Index = r.Get<uint32_t>();
-				if (r.Ok)
-					details.AppDomains.push_back(std::move(d));
-				break;
-			}
-			case AssemblyDCStart:
-			{
-				DotNetAssembly a;
-				a.Id = r.Get<uint64_t>();
-				a.AppDomainId = r.Get<uint64_t>();
-				if (version >= 1)
-					r.Get<uint64_t>();	// BindingID
-				a.Flags = r.Get<uint32_t>();
-				a.FullName = r.String();
-				if (r.Ok)
-					details.Assemblies.push_back(std::move(a));
-				break;
-			}
-			case ModuleDCStart:
-			{
-				DotNetModule m;
-				m.Id = r.Get<uint64_t>();
-				m.AssemblyId = r.Get<uint64_t>();
-				m.Flags = r.Get<uint32_t>();
-				r.Get<uint32_t>();	// Reserved1
-				m.ILPath = r.String();
-				m.NativePath = r.String();
-				if (r.Ok)
-					details.Modules.push_back(std::move(m));
-				break;
-			}
-			case DCStartComplete:
-			{
-				// version 0 has no payload: the only runtime
-				auto instance = version >= 1 ? r.Get<uint16_t>() : (uint16_t)0;
-				context.Completed.push_back(instance);
-				// done when every runtime that said it's there is (the runtime information comes first)
-				bool all = version == 0 || std::all_of(details.Runtimes.begin(), details.Runtimes.end(), [&](auto& rt) {
-					return std::find(context.Completed.begin(), context.Completed.end(), rt.ClrInstanceId) != context.Completed.end();
-					});
-				if (all) {
-					details.Complete = true;
-					::SetEvent(context.hDone);
-				}
-				break;
-			}
-		}
+		if (DotNetInfo::ApplyRundownEvent(record->EventHeader.EventDescriptor.Id, record->EventHeader.EventDescriptor.Version,
+			static_cast<uint8_t const*>(record->UserData), record->UserDataLength, context.Details, context.Completed))
+			::SetEvent(context.hDone);
 	}
 
 	DWORD WINAPI RundownThread(void* param) {
 		auto trace = *static_cast<PROCESSTRACE_HANDLE*>(param);
 		return ::ProcessTrace(&trace, 1, nullptr, nullptr);
 	}
+}
+
+bool DotNetInfo::ApplyRundownEvent(uint16_t eventId, uint8_t version, uint8_t const* data, size_t size, DotNetProcessDetails& details,
+	std::vector<uint16_t>& completed) {
+	PayloadReader r{ data, data + size };
+	switch (eventId) {
+		case RuntimeInformationDCStart:
+		{
+			DotNetRuntime rt;
+			rt.ClrInstanceId = r.Get<uint16_t>();
+			rt.Core = r.Get<uint16_t>() == 2;	// Sku: 1 the desktop CLR, 2 CoreCLR
+			uint16_t v[8];
+			for (auto& n : v)
+				n = r.Get<uint16_t>();
+			rt.BclVersion = VersionText(v[0], v[1], v[2], v[3]);
+			rt.Version = VersionText(v[4], v[5], v[6], v[7]);
+			rt.StartupFlags = r.Get<uint32_t>();
+			r.Get<uint8_t>();	// StartupMode
+			rt.CommandLine = r.String();
+			r.Get<GUID>();	// ComObjectGuid
+			rt.RuntimePath = r.String();
+			if (r.Ok)
+				details.Runtimes.push_back(std::move(rt));
+			break;
+		}
+		case AppDomainDCStart:
+		{
+			DotNetAppDomain d;
+			d.Id = r.Get<uint64_t>();
+			d.Flags = r.Get<uint32_t>();
+			d.Name = r.String();
+			if (version >= 1)
+				d.Index = r.Get<uint32_t>();
+			if (r.Ok)
+				details.AppDomains.push_back(std::move(d));
+			break;
+		}
+		case AssemblyDCStart:
+		{
+			DotNetAssembly a;
+			a.Id = r.Get<uint64_t>();
+			a.AppDomainId = r.Get<uint64_t>();
+			if (version >= 1)
+				r.Get<uint64_t>();	// BindingID
+			a.Flags = r.Get<uint32_t>();
+			a.FullName = r.String();
+			if (r.Ok)
+				details.Assemblies.push_back(std::move(a));
+			break;
+		}
+		case ModuleDCStart:
+		{
+			DotNetModule m;
+			m.Id = r.Get<uint64_t>();
+			m.AssemblyId = r.Get<uint64_t>();
+			m.Flags = r.Get<uint32_t>();
+			r.Get<uint32_t>();	// Reserved1
+			m.ILPath = r.String();
+			m.NativePath = r.String();
+			if (r.Ok)
+				details.Modules.push_back(std::move(m));
+			break;
+		}
+		case DCStartComplete:
+		{
+			// version 0 has no payload: the only runtime
+			auto instance = version >= 1 ? r.Get<uint16_t>() : (uint16_t)0;
+			completed.push_back(instance);
+			// done when every runtime that said it's there is (the runtime information comes first)
+			bool all = version == 0 || std::all_of(details.Runtimes.begin(), details.Runtimes.end(), [&](auto& rt) {
+				return std::find(completed.begin(), completed.end(), rt.ClrInstanceId) != completed.end();
+				});
+			if (all) {
+				details.Complete = true;
+				return true;
+			}
+			break;
+		}
+	}
+	return false;
 }
 
 std::optional<DotNetProcessDetails> DotNetInfo::QueryProcess(uint32_t pid, PCWSTR sessionPrefix, uint32_t timeoutMs, HANDLE hCancel) {

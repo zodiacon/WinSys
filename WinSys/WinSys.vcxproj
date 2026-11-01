@@ -220,6 +220,7 @@
     <ClInclude Include="WindowStations.h" />
     <ClInclude Include="PowerRequests.h" />
     <ClInclude Include="Devices.h" />
+    <ClInclude Include="EventLog.h" />
     <ClInclude Include="SystemDetails.h" />
     <ClInclude Include="SystemInfo.h" />
     <ClInclude Include="Thread.h" />
@@ -289,6 +290,7 @@
     <ClCompile Include="WindowStations.cpp" />
     <ClCompile Include="PowerRequests.cpp" />
     <ClCompile Include="Devices.cpp" />
+    <ClCompile Include="EventLog.cpp" />
     <ClCompile Include="SystemDetails.cpp" />
     <ClCompile Include="SystemInfo.cpp" />
     <ClCompile Include="SystemInformation.cpp" />

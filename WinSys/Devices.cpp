@@ -2,9 +2,11 @@
 #include "Devices.h"
 #include <cfgmgr32.h>
 #include <devpkey.h>
+#include <SetupAPI.h>
 #include <unordered_set>
 
 #pragma comment(lib, "cfgmgr32")
+#pragma comment(lib, "setupapi")
 
 using namespace WinSys;
 
@@ -223,4 +225,42 @@ std::wstring Devices::ProblemText(uint32_t problem) {
 		if (t.Code == problem)
 			return std::wstring(t.Text) + L" (code " + std::to_wstring(problem) + L")";
 	return L"Problem code " + std::to_wstring(problem);
+}
+
+DeviceChangeResult Devices::SetEnabled(std::wstring const& instanceId, bool enable) {
+	auto hInfo = ::SetupDiCreateDeviceInfoList(nullptr, nullptr);
+	if (hInfo == INVALID_HANDLE_VALUE)
+		return DeviceChangeResult::Failed;
+	auto result = DeviceChangeResult::Failed;
+	SP_DEVINFO_DATA device{ sizeof(device) };
+	if (::SetupDiOpenDeviceInfoW(hInfo, instanceId.c_str(), nullptr, 0, &device)) {
+		SP_PROPCHANGE_PARAMS params{};
+		params.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
+		params.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
+		params.StateChange = enable ? DICS_ENABLE : DICS_DISABLE;
+		params.Scope = DICS_FLAG_GLOBAL;
+		params.HwProfile = 0;
+		if (::SetupDiSetClassInstallParamsW(hInfo, &device, &params.ClassInstallHeader, sizeof(params))
+			&& ::SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, hInfo, &device)) {
+			SP_DEVINSTALL_PARAMS_W install{ sizeof(install) };
+			result = ::SetupDiGetDeviceInstallParamsW(hInfo, &device, &install) && (install.Flags & (DI_NEEDRESTART | DI_NEEDREBOOT))
+				? DeviceChangeResult::RestartNeeded : DeviceChangeResult::Done;
+		}
+	}
+	auto error = ::GetLastError();
+	::SetupDiDestroyDeviceInfoList(hInfo);
+	::SetLastError(error);
+	return result;
+}
+
+bool Devices::ScanForChanges() {
+	DEVINST root;
+	auto cr = ::CM_Locate_DevNodeW(&root, nullptr, CM_LOCATE_DEVNODE_NORMAL);
+	if (cr == CR_SUCCESS)
+		cr = ::CM_Reenumerate_DevNode(root, CM_REENUMERATE_ASYNCHRONOUS);	// synchronous takes seconds
+	if (cr != CR_SUCCESS) {
+		::SetLastError(::CM_MapCrToWin32Err(cr, ERROR_ACCESS_DENIED));
+		return false;
+	}
+	return true;
 }
