@@ -204,6 +204,9 @@
     <ClInclude Include="EventLog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PEFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="EtwSessions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -393,6 +396,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="EventLog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PEFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="EtwSessions.cpp">
