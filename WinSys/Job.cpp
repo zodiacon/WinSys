@@ -106,3 +106,46 @@ std::optional<std::vector<ProcessJob>> JobInfo::FindProcessJobs(HANDLE hProcess,
 		*ordered = std::ranges::adjacent_find(jobs, {}, &ProcessJob::ActiveProcesses) == jobs.end();
 	return jobs;
 }
+
+std::optional<SiloInfo> JobInfo::GetSiloInfo(HANDLE hJob) {
+	SILOOBJECT_BASIC_INFORMATION basic{};
+	if (!NT_SUCCESS(::NtQueryInformationJobObject(hJob, (JOBOBJECTINFOCLASS)JobObjectSiloBasicInformation, &basic, sizeof(basic), nullptr)))
+		return std::nullopt;
+	SiloInfo info;
+	info.Id = basic.SiloId;
+	info.ParentId = basic.SiloParentId;
+	info.Processes = basic.NumberOfProcesses;
+	info.ServerSilo = basic.IsInServerSilo != 0;
+	// the root directory: a UNICODE_STRING whose buffer follows it
+	BYTE buffer[sizeof(SILOOBJECT_ROOT_DIRECTORY) + 512 * sizeof(WCHAR)]{};
+	ULONG length = 0;
+	if (NT_SUCCESS(::NtQueryInformationJobObject(hJob, (JOBOBJECTINFOCLASS)JobObjectSiloRootDirectory, buffer, sizeof(buffer), &length))) {
+		auto root = reinterpret_cast<SILOOBJECT_ROOT_DIRECTORY*>(buffer);
+		auto& path = root->Path;
+		if (path.Buffer && path.Length && (BYTE*)path.Buffer >= buffer && (BYTE*)path.Buffer + path.Length <= buffer + sizeof(buffer))
+			info.RootDirectory.assign(path.Buffer, path.Length / sizeof(WCHAR));
+	}
+	if (info.ServerSilo) {
+		SERVERSILO_BASIC_INFORMATION server{};
+		if (NT_SUCCESS(::NtQueryInformationJobObject(hJob, (JOBOBJECTINFOCLASS)JobObjectServerSiloBasicInformation, &server, sizeof(server), nullptr))) {
+			info.HasServerInfo = true;
+			info.ServiceSessionId = server.ServiceSessionId;
+			info.State = (uint32_t)server.State;
+			info.ExitStatus = server.ExitStatus;
+			info.ContainerBuild = server.ContainerBuildNumber;
+			info.HostBuild = server.HostBuildNumber;
+		}
+	}
+	return info;
+}
+
+PCWSTR JobInfo::ServerSiloStateName(uint32_t state) {
+	switch (state) {
+		case 0: return L"Initializing";
+		case 1: return L"Started";
+		case 2: return L"Shutting down";
+		case 3: return L"Terminating";
+		case 4: return L"Terminated";
+	}
+	return L"Unknown";
+}

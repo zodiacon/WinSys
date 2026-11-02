@@ -13,6 +13,21 @@ namespace WinSys {
 		uint32_t ActiveProcesses{ 0 };
 	};
 
+	// a silo: a job with its own view of the system (an app silo), or a container's (a server silo, as Windows Server
+	// containers and Docker's Windows containers run in)
+	struct SiloInfo {
+		uint32_t Id{ 0 }, ParentId{ 0 };
+		uint32_t Processes{ 0 };
+		bool ServerSilo{ false };	// in a server silo (this one or an ancestor)
+		std::wstring RootDirectory;	// its object namespace root ("\Silos\123"); empty if it has none or can't be read
+		// a server silo's (ServerSilo and the server silo information readable)
+		bool HasServerInfo{ false };
+		uint32_t ServiceSessionId{ 0 };
+		uint32_t State{ 0 };		// SERVERSILO_STATE: initializing, started, shutting down, terminating, terminated
+		uint32_t ExitStatus{ 0 };
+		uint32_t ContainerBuild{ 0 }, HostBuild{ 0 };
+	};
+
 	//
 	// Jobs. No API opens the job a process is in, so FindProcessJobs scans the system handle table for Job handles,
 	// duplicates them from their owners (PROCESS_DUP_HANDLE, so mostly only when elevated) and keeps the ones the process
@@ -30,5 +45,10 @@ namespace WinSys {
 		[[nodiscard]] static uint32_t GetActiveProcesses(HANDLE hJob);
 		// the IDs of the job's processes; empty if they can't be read
 		[[nodiscard]] static std::vector<uint32_t> GetProcessIds(HANDLE hJob);
+		// the job's silo information (JobObjectSiloBasicInformation, JobObjectSiloRootDirectory and, for a server silo,
+		// JobObjectServerSiloBasicInformation); nothing if the job isn't a silo
+		[[nodiscard]] static std::optional<SiloInfo> GetSiloInfo(HANDLE hJob);
+		// "Started", "Terminated"...
+		[[nodiscard]] static PCWSTR ServerSiloStateName(uint32_t state);
 	};
 }

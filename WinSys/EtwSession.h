@@ -38,7 +38,8 @@ namespace WinSys::Etw {
 			return;
 		for (ULONG i = 0; i < count; i++) {
 			std::wstring_view name(sessions[i].Name);
-			if (!name.starts_with(prefix))
+			// "<prefix><digits>" only: another session whose name starts with the prefix ("<prefix>GC ...") isn't one of these
+			if (!name.starts_with(prefix) || name.size() <= prefix.size() || !iswdigit(name[prefix.size()]))
 				continue;
 			auto pid = (DWORD)::_wtoi(name.data() + prefix.size());
 			wil::unique_handle hProcess(::OpenProcess(SYNCHRONIZE, FALSE, pid));
