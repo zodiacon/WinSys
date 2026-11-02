@@ -829,6 +829,13 @@ std::optional<uint32_t> Process::GetPeakHandleCount() const noexcept {
 	return info.HandleCountHighWatermark;
 }
 
+std::optional<uint32_t> Process::GetServerSiloId() const noexcept {
+	PROCESS_MEMBERSHIP_INFORMATION info{};
+	if (!NT_SUCCESS(::NtQueryInformationProcess(m_Handle.get(), ProcessMembershipInformation, &info, sizeof(info), nullptr)))
+		return std::nullopt;
+	return info.ServerSiloId;
+}
+
 uint32_t Process::GetGdiObjectCount() const noexcept {
 	return ::GetGuiResources(m_Handle.get(), GR_GDIOBJECTS);
 }

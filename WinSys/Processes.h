@@ -206,6 +206,9 @@ namespace WinSys {
 		// query access)
 		[[nodiscard]] static uint32_t RunAsSystem(std::wstring const& commandLine, HWND hOwner = nullptr);
 		[[nodiscard]] std::optional<uint32_t> GetPeakHandleCount() const noexcept;
+		// the server silo (a Windows container) the process runs in (ProcessMembershipInformation): its silo ID, 0 for the
+		// host; nothing if it can't be queried. App silos aren't server silos: their processes get 0
+		[[nodiscard]] std::optional<uint32_t> GetServerSiloId() const noexcept;
 		uint32_t GetGdiObjectCount() const noexcept;
 		uint32_t GetPeakGdiObjectCount() const noexcept;
 		uint32_t GetUserObjectCount() const noexcept;
