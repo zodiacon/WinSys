@@ -581,6 +581,48 @@ PCWSTR PEFile::ResourceTypeName(uint16_t type) {
 	return L"";
 }
 
+std::vector<PEIconEntry> PEFile::GetIconGroup(PEResource const& group) const {
+	std::vector<PEIconEntry> icons;
+	if (group.TypeId != 14)	// RT_GROUP_ICON
+		return icons;
+	auto data = GetResourceData(group);
+	// GRPICONDIR: reserved, type (1: icons), count; then 14-byte GRPICONDIRENTRYs (packed: no padding)
+	if (data.size() < 6)
+		return icons;
+	auto word = [&](size_t offset) { return (uint16_t)(data[offset] | (data[offset + 1] << 8)); };
+	auto dword = [&](size_t offset) { return (uint32_t)word(offset) | ((uint32_t)word(offset + 2) << 16); };
+	if (word(2) != 1)
+		return icons;
+	auto count = (std::min)((size_t)word(4), (size_t)256);
+	for (size_t i = 0; i < count; i++) {
+		auto offset = 6 + i * 14;
+		if (offset + 14 > data.size())
+			break;
+		PEIconEntry e;
+		e.Width = data[offset] ? data[offset] : 256;
+		e.Height = data[offset + 1] ? data[offset + 1] : 256;
+		e.ColorCount = data[offset + 2];
+		e.BitCount = word(offset + 6);
+		e.Size = dword(offset + 8);
+		e.IconId = word(offset + 12);
+		icons.push_back(e);
+	}
+	return icons;
+}
+
+std::optional<PEResource> PEFile::FindIcon(std::vector<PEResource> const& resources, uint16_t iconId, uint16_t language) const {
+	std::optional<PEResource> any;
+	for (auto& r : resources) {
+		if (r.TypeId != 3 || r.NameId != iconId)	// RT_ICON
+			continue;
+		if (r.Language == language)
+			return r;
+		if (!any)
+			any = r;
+	}
+	return any;
+}
+
 bool PEDotNet::IsILOnly() const {
 	return (Flags & COMIMAGE_FLAGS_ILONLY) != 0;
 }

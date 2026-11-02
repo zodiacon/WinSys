@@ -93,6 +93,15 @@ namespace WinSys {
 		uint32_t Rva{ 0 }, Size{ 0 }, CodePage{ 0 };
 	};
 
+	// an icon of an icon group (RT_GROUP_ICON's GRPICONDIRENTRY): its RT_ICON resource holds the image
+	struct PEIconEntry {
+		uint32_t Width{ 0 }, Height{ 0 };	// 256 for the 0 the format stores
+		uint16_t BitCount{ 0 };
+		uint8_t ColorCount{ 0 };			// 0 for 256 colors or more
+		uint32_t Size{ 0 };
+		uint16_t IconId{ 0 };				// the RT_ICON resource's ID
+	};
+
 	// the CLR header (IMAGE_COR20_HEADER) and the metadata's version string: a .NET image
 	struct PEDotNet {
 		uint16_t RuntimeMajor{ 0 }, RuntimeMinor{ 0 };	// the header's (2.5 for every .NET image since 2.0)
@@ -122,6 +131,10 @@ namespace WinSys {
 		// a resource's bytes; empty if they aren't in the file
 		[[nodiscard]] std::vector<uint8_t> GetResourceData(PEResource const& resource) const;
 		[[nodiscard]] static PCWSTR ResourceTypeName(uint16_t type);	// "Icon", "Version", "Manifest"...
+		// an icon group's icons (its data: GRPICONDIR and its entries); none if it isn't one or is cut short
+		[[nodiscard]] std::vector<PEIconEntry> GetIconGroup(PEResource const& group) const;
+		// the RT_ICON resource of an entry, preferring the group's language; none if it's missing
+		[[nodiscard]] std::optional<PEResource> FindIcon(std::vector<PEResource> const& resources, uint16_t iconId, uint16_t language) const;
 		// the CLR header, for a .NET image (managed or mixed); none for a native one
 		[[nodiscard]] std::optional<PEDotNet> GetDotNet() const;
 		[[nodiscard]] static std::wstring DotNetFlagsText(uint32_t flags);
