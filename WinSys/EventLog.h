@@ -33,6 +33,11 @@ namespace WinSys {
 		[[nodiscard]] bool IsAuditSuccess() const;
 	};
 
+	// an event's data field ("TargetUserName", "zodia")
+	struct EventDataItem {
+		std::wstring Name, Value;
+	};
+
 	// gets the new events (on wevtapi's thread); a non-owning interface, as WinSys takes no std::function
 	struct EventLogSink {
 		virtual void OnEvent(EventLogEntry&& entry) = 0;
@@ -54,6 +59,11 @@ namespace WinSys {
 		// an event's XML (EvtRender with EvtRenderEventXml: the system values and the event's data, which the message is
 		// made from), found by its record ID; on one line, as rendered. Nothing (the last error set) if it's gone
 		[[nodiscard]] static std::optional<std::wstring> GetXml(std::wstring const& channel, uint64_t recordId);
+		// the event's data fields from its XML: <EventData>'s <Data Name='x'>value</Data> items (a name empty for the
+		// unnamed ones), else the elements under <UserData>'s first child; the entities decoded (&amp; &lt; &#10;...)
+		[[nodiscard]] static std::vector<EventDataItem> ParseData(std::wstring const& xml);
+		// GetXml, then ParseData
+		[[nodiscard]] static std::optional<std::vector<EventDataItem>> GetData(std::wstring const& channel, uint64_t recordId);
 	};
 
 	class EventLogWatcher {

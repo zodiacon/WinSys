@@ -3,6 +3,7 @@
 #include <winevt.h>
 #include <wil/resource.h>
 #include <unordered_map>
+#include <string_view>
 
 #pragma comment(lib, "wevtapi")
 
@@ -257,4 +258,194 @@ namespace {
 			state->Sink->OnEvent(std::move(entry));
 		return ERROR_SUCCESS;
 	}
+}
+
+namespace {
+	// &amp; &lt; &gt; &quot; &apos; &#N; &#xN; decoded; tags inside a value (a nested element's) dropped
+	std::wstring DecodeText(std::wstring_view text) {
+		std::wstring result;
+		result.reserve(text.size());
+		for (size_t i = 0; i < text.size(); i++) {
+			auto c = text[i];
+			if (c == L'<') {
+				auto end = text.find(L'>', i);
+				if (end == std::wstring_view::npos)
+					break;
+				i = end;
+				continue;
+			}
+			if (c != L'&') {
+				result += c;
+				continue;
+			}
+			auto semi = text.find(L';', i);
+			if (semi == std::wstring_view::npos || semi - i > 10) {
+				result += c;
+				continue;
+			}
+			auto entity = text.substr(i + 1, semi - i - 1);
+			if (entity == L"amp") result += L'&';
+			else if (entity == L"lt") result += L'<';
+			else if (entity == L"gt") result += L'>';
+			else if (entity == L"quot") result += L'"';
+			else if (entity == L"apos") result += L'\'';
+			else if (entity.size() > 1 && entity[0] == L'#') {
+				bool hex = entity[1] == L'x' || entity[1] == L'X';
+				auto digits = std::wstring(entity.substr(hex ? 2 : 1));
+				auto value = ::wcstoul(digits.c_str(), nullptr, hex ? 16 : 10);
+				if (value > 0 && value <= 0xFFFF)
+					result += (wchar_t)value;
+				else if (value > 0xFFFF && value <= 0x10FFFF) {
+					value -= 0x10000;
+					result += (wchar_t)(0xD800 + (value >> 10));
+					result += (wchar_t)(0xDC00 + (value & 0x3FF));
+				}
+			}
+			else {
+				result.append(text.substr(i, semi - i + 1));	// unknown: kept
+			}
+			i = semi;
+		}
+		return result;
+	}
+
+	// an attribute's value in a tag ("<Data Name='x'>"), either quote; empty if it has none
+	std::wstring Attribute(std::wstring_view tag, std::wstring_view name) {
+		for (size_t pos = tag.find(name); pos != std::wstring_view::npos; pos = tag.find(name, pos + 1)) {
+			// a whole attribute name: after a space, followed by '=' (spaces allowed)
+			if (pos == 0 || !iswspace(tag[pos - 1]))
+				continue;
+			auto i = pos + name.size();
+			while (i < tag.size() && iswspace(tag[i]))
+				i++;
+			if (i >= tag.size() || tag[i] != L'=')
+				continue;
+			i++;
+			while (i < tag.size() && iswspace(tag[i]))
+				i++;
+			if (i >= tag.size() || (tag[i] != L'\'' && tag[i] != L'"'))
+				continue;
+			auto end = tag.find(tag[i], i + 1);
+			if (end == std::wstring_view::npos)
+				return L"";
+			return DecodeText(tag.substr(i + 1, end - i - 1));
+		}
+		return L"";
+	}
+
+	// the element's start tag at pos ("<Name ...>" or "<Name/>"): its name, where its content starts, and whether it's
+	// empty; false if pos isn't at one
+	struct Element {
+		std::wstring_view Name, Tag;
+		size_t ContentStart{ 0 };
+		bool Empty{ false };
+	};
+	bool ReadElement(std::wstring_view xml, size_t pos, Element& element) {
+		if (pos >= xml.size() || xml[pos] != L'<' || pos + 1 >= xml.size() || xml[pos + 1] == L'/' || xml[pos + 1] == L'?' || xml[pos + 1] == L'!')
+			return false;
+		auto end = xml.find(L'>', pos);
+		if (end == std::wstring_view::npos)
+			return false;
+		element.Tag = xml.substr(pos, end - pos + 1);
+		auto nameEnd = pos + 1;
+		while (nameEnd < end && !iswspace(xml[nameEnd]) && xml[nameEnd] != L'/' && xml[nameEnd] != L'>')
+			nameEnd++;
+		element.Name = xml.substr(pos + 1, nameEnd - pos - 1);
+		element.Empty = xml[end - 1] == L'/';
+		element.ContentStart = end + 1;
+		return true;
+	}
+
+	// where the element's content ends (its end tag), npos if it isn't there; nested elements of the same name counted
+	size_t ContentEnd(std::wstring_view xml, Element const& element) {
+		std::wstring open = L"<" + std::wstring(element.Name), close = L"</" + std::wstring(element.Name) + L">";
+		int depth = 1;
+		for (size_t pos = element.ContentStart; pos < xml.size(); ) {
+			auto next = xml.find(L'<', pos);
+			if (next == std::wstring_view::npos)
+				return std::wstring_view::npos;
+			if (xml.substr(next, close.size()) == close) {
+				if (--depth == 0)
+					return next;
+				pos = next + close.size();
+				continue;
+			}
+			Element inner;
+			if (ReadElement(xml, next, inner) && inner.Name == element.Name && !inner.Empty)
+				depth++;
+			pos = next + 1;
+		}
+		return std::wstring_view::npos;
+	}
+
+	// the first element of the name in xml, from pos
+	bool FindElement(std::wstring_view xml, std::wstring_view name, size_t from, Element& element) {
+		std::wstring open = L"<" + std::wstring(name);
+		for (auto pos = xml.find(open, from); pos != std::wstring_view::npos; pos = xml.find(open, pos + 1))
+			if (ReadElement(xml, pos, element) && element.Name == name)
+				return true;
+		return false;
+	}
+
+	// the child elements in [start, end): each one's name and decoded content
+	template<typename F>
+	void ForEachChild(std::wstring_view xml, size_t start, size_t end, F&& f) {
+		for (auto pos = xml.find(L'<', start); pos != std::wstring_view::npos && pos < end; ) {
+			Element child;
+			if (!ReadElement(xml, pos, child)) {
+				pos = xml.find(L'<', pos + 1);
+				continue;
+			}
+			if (child.Empty) {
+				f(child, std::wstring());
+				pos = xml.find(L'<', child.ContentStart);
+				continue;
+			}
+			auto contentEnd = ContentEnd(xml, child);
+			if (contentEnd == std::wstring_view::npos || contentEnd > end)
+				break;
+			f(child, DecodeText(xml.substr(child.ContentStart, contentEnd - child.ContentStart)));
+			pos = xml.find(L'<', contentEnd + child.Name.size() + 3);
+		}
+	}
+}
+
+std::vector<EventDataItem> EventLog::ParseData(std::wstring const& text) {
+	std::wstring_view xml(text);
+	std::vector<EventDataItem> items;
+	Element section;
+	if (FindElement(xml, L"EventData", 0, section)) {
+		if (section.Empty)
+			return items;
+		auto end = ContentEnd(xml, section);
+		if (end == std::wstring_view::npos)
+			return items;
+		ForEachChild(xml, section.ContentStart, end, [&](Element const& child, std::wstring value) {
+			if (child.Name == L"Data")
+				items.push_back({ Attribute(child.Tag, L"Name"), std::move(value) });
+			});
+		return items;
+	}
+	// <UserData><SomeEvent xmlns='...'><Field>value</Field>...</SomeEvent></UserData>
+	if (!FindElement(xml, L"UserData", 0, section) || section.Empty)
+		return items;
+	auto end = ContentEnd(xml, section);
+	Element root;
+	auto first = xml.find(L'<', section.ContentStart);
+	if (end == std::wstring_view::npos || first == std::wstring_view::npos || first >= end || !ReadElement(xml, first, root) || root.Empty)
+		return items;
+	auto rootEnd = ContentEnd(xml, root);
+	if (rootEnd == std::wstring_view::npos || rootEnd > end)
+		return items;
+	ForEachChild(xml, root.ContentStart, rootEnd, [&](Element const& child, std::wstring value) {
+		items.push_back({ std::wstring(child.Name), std::move(value) });
+		});
+	return items;
+}
+
+std::optional<std::vector<EventDataItem>> EventLog::GetData(std::wstring const& channel, uint64_t recordId) {
+	auto xml = GetXml(channel, recordId);
+	if (!xml)
+		return std::nullopt;
+	return ParseData(*xml);
 }
