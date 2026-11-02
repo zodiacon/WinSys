@@ -32,6 +32,9 @@ namespace WinSys {
 		[[nodiscard]] static std::vector<WindowInfo> Enum(uint32_t pid);
 		// one top-level window, as Enum reads it (WindowStations::EnumDesktopWindows)
 		[[nodiscard]] static WindowInfo Describe(HWND hWnd);
+		// a window and its descendants, depth first, as Enum lists a top-level window's (the window first, its Parent -1);
+		// none if it's gone
+		[[nodiscard]] static std::vector<WindowInfo> EnumTree(HWND hWnd);
 
 		// ShowWindowAsync, so a hung window doesn't hold up the caller; false with the last error
 		static bool Show(HWND hWnd, bool show);
