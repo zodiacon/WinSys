@@ -39,6 +39,25 @@ namespace WinSys {
 		[[nodiscard]] bool IsHidden() const;	// DN_NO_SHOW_IN_DM
 	};
 
+	enum class DeviceResourceType { Memory, LargeMemory, Io, Interrupt, Dma, BusNumber };
+
+	// a resource the device was given (its allocated configuration, else its boot one)
+	struct DeviceResource {
+		DeviceResourceType Type{ DeviceResourceType::Memory };
+		uint64_t Start{ 0 }, End{ 0 };	// a range (memory, I/O, bus numbers)
+		uint32_t Value{ 0 };			// an interrupt or DMA channel; a message-signaled interrupt's is negative as an int32
+		uint32_t Flags{ 0 };			// the descriptor's (IRQD_Flags, MD_Flags...)
+	};
+
+	enum class DriverRole { ClassUpperFilter, UpperFilter, Function, ClassLowerFilter, LowerFilter, Bus };
+
+	// a driver loaded for a device, in the stack's order from the top
+	struct DeviceDriver {
+		DriverRole Role{ DriverRole::Function };
+		std::wstring Service;	// the driver service
+		std::wstring Path;		// its image (KernelModules::DriverImagePath), empty if the service has none
+	};
+
 	enum class DeviceChangeResult {
 		Done,
 		RestartNeeded,	// made, takes effect after a restart
@@ -59,5 +78,18 @@ namespace WinSys {
 		// Device Manager's Scan for hardware changes: the tree enumerated again from the root (CM_Reenumerate_DevNode,
 		// asynchronous; arrivals come as device notifications). Needs elevation
 		static bool ScanForChanges();
+
+		// the device's resources (CM_Get_First_Log_Conf ALLOC_LOG_CONF, else BOOT_LOG_CONF; each CM_Get_Next_Res_Des with
+		// its data): none for a device without (most software devices); nothing (the last error set) if it isn't found
+		[[nodiscard]] static std::optional<std::vector<DeviceResource>> GetResources(std::wstring const& instanceId);
+		// the drivers loaded for the device, from the top: the class's and the device's upper filters, the function
+		// driver (its service), the class's and the device's lower filters, the bus driver (the parent's service)
+		[[nodiscard]] static std::optional<std::vector<DeviceDriver>> GetDriverStack(std::wstring const& instanceId);
+		[[nodiscard]] static PCWSTR ResourceTypeName(DeviceResourceType type);
+		[[nodiscard]] static PCWSTR DriverRoleName(DriverRole role);
+		// where a class's icon is (DEVPKEY_DeviceClass_IconPath's first entry: "%SystemRoot%\System32\setupapi.dll,-23",
+		// environment variables expanded, the index after the comma: negative is a resource ID), to load it at any size;
+		// empty if the class has none
+		[[nodiscard]] static std::wstring GetClassIconPath(std::wstring const& classGuid);
 	};
 }

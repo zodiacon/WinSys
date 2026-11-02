@@ -4,6 +4,8 @@
 #include <devpkey.h>
 #include <SetupAPI.h>
 #include <unordered_set>
+#include <wil/resource.h>
+#include "KernelModules.h"
 
 #pragma comment(lib, "cfgmgr32")
 #pragma comment(lib, "setupapi")
@@ -263,4 +265,216 @@ bool Devices::ScanForChanges() {
 		return false;
 	}
 	return true;
+}
+
+namespace {
+	bool Locate(std::wstring const& instanceId, DEVINST& devInst) {
+		auto cr = ::CM_Locate_DevNodeW(&devInst, (DEVINSTID_W)instanceId.c_str(), CM_LOCATE_DEVNODE_NORMAL);
+		if (cr != CR_SUCCESS) {
+			::SetLastError(::CM_MapCrToWin32Err(cr, ERROR_NOT_FOUND));
+			return false;
+		}
+		return true;
+	}
+
+	// a string list's entries
+	std::vector<std::wstring> ToList(std::vector<BYTE> const& buffer) {
+		std::vector<std::wstring> list;
+		auto end = (PCWSTR)(buffer.data() + buffer.size());
+		for (auto p = (PCWSTR)buffer.data(); p < end && *p; p += ::wcsnlen(p, end - p) + 1)
+			list.push_back(std::wstring(p, ::wcsnlen(p, end - p)));
+		return list;
+	}
+
+	// a string list property's entries (none if there's no such property)
+	std::vector<std::wstring> StringListProperty(DEVINST devInst, DEVPROPKEY const& key) {
+		DEVPROPTYPE type;
+		ULONG size = 0;
+		if (::CM_Get_DevNode_PropertyW(devInst, &key, &type, nullptr, &size, 0) != CR_BUFFER_SMALL || size == 0)
+			return {};
+		std::vector<BYTE> buffer(size + sizeof(WCHAR) * 2);
+		if (::CM_Get_DevNode_PropertyW(devInst, &key, &type, buffer.data(), &size, 0) != CR_SUCCESS || type != DEVPROP_TYPE_STRING_LIST)
+			return {};
+		return ToList(buffer);
+	}
+
+	std::vector<std::wstring> ClassStringListProperty(GUID const& guid, DEVPROPKEY const& key) {
+		DEVPROPTYPE type;
+		ULONG size = 0;
+		if (::CM_Get_Class_PropertyW(&guid, &key, &type, nullptr, &size, CM_CLASS_PROPERTY_INSTALLER) != CR_BUFFER_SMALL || size == 0)
+			return {};
+		std::vector<BYTE> buffer(size + sizeof(WCHAR) * 2);
+		if (::CM_Get_Class_PropertyW(&guid, &key, &type, buffer.data(), &size, CM_CLASS_PROPERTY_INSTALLER) != CR_SUCCESS
+			|| type != DEVPROP_TYPE_STRING_LIST)
+			return {};
+		return ToList(buffer);
+	}
+
+	std::wstring Expand(std::wstring const& text) {
+		if (text.find(L'%') == std::wstring::npos)
+			return text;
+		WCHAR expanded[MAX_PATH * 2];
+		auto n = ::ExpandEnvironmentStringsW(text.c_str(), expanded, _countof(expanded));
+		return n && n <= _countof(expanded) ? expanded : text;
+	}
+
+	// the service's image: its key's ImagePath (KernelModules::DriverImagePath for the default and the NT forms); empty if
+	// there's no such service
+	std::wstring ServiceImage(std::wstring const& service) {
+		auto keyName = L"SYSTEM\\CurrentControlSet\\Services\\" + service;
+		wil::unique_hkey key;
+		if (::RegOpenKeyExW(HKEY_LOCAL_MACHINE, keyName.c_str(), 0, KEY_QUERY_VALUE, key.addressof()) != ERROR_SUCCESS)
+			return L"";
+		WCHAR path[MAX_PATH * 2]{};
+		DWORD size = sizeof(path) - sizeof(WCHAR);
+		std::wstring image;
+		if (::RegGetValueW(key.get(), nullptr, L"ImagePath", RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ | RRF_NOEXPAND, nullptr, path, &size) == ERROR_SUCCESS)
+			image = Expand(path);
+		return KernelModules::DriverImagePath(service, image);
+	}
+}
+
+std::optional<std::vector<DeviceResource>> Devices::GetResources(std::wstring const& instanceId) {
+	DEVINST devInst;
+	if (!Locate(instanceId, devInst))
+		return std::nullopt;
+	std::vector<DeviceResource> resources;
+	LOG_CONF conf;
+	if (::CM_Get_First_Log_Conf(&conf, devInst, ALLOC_LOG_CONF) != CR_SUCCESS
+		&& ::CM_Get_First_Log_Conf(&conf, devInst, BOOT_LOG_CONF) != CR_SUCCESS)
+		return resources;
+	wil::unique_any<LOG_CONF, decltype(&::CM_Free_Log_Conf_Handle), ::CM_Free_Log_Conf_Handle> confHandle(conf);
+
+	RES_DES des;
+	RESOURCEID type;
+	auto cr = ::CM_Get_Next_Res_Des(&des, conf, ResType_All, &type, 0);
+	std::vector<BYTE> data;
+	while (cr == CR_SUCCESS) {
+		ULONG size = 0;
+		if (::CM_Get_Res_Des_Data_Size(&size, des, 0) == CR_SUCCESS && size) {
+			data.assign(size, 0);
+			if (::CM_Get_Res_Des_Data(des, data.data(), size, 0) == CR_SUCCESS) {
+				DeviceResource r;
+				bool known = false;
+				auto p = data.data();
+				switch (type) {
+					case ResType_Mem:
+						if (size >= sizeof(MEM_DES)) {
+							auto d = (MEM_DES const*)p;
+							r = { DeviceResourceType::Memory, d->MD_Alloc_Base, d->MD_Alloc_End, 0, d->MD_Flags };
+							known = true;
+						}
+						break;
+					case ResType_MemLarge:
+						if (size >= sizeof(MEM_LARGE_DES)) {
+							auto d = (MEM_LARGE_DES const*)p;
+							r = { DeviceResourceType::LargeMemory, d->MLD_Alloc_Base, d->MLD_Alloc_End, 0, d->MLD_Flags };
+							known = true;
+						}
+						break;
+					case ResType_IO:
+						if (size >= sizeof(IO_DES)) {
+							auto d = (IO_DES const*)p;
+							r = { DeviceResourceType::Io, d->IOD_Alloc_Base, d->IOD_Alloc_End, 0, d->IOD_DesFlags };
+							known = true;
+						}
+						break;
+					case ResType_IRQ:
+						if (size >= sizeof(IRQ_DES)) {
+							auto d = (IRQ_DES const*)p;
+							r = { DeviceResourceType::Interrupt, 0, 0, d->IRQD_Alloc_Num, d->IRQD_Flags };
+							known = true;
+						}
+						break;
+					case ResType_DMA:
+						if (size >= sizeof(DMA_DES)) {
+							auto d = (DMA_DES const*)p;
+							r = { DeviceResourceType::Dma, 0, 0, d->DD_Alloc_Chan, d->DD_Flags };
+							known = true;
+						}
+						break;
+					case ResType_BusNumber:
+						if (size >= sizeof(BUSNUMBER_DES)) {
+							auto d = (BUSNUMBER_DES const*)p;
+							r = { DeviceResourceType::BusNumber, d->BUSD_Alloc_Base, d->BUSD_Alloc_End, 0, d->BUSD_Flags };
+							known = true;
+						}
+						break;
+					default:
+						break;	// device-private and class-specific data
+				}
+				if (known)
+					resources.push_back(r);
+			}
+		}
+		RES_DES next;
+		cr = ::CM_Get_Next_Res_Des(&next, des, ResType_All, &type, 0);
+		::CM_Free_Res_Des_Handle(des);
+		des = next;
+	}
+	return resources;
+}
+
+std::optional<std::vector<DeviceDriver>> Devices::GetDriverStack(std::wstring const& instanceId) {
+	DEVINST devInst;
+	if (!Locate(instanceId, devInst))
+		return std::nullopt;
+	GUID classGuid{};
+	DEVPROPTYPE type;
+	ULONG size = sizeof(classGuid);
+	bool hasClass = ::CM_Get_DevNode_PropertyW(devInst, &DEVPKEY_Device_ClassGuid, &type, (PBYTE)&classGuid, &size, 0) == CR_SUCCESS
+		&& type == DEVPROP_TYPE_GUID;
+
+	std::vector<DeviceDriver> stack;
+	auto add = [&](DriverRole role, std::vector<std::wstring> const& services) {
+		for (auto& s : services)
+			stack.push_back({ role, s, ServiceImage(s) });
+	};
+	// from the top; built from the bottom: the bus driver's PDO, the device's lower filters, the class's lower filters,
+	// the function driver, the device's upper filters, the class's upper filters
+	if (hasClass)
+		add(DriverRole::ClassUpperFilter, ClassStringListProperty(classGuid, DEVPKEY_DeviceClass_UpperFilters));
+	add(DriverRole::UpperFilter, StringListProperty(devInst, DEVPKEY_Device_UpperFilters));
+	if (auto service = StringProperty(devInst, DEVPKEY_Device_Service); !service.empty())
+		add(DriverRole::Function, { service });
+	if (hasClass)
+		add(DriverRole::ClassLowerFilter, ClassStringListProperty(classGuid, DEVPKEY_DeviceClass_LowerFilters));
+	add(DriverRole::LowerFilter, StringListProperty(devInst, DEVPKEY_Device_LowerFilters));
+	if (DEVINST parent; ::CM_Get_Parent(&parent, devInst, 0) == CR_SUCCESS) {
+		if (auto service = StringProperty(parent, DEVPKEY_Device_Service); !service.empty())
+			add(DriverRole::Bus, { service });
+	}
+	return stack;
+}
+
+PCWSTR Devices::ResourceTypeName(DeviceResourceType type) {
+	switch (type) {
+		case DeviceResourceType::Memory: return L"Memory";
+		case DeviceResourceType::LargeMemory: return L"Large Memory";
+		case DeviceResourceType::Io: return L"I/O";
+		case DeviceResourceType::Interrupt: return L"IRQ";
+		case DeviceResourceType::Dma: return L"DMA";
+		case DeviceResourceType::BusNumber: return L"Bus Number";
+	}
+	return L"";
+}
+
+PCWSTR Devices::DriverRoleName(DriverRole role) {
+	switch (role) {
+		case DriverRole::ClassUpperFilter: return L"Class Upper Filter";
+		case DriverRole::UpperFilter: return L"Upper Filter";
+		case DriverRole::Function: return L"Function";
+		case DriverRole::ClassLowerFilter: return L"Class Lower Filter";
+		case DriverRole::LowerFilter: return L"Lower Filter";
+		case DriverRole::Bus: return L"Bus";
+	}
+	return L"";
+}
+
+std::wstring Devices::GetClassIconPath(std::wstring const& classGuid) {
+	GUID guid;
+	if (FAILED(::CLSIDFromString(classGuid.c_str(), &guid)))
+		return L"";
+	auto list = ClassStringListProperty(guid, DEVPKEY_DeviceClass_IconPath);
+	return list.empty() ? L"" : Expand(list[0]);
 }
