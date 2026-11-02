@@ -79,6 +79,9 @@ std::optional<PEFile> PEFile::Parse(std::vector<uint8_t> data) {
 	if (!signature || *signature != IMAGE_NT_SIGNATURE || !fileHeader)
 		return fail();
 	auto optionalOffset = ntOffset + sizeof(DWORD) + sizeof(IMAGE_FILE_HEADER);
+	// at the same place in both optional headers
+	static_assert(offsetof(IMAGE_OPTIONAL_HEADER32, CheckSum) == offsetof(IMAGE_OPTIONAL_HEADER64, CheckSum));
+	pe.m_ChecksumOffset = optionalOffset + offsetof(IMAGE_OPTIONAL_HEADER64, CheckSum);
 	auto magic = pe.At<WORD>(optionalOffset);
 	if (!magic)
 		return fail();
@@ -468,4 +471,167 @@ std::wstring PEFile::ExDllCharacteristicsText(uint32_t flags) {
 		{ 0x40, L"Forward CFI compatible" },				// ..._FORWARD_CFI_COMPAT
 		{ 0x80, L"Hot patch compatible" },					// ..._HOTPATCH_COMPATIBLE
 		});
+}
+
+std::vector<PEResource> PEFile::GetResources() const {
+	std::vector<PEResource> resources;
+	auto& dirs = m_Headers.Directories;
+	if (dirs.size() <= IMAGE_DIRECTORY_ENTRY_RESOURCE || dirs[IMAGE_DIRECTORY_ENTRY_RESOURCE].Rva == 0)
+		return resources;
+	auto base = RvaToOffset(dirs[IMAGE_DIRECTORY_ENTRY_RESOURCE].Rva);
+	if (!base)
+		return resources;
+	constexpr size_t MaxResources = 1 << 16;
+
+	// a directory's entries: (name or ID, the offset of a subdirectory or a data entry, whether it's a directory)
+	struct Entry {
+		uint16_t Id;
+		std::wstring Name;
+		uint32_t Offset;
+		bool Directory;
+	};
+	auto entries = [&](uint32_t offset) {
+		std::vector<Entry> list;
+		auto dir = At<IMAGE_RESOURCE_DIRECTORY>(*base + offset);
+		if (!dir)
+			return list;
+		auto count = (std::min)((size_t)dir->NumberOfNamedEntries + dir->NumberOfIdEntries, (size_t)4096);
+		for (size_t i = 0; i < count; i++) {
+			auto e = At<IMAGE_RESOURCE_DIRECTORY_ENTRY>(*base + offset + sizeof(IMAGE_RESOURCE_DIRECTORY) + i * sizeof(IMAGE_RESOURCE_DIRECTORY_ENTRY));
+			if (!e)
+				break;
+			Entry entry{ 0, {}, e->OffsetToDirectory, e->DataIsDirectory != 0 };
+			if (e->NameIsString) {
+				// IMAGE_RESOURCE_DIR_STRING_U: a length in characters, then the name (not NUL-terminated)
+				if (auto length = At<uint16_t>(*base + e->NameOffset)) {
+					auto chars = *base + e->NameOffset + sizeof(uint16_t);
+					if (chars + (size_t)*length * sizeof(WCHAR) <= m_Data.size())
+						entry.Name.assign(reinterpret_cast<WCHAR const*>(m_Data.data() + chars), *length);
+				}
+			}
+			else
+				entry.Id = e->Id;
+			list.push_back(std::move(entry));
+		}
+		return list;
+	};
+
+	// three levels: type, name, language (a directory at the wrong level is skipped, so a loop can't recur)
+	for (auto& type : entries(0)) {
+		if (!type.Directory)
+			continue;
+		for (auto& name : entries(type.Offset)) {
+			if (!name.Directory)
+				continue;
+			for (auto& language : entries(name.Offset)) {
+				if (language.Directory || resources.size() >= MaxResources)
+					continue;
+				auto data = At<IMAGE_RESOURCE_DATA_ENTRY>(*base + language.Offset);
+				if (!data)
+					continue;
+				PEResource r;
+				r.TypeId = type.Id;
+				r.Type = type.Name;
+				r.NameId = name.Id;
+				r.Name = name.Name;
+				r.Language = language.Id;
+				r.Rva = data->OffsetToData;
+				r.Size = data->Size;
+				r.CodePage = data->CodePage;
+				resources.push_back(std::move(r));
+			}
+		}
+	}
+	return resources;
+}
+
+std::vector<uint8_t> PEFile::GetResourceData(PEResource const& resource) const {
+	auto offset = RvaToOffset(resource.Rva);
+	if (!offset || resource.Size == 0 || *offset > m_Data.size() || m_Data.size() - *offset < resource.Size)
+		return {};
+	return std::vector<uint8_t>(m_Data.begin() + *offset, m_Data.begin() + *offset + resource.Size);
+}
+
+PCWSTR PEFile::ResourceTypeName(uint16_t type) {
+	switch (type) {
+		case 1: return L"Cursor";
+		case 2: return L"Bitmap";
+		case 3: return L"Icon";
+		case 4: return L"Menu";
+		case 5: return L"Dialog";
+		case 6: return L"String Table";
+		case 7: return L"Font Directory";
+		case 8: return L"Font";
+		case 9: return L"Accelerators";
+		case 10: return L"Data (RCDATA)";
+		case 11: return L"Message Table";
+		case 12: return L"Cursor Group";
+		case 14: return L"Icon Group";
+		case 16: return L"Version";
+		case 17: return L"Dialog Include";
+		case 19: return L"Plug and Play";
+		case 20: return L"VxD";
+		case 21: return L"Animated Cursor";
+		case 22: return L"Animated Icon";
+		case 23: return L"HTML";
+		case 24: return L"Manifest";
+		case 240: return L"Dialog Init";
+		case 241: return L"Toolbar";
+	}
+	return L"";
+}
+
+bool PEDotNet::IsILOnly() const {
+	return (Flags & COMIMAGE_FLAGS_ILONLY) != 0;
+}
+
+std::optional<PEDotNet> PEFile::GetDotNet() const {
+	auto& dirs = m_Headers.Directories;
+	if (dirs.size() <= IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR || dirs[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Rva == 0)
+		return std::nullopt;
+	auto offset = RvaToOffset(dirs[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Rva);
+	auto cor = offset ? At<IMAGE_COR20_HEADER>(*offset) : nullptr;
+	if (!cor || cor->cb < sizeof(IMAGE_COR20_HEADER))
+		return std::nullopt;
+	PEDotNet info;
+	info.RuntimeMajor = cor->MajorRuntimeVersion;
+	info.RuntimeMinor = cor->MinorRuntimeVersion;
+	info.Flags = cor->Flags;
+	info.EntryPointToken = cor->EntryPointToken;
+	info.MetadataRva = cor->MetaData.VirtualAddress;
+	info.MetadataSize = cor->MetaData.Size;
+	// the metadata root: "BSJB", versions, a reserved field, the version string's length, the string
+	if (auto root = RvaToOffset(info.MetadataRva)) {
+		auto signature = At<uint32_t>(*root);
+		auto length = At<uint32_t>(*root + 12);
+		if (signature && *signature == 0x424A5342 && length && *length > 0 && *length <= 256)
+			info.MetadataVersion = StringAt(*root + 16, *length);
+	}
+	return info;
+}
+
+std::wstring PEFile::DotNetFlagsText(uint32_t flags) {
+	return FlagsText<uint32_t>(flags, {
+		{ COMIMAGE_FLAGS_ILONLY, L"IL only" }, { COMIMAGE_FLAGS_32BITREQUIRED, L"32-bit required" },
+		{ COMIMAGE_FLAGS_32BITPREFERRED, L"32-bit preferred" }, { COMIMAGE_FLAGS_IL_LIBRARY, L"IL library" },
+		{ COMIMAGE_FLAGS_STRONGNAMESIGNED, L"Strong-name signed" }, { COMIMAGE_FLAGS_NATIVE_ENTRYPOINT, L"Native entry point" },
+		{ COMIMAGE_FLAGS_TRACKDEBUGDATA, L"Track debug data" },
+		});
+}
+
+uint32_t PEFile::ComputeChecksum() const {
+	// 16-bit words, the carries folded in as we go; the checksum field counts as zeros
+	uint64_t sum = 0;
+	auto size = m_Data.size();
+	for (size_t i = 0; i + 1 < size; i += 2) {
+		if (i >= m_ChecksumOffset && i < m_ChecksumOffset + 4)
+			continue;
+		sum += (uint32_t)m_Data[i] | ((uint32_t)m_Data[i + 1] << 8);
+		sum = (sum & 0xFFFF) + (sum >> 16);
+	}
+	if (size & 1)
+		sum += m_Data[size - 1];
+	sum = (sum & 0xFFFF) + (sum >> 16);
+	sum = (sum & 0xFFFF) + (sum >> 16);
+	return (uint32_t)(sum + size);
 }

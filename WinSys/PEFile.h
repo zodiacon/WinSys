@@ -83,6 +83,26 @@ namespace WinSys {
 		std::string PdbPath;				// as the linker wrote it (UTF-8)
 	};
 
+	// a resource (the resource directory's leaf: type, name, language)
+	struct PEResource {
+		uint16_t TypeId{ 0 };				// RT_* (0 for a named type)
+		std::wstring Type;					// a named type's name, else empty
+		uint16_t NameId{ 0 };				// 0 for a named resource
+		std::wstring Name;
+		uint16_t Language{ 0 };
+		uint32_t Rva{ 0 }, Size{ 0 }, CodePage{ 0 };
+	};
+
+	// the CLR header (IMAGE_COR20_HEADER) and the metadata's version string: a .NET image
+	struct PEDotNet {
+		uint16_t RuntimeMajor{ 0 }, RuntimeMinor{ 0 };	// the header's (2.5 for every .NET image since 2.0)
+		uint32_t Flags{ 0 };				// COMIMAGE_FLAGS_*
+		uint32_t EntryPointToken{ 0 };		// a method token (or an RVA with COMIMAGE_FLAGS_NATIVE_ENTRYPOINT)
+		uint32_t MetadataRva{ 0 }, MetadataSize{ 0 };
+		std::string MetadataVersion;		// "v4.0.30319" (the runtime the image was built for; .NET Core and 5+ say the same)
+		[[nodiscard]] bool IsILOnly() const;	// managed only (else mixed: C++/CLI)
+	};
+
 	class PEFile {
 	public:
 		// the file read (at most MaxFileSize) and parsed; nothing (the last error set: the file's, or
@@ -97,6 +117,17 @@ namespace WinSys {
 		[[nodiscard]] std::vector<PEImportedLibrary> GetImports() const;
 		// none if the image exports nothing
 		[[nodiscard]] std::optional<PEExports> GetExports() const;
+		// the resource directory's leaves, by type, name and language (at most 65,536); none if it has none
+		[[nodiscard]] std::vector<PEResource> GetResources() const;
+		// a resource's bytes; empty if they aren't in the file
+		[[nodiscard]] std::vector<uint8_t> GetResourceData(PEResource const& resource) const;
+		[[nodiscard]] static PCWSTR ResourceTypeName(uint16_t type);	// "Icon", "Version", "Manifest"...
+		// the CLR header, for a .NET image (managed or mixed); none for a native one
+		[[nodiscard]] std::optional<PEDotNet> GetDotNet() const;
+		[[nodiscard]] static std::wstring DotNetFlagsText(uint32_t flags);
+		// the checksum as the loader and CheckSumMappedFile compute it (the file's 16-bit words summed with the carries
+		// folded in, the header's checksum field left out, plus the file's length); drivers must match the header's
+		[[nodiscard]] uint32_t ComputeChecksum() const;
 		// the debug directory's entries
 		[[nodiscard]] std::vector<PEDebugEntry> GetDebugEntries() const;
 		// the CodeView entry's RSDS record (PDB 7.0); none if there's no such entry or it's another format
@@ -126,6 +157,7 @@ namespace WinSys {
 		std::vector<PEImportedFunction> ReadThunks(uint32_t rva) const;
 
 		std::vector<uint8_t> m_Data;
+		size_t m_ChecksumOffset{ 0 };	// the optional header's CheckSum field, in the file
 		PEHeaders m_Headers;
 		std::vector<PESection> m_Sections;
 	};
