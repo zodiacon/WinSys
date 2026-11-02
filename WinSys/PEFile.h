@@ -67,6 +67,22 @@ namespace WinSys {
 		std::vector<PEExportedFunction> Functions;	// by ordinal
 	};
 
+	// a debug directory entry (IMAGE_DEBUG_DIRECTORY)
+	struct PEDebugEntry {
+		uint32_t Type{ 0 };					// IMAGE_DEBUG_TYPE_*
+		uint32_t TimeDateStamp{ 0 };
+		uint32_t Size{ 0 };
+		uint32_t Rva{ 0 }, RawOffset{ 0 };	// the data, in memory and in the file
+		uint32_t Value{ 0 };				// EX_DLLCHARACTERISTICS: the flags (the data's first 32 bits); 0 otherwise
+	};
+
+	// the CodeView record of the PDB (RSDS): which symbols match the image
+	struct PECodeView {
+		GUID Signature{};
+		uint32_t Age{ 0 };
+		std::string PdbPath;				// as the linker wrote it (UTF-8)
+	};
+
 	class PEFile {
 	public:
 		// the file read (at most MaxFileSize) and parsed; nothing (the last error set: the file's, or
@@ -81,6 +97,13 @@ namespace WinSys {
 		[[nodiscard]] std::vector<PEImportedLibrary> GetImports() const;
 		// none if the image exports nothing
 		[[nodiscard]] std::optional<PEExports> GetExports() const;
+		// the debug directory's entries
+		[[nodiscard]] std::vector<PEDebugEntry> GetDebugEntries() const;
+		// the CodeView entry's RSDS record (PDB 7.0); none if there's no such entry or it's another format
+		[[nodiscard]] std::optional<PECodeView> GetCodeView() const;
+		[[nodiscard]] static PCWSTR DebugTypeName(uint32_t type);	// "CodeView", "POGO", "Repro"...
+		// an IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS value's flags: "CET compatible, ..."
+		[[nodiscard]] static std::wstring ExDllCharacteristicsText(uint32_t flags);
 		// an RVA's offset in the file: in the headers, or in a section's raw data; none if it's in neither
 		[[nodiscard]] std::optional<uint32_t> RvaToOffset(uint32_t rva) const;
 

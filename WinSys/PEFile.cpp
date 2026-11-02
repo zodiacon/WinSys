@@ -305,6 +305,74 @@ std::optional<PEExports> PEFile::GetExports() const {
 	return exports;
 }
 
+std::vector<PEDebugEntry> PEFile::GetDebugEntries() const {
+	std::vector<PEDebugEntry> entries;
+	auto& dirs = m_Headers.Directories;
+	if (dirs.size() <= IMAGE_DIRECTORY_ENTRY_DEBUG || dirs[IMAGE_DIRECTORY_ENTRY_DEBUG].Rva == 0)
+		return entries;
+	auto offset = RvaToOffset(dirs[IMAGE_DIRECTORY_ENTRY_DEBUG].Rva);
+	if (!offset)
+		return entries;
+	auto count = (std::min)((size_t)dirs[IMAGE_DIRECTORY_ENTRY_DEBUG].Size / sizeof(IMAGE_DEBUG_DIRECTORY), (size_t)64);
+	for (size_t i = 0; i < count; i++) {
+		auto d = At<IMAGE_DEBUG_DIRECTORY>(*offset + i * sizeof(IMAGE_DEBUG_DIRECTORY));
+		if (!d)
+			break;
+		PEDebugEntry e;
+		e.Type = d->Type;
+		e.TimeDateStamp = d->TimeDateStamp;
+		e.Size = d->SizeOfData;
+		e.Rva = d->AddressOfRawData;
+		e.RawOffset = d->PointerToRawData;
+		if (e.Type == 20 && e.Size >= sizeof(uint32_t))	// IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS
+			if (auto value = At<uint32_t>(e.RawOffset))
+				e.Value = *value;
+		entries.push_back(e);
+	}
+	return entries;
+}
+
+std::optional<PECodeView> PEFile::GetCodeView() const {
+	for (auto& e : GetDebugEntries()) {
+		if (e.Type != IMAGE_DEBUG_TYPE_CODEVIEW || e.Size < 24)
+			continue;
+		// "RSDS", the GUID, the age, then the PDB's path (NUL-terminated); in the file at the raw offset
+		auto magic = At<uint32_t>(e.RawOffset);
+		auto guid = At<GUID>((size_t)e.RawOffset + 4);
+		auto age = At<uint32_t>((size_t)e.RawOffset + 20);
+		if (!magic || *magic != 'SDSR' || !guid || !age)
+			continue;
+		PECodeView cv;
+		cv.Signature = *guid;
+		cv.Age = *age;
+		cv.PdbPath = StringAt((size_t)e.RawOffset + 24, (std::min)((size_t)e.Size - 24, (size_t)1024));
+		return cv;
+	}
+	return std::nullopt;
+}
+
+PCWSTR PEFile::DebugTypeName(uint32_t type) {
+	switch (type) {
+		case IMAGE_DEBUG_TYPE_COFF: return L"COFF";
+		case IMAGE_DEBUG_TYPE_CODEVIEW: return L"CodeView";
+		case IMAGE_DEBUG_TYPE_FPO: return L"FPO";
+		case IMAGE_DEBUG_TYPE_MISC: return L"Misc";
+		case IMAGE_DEBUG_TYPE_EXCEPTION: return L"Exception";
+		case IMAGE_DEBUG_TYPE_FIXUP: return L"Fixup";
+		case IMAGE_DEBUG_TYPE_BORLAND: return L"Borland";
+		case IMAGE_DEBUG_TYPE_CLSID: return L"CLSID";
+		case 12: return L"VC Feature";			// IMAGE_DEBUG_TYPE_VC_FEATURE
+		case 13: return L"POGO";				// IMAGE_DEBUG_TYPE_POGO
+		case 14: return L"ILTCG";				// IMAGE_DEBUG_TYPE_ILTCG
+		case 15: return L"MPX";
+		case 16: return L"Repro";				// IMAGE_DEBUG_TYPE_REPRO: the build's hash, in place of the time stamp
+		case 17: return L"Embedded Portable PDB";
+		case 19: return L"PDB Checksum";
+		case 20: return L"Extended DLL Characteristics";	// IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS
+	}
+	return L"Other";
+}
+
 PCWSTR PEFile::MachineName(uint16_t machine) {
 	switch (machine) {
 		case IMAGE_FILE_MACHINE_I386: return L"x86";
@@ -389,4 +457,15 @@ std::wstring PEFile::SectionCharacteristicsText(uint32_t c) {
 	if (!access.empty())
 		text = access + (text.empty() ? L"" : L": " + text);
 	return text;
+}
+
+std::wstring PEFile::ExDllCharacteristicsText(uint32_t flags) {
+	return FlagsText<uint32_t>(flags, {
+		{ 0x01, L"CET compatible" },						// IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT
+		{ 0x02, L"CET strict mode" },						// ..._CET_COMPAT_STRICT_MODE
+		{ 0x04, L"CET: relaxed SetContext" },				// ..._CET_SET_CONTEXT_IP_VALIDATION_RELAXED_MODE
+		{ 0x08, L"CET: no dynamic APIs out of process" },	// ..._CET_DYNAMIC_APIS_ALLOW_IN_PROC_ONLY
+		{ 0x40, L"Forward CFI compatible" },				// ..._FORWARD_CFI_COMPAT
+		{ 0x80, L"Hot patch compatible" },					// ..._HOTPATCH_COMPATIBLE
+		});
 }
