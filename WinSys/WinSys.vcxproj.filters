@@ -120,6 +120,9 @@
     <ClInclude Include="Gpu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Heaps.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="WaitChain.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -312,6 +315,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Gpu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Heaps.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WaitChain.cpp">
