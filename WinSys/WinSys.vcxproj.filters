@@ -129,6 +129,15 @@
     <ClInclude Include="UnloadedModules.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Firewall.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Battery.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ThermalZones.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="WaitChain.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -330,6 +339,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="UnloadedModules.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Firewall.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Battery.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ThermalZones.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WaitChain.cpp">

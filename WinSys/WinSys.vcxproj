@@ -193,6 +193,9 @@
     <ClInclude Include="Heaps.h" />
     <ClInclude Include="Packages.h" />
     <ClInclude Include="UnloadedModules.h" />
+    <ClInclude Include="Firewall.h" />
+    <ClInclude Include="Battery.h" />
+    <ClInclude Include="ThermalZones.h" />
     <ClInclude Include="WaitChain.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="Zombies.h" />
@@ -267,6 +270,9 @@
     <ClCompile Include="Heaps.cpp" />
     <ClCompile Include="Packages.cpp" />
     <ClCompile Include="UnloadedModules.cpp" />
+    <ClCompile Include="Firewall.cpp" />
+    <ClCompile Include="Battery.cpp" />
+    <ClCompile Include="ThermalZones.cpp" />
     <ClCompile Include="WaitChain.cpp" />
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="Zombies.cpp" />
