@@ -192,6 +192,7 @@
     <ClInclude Include="Gpu.h" />
     <ClInclude Include="Heaps.h" />
     <ClInclude Include="Packages.h" />
+    <ClInclude Include="UnloadedModules.h" />
     <ClInclude Include="WaitChain.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="Zombies.h" />
@@ -265,6 +266,7 @@
     <ClCompile Include="Gpu.cpp" />
     <ClCompile Include="Heaps.cpp" />
     <ClCompile Include="Packages.cpp" />
+    <ClCompile Include="UnloadedModules.cpp" />
     <ClCompile Include="WaitChain.cpp" />
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="Zombies.cpp" />
