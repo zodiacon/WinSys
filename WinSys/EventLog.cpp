@@ -109,6 +109,30 @@ bool EventLogEntry::IsAuditSuccess() const {
 	return (Keywords & AuditSuccessKeyword) != 0;
 }
 
+namespace {
+	// an event's XML (EvtRenderEventXml)
+	std::optional<std::wstring> RenderXml(EVT_HANDLE hEvent) {
+		DWORD used = 0, count = 0;
+		std::vector<WCHAR> buffer(4096);
+		if (!::EvtRender(nullptr, hEvent, EvtRenderEventXml, (DWORD)(buffer.size() * sizeof(WCHAR)), buffer.data(), &used, &count)) {
+			if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+				return std::nullopt;
+			buffer.resize(used / sizeof(WCHAR) + 1);
+			if (!::EvtRender(nullptr, hEvent, EvtRenderEventXml, (DWORD)(buffer.size() * sizeof(WCHAR)), buffer.data(), &used, &count))
+				return std::nullopt;
+		}
+		return std::wstring(buffer.data());
+	}
+
+	// the rendered event's data fields, if the mode wants them
+	void ReadData(EVT_HANDLE hEvent, EventDataRead mode, EventLogEntry& entry) {
+		if (mode == EventDataRead::None || (mode == EventDataRead::NoMessage && !entry.Message.empty()))
+			return;
+		if (auto xml = RenderXml(hEvent))
+			entry.Data = EventLog::ParseData(*xml);
+	}
+}
+
 std::optional<std::wstring> EventLog::GetXml(std::wstring const& channel, uint64_t recordId) {
 	auto query = L"*[System[EventRecordID=" + std::to_wstring(recordId) + L"]]";
 	wil::unique_any<EVT_HANDLE, decltype(&::EvtClose), ::EvtClose> hQuery(::EvtQuery(nullptr, channel.c_str(), query.c_str(), EvtQueryChannelPath));
@@ -122,16 +146,7 @@ std::optional<std::wstring> EventLog::GetXml(std::wstring const& channel, uint64
 		return std::nullopt;
 	}
 	wil::unique_any<EVT_HANDLE, decltype(&::EvtClose), ::EvtClose> event(hEvent);
-	DWORD used = 0, count = 0;
-	std::vector<WCHAR> buffer(4096);
-	if (!::EvtRender(nullptr, event.get(), EvtRenderEventXml, (DWORD)(buffer.size() * sizeof(WCHAR)), buffer.data(), &used, &count)) {
-		if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-			return std::nullopt;
-		buffer.resize(used / sizeof(WCHAR) + 1);
-		if (!::EvtRender(nullptr, event.get(), EvtRenderEventXml, (DWORD)(buffer.size() * sizeof(WCHAR)), buffer.data(), &used, &count))
-			return std::nullopt;
-	}
-	return std::wstring(buffer.data());
+	return RenderXml(event.get());
 }
 
 bool EventLog::Exists(std::wstring const& channel) {
@@ -161,7 +176,8 @@ PCWSTR EventLog::LevelName(uint8_t level) {
 	return L"";
 }
 
-std::optional<std::vector<EventLogEntry>> EventLog::Query(std::wstring const& channel, uint8_t maxLevel, uint32_t hours, size_t maxEvents) {
+std::optional<std::vector<EventLogEntry>> EventLog::Query(std::wstring const& channel, uint8_t maxLevel, uint32_t hours, size_t maxEvents,
+	EventDataRead data) {
 	auto query = L"*[System[" + LevelsXPath(maxLevel) + L" and TimeCreated[timediff(@SystemTime) <= "
 		+ std::to_wstring((uint64_t)hours * 3600000) + L"]]]";
 	auto hQuery = ::EvtQuery(nullptr, channel.c_str(), query.c_str(), EvtQueryChannelPath | EvtQueryReverseDirection);
@@ -175,8 +191,10 @@ std::optional<std::vector<EventLogEntry>> EventLog::Query(std::wstring const& ch
 	while (entries.size() < maxEvents && ::EvtNext(hQuery, _countof(events), events, INFINITE, 0, &returned)) {
 		for (DWORD i = 0; i < returned; i++) {
 			EventLogEntry entry;
-			if (entries.size() < maxEvents && Render(hContext, events[i], publishers, entry))
+			if (entries.size() < maxEvents && Render(hContext, events[i], publishers, entry)) {
+				ReadData(events[i], data, entry);
 				entries.push_back(std::move(entry));
+			}
 			::EvtClose(events[i]);
 		}
 	}
@@ -189,6 +207,7 @@ std::optional<std::vector<EventLogEntry>> EventLog::Query(std::wstring const& ch
 struct EventLogWatcher::State {
 	EventLogSink* Sink{ nullptr };
 	EVT_HANDLE Context{ nullptr };
+	bool Data{ false };	// the events' data fields read too
 	PublisherCache Publishers;
 
 	~State() {
@@ -209,18 +228,19 @@ bool EventLogWatcher::IsRunning() const {
 	return !m_Subscriptions.empty();
 }
 
-bool EventLogWatcher::Start(std::vector<std::wstring> const& channels, uint8_t maxLevel, EventLogSink& sink) {
+bool EventLogWatcher::Start(std::vector<std::wstring> const& channels, uint8_t maxLevel, EventLogSink& sink, bool data) {
 	auto query = L"*[System[" + LevelsXPath(maxLevel) + L"]]";
 	std::vector<std::pair<std::wstring, std::wstring>> queries;
 	for (auto& channel : channels)
 		queries.push_back({ channel, query });
-	return Start(queries, sink);
+	return Start(queries, sink, data);
 }
 
-bool EventLogWatcher::Start(std::vector<std::pair<std::wstring, std::wstring>> const& queries, EventLogSink& sink) {
+bool EventLogWatcher::Start(std::vector<std::pair<std::wstring, std::wstring>> const& queries, EventLogSink& sink, bool data) {
 	Stop();
 	m_State = new State;
 	m_State->Sink = &sink;
+	m_State->Data = data;
 	m_State->Context = ::EvtCreateRenderContext(0, nullptr, EvtRenderContextSystem);
 	DWORD error = ERROR_INVALID_PARAMETER;
 	for (auto& [channel, query] : queries) {
@@ -254,8 +274,10 @@ namespace {
 			return ERROR_SUCCESS;
 		auto state = static_cast<EventLogWatcher::State*>(context);
 		EventLogEntry entry;
-		if (Render(state->Context, hEvent, state->Publishers, entry))
+		if (Render(state->Context, hEvent, state->Publishers, entry)) {
+			ReadData(hEvent, state->Data ? EventDataRead::All : EventDataRead::None, entry);
 			state->Sink->OnEvent(std::move(entry));
+		}
 		return ERROR_SUCCESS;
 	}
 }

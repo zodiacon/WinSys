@@ -15,6 +15,19 @@
 //
 
 namespace WinSys {
+	// an event's data field ("TargetUserName", "zodia")
+	struct EventDataItem {
+		std::wstring Name, Value;
+	};
+
+	// which events' data fields a query reads (their XML rendered and parsed, ParseData: tens of microseconds an event,
+	// against milliseconds to find one again by record ID, GetData, in a large log)
+	enum class EventDataRead {
+		None,
+		All,
+		NoMessage,	// those whose publisher has no message for them (the data is all there is)
+	};
+
 	struct EventLogEntry {
 		uint64_t RecordId{ 0 };
 		int64_t Time{ 0 };			// FILETIME (UTC)
@@ -26,16 +39,12 @@ namespace WinSys {
 		uint64_t Keywords{ 0 };
 		std::wstring Computer;
 		std::wstring Message;		// the formatted message; empty if the publisher's resources have none
+		std::vector<EventDataItem> Data;	// the data fields, when asked for (EventDataRead, EventLogWatcher::Start's data)
 
 		// the Security log's events are level 0, told apart by these keywords
 		static constexpr uint64_t AuditFailureKeyword = 0x10000000000000, AuditSuccessKeyword = 0x20000000000000;
 		[[nodiscard]] bool IsAuditFailure() const;
 		[[nodiscard]] bool IsAuditSuccess() const;
-	};
-
-	// an event's data field ("TargetUserName", "zodia")
-	struct EventDataItem {
-		std::wstring Name, Value;
 	};
 
 	// gets the new events (on wevtapi's thread); a non-owning interface, as WinSys takes no std::function
@@ -50,7 +59,7 @@ namespace WinSys {
 		// when it syncs), at most maxEvents; nothing, with the last error set, if the channel can't be read (Security
 		// without elevation: ERROR_ACCESS_DENIED... or ERROR_PRIVILEGE_NOT_HELD)
 		[[nodiscard]] static std::optional<std::vector<EventLogEntry>> Query(std::wstring const& channel, uint8_t maxLevel,
-			uint32_t hours, size_t maxEvents);
+			uint32_t hours, size_t maxEvents, EventDataRead data = EventDataRead::None);
 		[[nodiscard]] static PCWSTR LevelName(uint8_t level);
 		// the level's name, or Audit Failure / Audit Success for the Security log's events
 		[[nodiscard]] static PCWSTR LevelText(EventLogEntry const& entry);
@@ -70,10 +79,11 @@ namespace WinSys {
 	public:
 		~EventLogWatcher();
 		// a subscription per channel to the events of the levels up to maxLevel written from now on; false (the last error
-		// set) if none could be made. The sink must outlive the watcher (Stop waits for a callback in progress)
-		bool Start(std::vector<std::wstring> const& channels, uint8_t maxLevel, EventLogSink& sink);
+		// set) if none could be made. The sink must outlive the watcher (Stop waits for a callback in progress). data: each
+		// event's data fields read too (EventLogEntry::Data)
+		bool Start(std::vector<std::wstring> const& channels, uint8_t maxLevel, EventLogSink& sink, bool data = false);
 		// the same with a query of the caller's per channel: (channel, XPath such as "*[System[EventID=7031]]")
-		bool Start(std::vector<std::pair<std::wstring, std::wstring>> const& queries, EventLogSink& sink);
+		bool Start(std::vector<std::pair<std::wstring, std::wstring>> const& queries, EventLogSink& sink, bool data = false);
 		void Stop();
 		[[nodiscard]] bool IsRunning() const;
 
