@@ -7,8 +7,11 @@
 #include <algorithm>
 #include <cwctype>
 #include <appmodel.h>
+#include <authz.h>
+#include <aclapi.h>
 
 #pragma comment(lib, "shlwapi")
+#pragma comment(lib, "authz")
 
 namespace WinSys {
 	namespace {
@@ -528,6 +531,105 @@ namespace WinSys {
 			return length > 0 && length <= _countof(expanded) ? expanded : text;
 		}
 
+		//
+		// Access checks as a standard user would get them (Authz): the current user's SID with Everyone, Authenticated
+		// Users, Users and Interactive, and none of its other groups (Administrators) or privileges (Backup, Restore),
+		// so an elevated caller sees what a limited one could do. Folders' results are cached.
+		//
+		class StandardUserCheck {
+		public:
+			StandardUserCheck() {
+				if (!::AuthzInitializeResourceManager(AUTHZ_RM_FLAG_NO_AUDIT, nullptr, nullptr, nullptr, nullptr, &m_Manager))
+					return;
+				// the user's SID, from the process token (the same user, elevated or not)
+				BYTE buffer[256];
+				DWORD size;
+				if (!::GetTokenInformation(::GetCurrentProcessToken(), TokenUser, buffer, sizeof(buffer), &size))
+					return;
+				auto user = reinterpret_cast<TOKEN_USER*>(buffer)->User.Sid;
+				AUTHZ_CLIENT_CONTEXT_HANDLE context;
+				if (!::AuthzInitializeContextFromSid(AUTHZ_SKIP_TOKEN_GROUPS, user, m_Manager, nullptr, {}, nullptr, &context))
+					return;
+				WELL_KNOWN_SID_TYPE groups[] = { WinWorldSid, WinAuthenticatedUserSid, WinBuiltinUsersSid, WinInteractiveSid };
+				BYTE sids[_countof(groups)][SECURITY_MAX_SID_SIZE];
+				SID_AND_ATTRIBUTES attributes[_countof(groups)];
+				for (int i = 0; i < _countof(groups); i++) {
+					DWORD length = SECURITY_MAX_SID_SIZE;
+					::CreateWellKnownSid(groups[i], nullptr, sids[i], &length);
+					attributes[i] = { sids[i], SE_GROUP_ENABLED | SE_GROUP_MANDATORY };
+				}
+				if (!::AuthzAddSidsToContext(context, attributes, _countof(groups), nullptr, 0, &m_Context))
+					m_Context = nullptr;
+				::AuthzFreeContext(context);
+			}
+			~StandardUserCheck() {
+				if (m_Context)
+					::AuthzFreeContext(m_Context);
+				if (m_Manager)
+					::AuthzFreeResourceManager(m_Manager);
+			}
+			StandardUserCheck(StandardUserCheck const&) = delete;
+			StandardUserCheck& operator=(StandardUserCheck const&) = delete;
+
+			bool Writable(std::wstring const& path) {
+				if (!m_Context || path.size() < 3)
+					return false;
+				auto attributes = ::GetFileAttributes(path.c_str());
+				auto slash = path.find_last_of(L'\\');
+				if (slash == std::wstring::npos)
+					return false;
+				auto folder = path.substr(0, slash);
+				if (attributes != INVALID_FILE_ATTRIBUTES) {
+					// write it, change its DACL or owner; or delete it (or any of the folder's) and create it again
+					auto file = Granted(path);
+					if (file & (FILE_WRITE_DATA | WRITE_DAC | WRITE_OWNER))
+						return true;
+					auto dir = GrantedFolder(folder);
+					return (dir & FILE_ADD_FILE) && ((file & DELETE) || (dir & FILE_DELETE_CHILD));
+				}
+				// missing: create it where it would be, or the folders on the way from the nearest that exists
+				bool immediate = true;
+				while (::GetFileAttributes(folder.c_str()) == INVALID_FILE_ATTRIBUTES) {
+					auto up = folder.find_last_of(L'\\');
+					if (up == std::wstring::npos || up < 2)
+						return false;
+					folder.resize(up);
+					immediate = false;
+				}
+				if (folder.size() == 2)
+					folder += L'\\';	// a drive's root
+				return (GrantedFolder(folder) & (immediate ? FILE_ADD_FILE : FILE_ADD_SUBDIRECTORY)) != 0;
+			}
+
+		private:
+			ACCESS_MASK GrantedFolder(std::wstring const& folder) {
+				auto key = Lower(folder);
+				if (auto it = m_Folders.find(key); it != m_Folders.end())
+					return it->second;
+				return m_Folders[key] = Granted(folder);
+			}
+
+			// what the security descriptor grants the context (MAXIMUM_ALLOWED); none if it can't be read
+			ACCESS_MASK Granted(std::wstring const& path) {
+				PSECURITY_DESCRIPTOR sd = nullptr;
+				if (::GetNamedSecurityInfo(path.c_str(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+					nullptr, nullptr, nullptr, nullptr, &sd) != ERROR_SUCCESS)
+					return 0;
+				AUTHZ_ACCESS_REQUEST request{ MAXIMUM_ALLOWED };
+				ACCESS_MASK granted = 0;
+				DWORD error = 0;
+				AUTHZ_ACCESS_REPLY reply{ 1, &granted, nullptr, &error };
+				if (!::AuthzAccessCheck(0, m_Context, &request, nullptr, sd, nullptr, 0, &reply, nullptr) || error != ERROR_SUCCESS)
+					granted = 0;
+				::LocalFree(sd);
+				return granted;
+			}
+
+			AUTHZ_RESOURCE_MANAGER_HANDLE m_Manager{ nullptr };
+			AUTHZ_CLIENT_CONTEXT_HANDLE m_Context{ nullptr };
+			std::unordered_map<std::wstring, ACCESS_MASK> m_Folders;
+		};
+
 		// a DLL's file (quotes taken off); its existence checked only for a full path (a bare name is searched for)
 		void SetServerFile(ComClassRegistration& c, std::wstring file) {
 			if (file.size() >= 2 && file.front() == L'"') {
@@ -537,6 +639,39 @@ namespace WinSys {
 			c.ServerFile = Expand(file, c.Wow64);
 			bool full = c.ServerFile.size() > 2 && (c.ServerFile[1] == L':' || c.ServerFile.starts_with(L"\\\\"));
 			c.ServerMissing = full && ::GetFileAttributes(ViewPath(c.ServerFile, c.Wow64).c_str()) == INVALID_FILE_ATTRIBUTES;
+		}
+
+		// the DLL a rundll32 command line runs: after the executable, quoted or up to the comma ("shell32.dll,Entry")
+		std::wstring RundllTarget(std::wstring const& commandLine) {
+			std::wstring_view rest(commandLine);
+			while (!rest.empty() && rest.front() == L' ')
+				rest.remove_prefix(1);
+			if (!rest.empty() && rest.front() == L'"') {
+				auto end = rest.find(L'"', 1);
+				rest = end == std::wstring_view::npos ? std::wstring_view() : rest.substr(end + 1);
+			}
+			else {
+				auto exe = Lower(rest).find(L".exe");
+				rest = exe == std::wstring::npos ? std::wstring_view() : rest.substr(exe + 4);
+			}
+			while (!rest.empty() && rest.front() == L' ')
+				rest.remove_prefix(1);
+			if (!rest.empty() && rest.front() == L'"') {
+				auto end = rest.find(L'"', 1);
+				return std::wstring(rest.substr(1, end == std::wstring_view::npos ? std::wstring_view::npos : end - 1));
+			}
+			return std::wstring(rest.substr(0, rest.find_first_of(L", ")));
+		}
+
+		// a bare name (found in System32) or a file in the Windows folder
+		bool IsSystemDll(std::wstring const& file) {
+			if (file.empty())
+				return false;
+			if (file.find(L'\\') == std::wstring::npos)
+				return true;
+			WCHAR windows[MAX_PATH];
+			auto length = ::GetWindowsDirectory(windows, _countof(windows));
+			return length && file.size() > length && ::_wcsnicmp(file.c_str(), windows, length) == 0 && file[length] == L'\\';
 		}
 
 		void ReadClass(HKEY key, ComClassRegistration& c, std::unordered_map<std::wstring, AppIdInfo> const& appIds) {
@@ -565,6 +700,9 @@ namespace WinSys {
 				// rpcss (64-bit) starts it: its System32 isn't redirected, as a 32-bit DLL's is
 				bool full = c.ServerFile.size() > 2 && c.ServerFile[1] == L':';
 				c.ServerMissing = full && ::GetFileAttributes(c.ServerFile.c_str()) == INVALID_FILE_ATTRIBUTES;
+				c.Interpreter = ComRegistry::InterpreterOf(c.ServerFile);
+				if (c.Interpreter == L"rundll32.exe")
+					c.InterpreterRunsSystemDll = IsSystemDll(RundllTarget(Expand(local, c.Wow64)));
 			}
 			else if (app && !app->ServiceName.empty()) {
 				c.Type = ComServerType::Service;
@@ -582,6 +720,12 @@ namespace WinSys {
 			}
 			if (!inproc.empty() || !handler.empty())
 				c.ThreadingModel = ReadString(key, inproc.empty() ? L"InprocHandler32" : L"InprocServer32", L"ThreadingModel");
+			// a scriptlet: scrobj.dll runs the script its ScriptletURL names (a file, or a URL)
+			if (auto slash = c.ServerFile.find_last_of(L'\\'); !inproc.empty()
+				&& ::_wcsicmp(c.ServerFile.c_str() + (slash == std::wstring::npos ? 0 : slash + 1), L"scrobj.dll") == 0) {
+				// none: the scriptlet engine's own classes (the runtime, its factories)
+				c.ScriptletUrl = ReadString(key, L"ScriptletURL", nullptr);
+			}
 		}
 
 		// a root's CLSID key's classes (HKLM\Software\Classes or HKCU\Software\Classes)
@@ -602,15 +746,14 @@ namespace WinSys {
 				c.Wow64 = wow64;
 				c.PerUser = perUser;
 				ReadClass(key, c, appIds);
-				if (auto it = byClsid.find(c.Clsid); it != byClsid.end()) {
-					// the user's replaces the machine's (as HKCR merges them)
+				// the user's hides the machine's in HKCR; both are kept (each hive's registrations shown apart)
+				if (auto it = byClsid.find(c.Clsid); perUser && it != byClsid.end()) {
 					c.OverridesMachine = true;
-					classes[it->second] = std::move(c);
+					classes[it->second].OverriddenByUser = true;
 				}
-				else {
+				else if (!perUser)
 					byClsid[c.Clsid] = classes.size();
-					classes.push_back(std::move(c));
-				}
+				classes.push_back(std::move(c));
 			}
 		}
 
@@ -681,7 +824,39 @@ namespace WinSys {
 		ReadClasses(HKEY_CURRENT_USER, wow64, true, appIds, classes, byClsid);
 		if (!wow64)
 			ReadPackagedClasses(classes);
+		// a machine-wide class's server a standard user could replace (a per-user class runs that user's own code
+		// anyway; a package's folder is the system's)
+		StandardUserCheck check;
+		std::unordered_map<std::wstring, bool> files;
+		for (auto& c : classes) {
+			if (c.PerUser || !c.Package.empty() || c.ServerFile.size() < 3 || c.ServerFile[1] != L':')
+				continue;
+			auto path = c.Type == ComServerType::LocalServer ? c.ServerFile : ViewPath(c.ServerFile, c.Wow64);
+			auto key = Lower(path);
+			auto it = files.find(key);
+			if (it == files.end())
+				it = files.emplace(key, check.Writable(path)).first;
+			c.ServerWritable = it->second;
+		}
 		return classes;
+	}
+
+	bool ComRegistry::IsWritableByUsers(std::wstring const& path) {
+		StandardUserCheck check;
+		return check.Writable(path);
+	}
+
+	std::wstring ComRegistry::InterpreterOf(std::wstring const& file) {
+		static const PCWSTR interpreters[] = {
+			L"rundll32.exe", L"regsvr32.exe", L"powershell.exe", L"pwsh.exe", L"cmd.exe", L"mshta.exe", L"wscript.exe",
+			L"cscript.exe", L"msiexec.exe", L"conhost.exe",
+		};
+		auto slash = file.find_last_of(L"\\/");
+		auto name = Lower(slash == std::wstring::npos ? file : file.substr(slash + 1));
+		for (auto i : interpreters)
+			if (name == i)
+				return name;
+		return L"";
 	}
 
 	PCWSTR ComRegistry::TypeText(ComServerType type) {

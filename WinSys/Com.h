@@ -74,12 +74,30 @@ namespace WinSys {
 		bool Wow64{ false };		// the 32-bit view's
 		bool PerUser{ false };		// in HKCU\Software\Classes
 		bool OverridesMachine{ false };	// per user, and HKLM has the class too: the user's is the one used
+		bool OverriddenByUser{ false };	// the machine's, hidden (in HKCR) by the user's (which has OverridesMachine)
+		// a machine-wide class whose server a standard user can replace: the file (or its folder lets it be deleted
+		// and created again), or, missing, the folder it would be created in (IsWritableByUsers)
+		bool ServerWritable{ false };
+		std::wstring ScriptletUrl;	// the server is scrobj.dll: the scriptlet it runs (ScriptletURL; may be remote)
+		std::wstring Interpreter;	// a local server that runs an interpreter (rundll32.exe, powershell.exe...): its name
+		// rundll32.exe running a DLL of Windows' own (a bare name, or in the Windows folder), as Windows' own local
+		// servers do (shell32.dll,SHCreateLocalServerRunDll)
+		bool InterpreterRunsSystemDll{ false };
 	};
 
 	struct ComRegistry final {
-		// every registered class of the view, the user's over the machine's (marked), then (the 64-bit view) the
-		// packaged ones. Reads the registry: about 8,000 classes, a second or two
+		// every registered class of the view: the machine's and the user's (both when they have the same CLSID, marked:
+		// HKCR shows the user's), then (the 64-bit view) the packaged ones. Reads the registry and the machine-wide
+		// servers' folders' security: about 8,000 classes, a second or two
 		[[nodiscard]] static std::vector<ComClassRegistration> EnumClasses(bool wow64);
+		// a standard user (the current user's SID with Everyone, Authenticated Users, Users and Interactive, not its
+		// admin groups or privileges) could replace the file: write it (or its DACL or owner), or delete it and create
+		// it again in its folder; a missing one: create it, in its folder or in a folder made on the way. false if the
+		// security can't be read
+		[[nodiscard]] static bool IsWritableByUsers(std::wstring const& path);
+		// rundll32.exe, powershell.exe, cmd.exe, mshta.exe...: a local server's executable that runs other code (the
+		// file name, lower case); empty if it isn't one
+		[[nodiscard]] static std::wstring InterpreterOf(std::wstring const& file);
 		// "In-process", "Local server", "Surrogate (dllhost)"...
 		[[nodiscard]] static PCWSTR TypeText(ComServerType type);
 		// an AppID's LaunchPermission or AccessPermission (a self-relative security descriptor), else the machine's
