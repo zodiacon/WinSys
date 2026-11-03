@@ -138,6 +138,9 @@
     <ClInclude Include="ThermalZones.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Wsl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="WaitChain.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -348,6 +351,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ThermalZones.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Wsl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WaitChain.cpp">

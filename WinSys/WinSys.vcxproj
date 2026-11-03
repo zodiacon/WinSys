@@ -196,6 +196,7 @@
     <ClInclude Include="Firewall.h" />
     <ClInclude Include="Battery.h" />
     <ClInclude Include="ThermalZones.h" />
+    <ClInclude Include="Wsl.h" />
     <ClInclude Include="WaitChain.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="Zombies.h" />
@@ -273,6 +274,7 @@
     <ClCompile Include="Firewall.cpp" />
     <ClCompile Include="Battery.cpp" />
     <ClCompile Include="ThermalZones.cpp" />
+    <ClCompile Include="Wsl.cpp" />
     <ClCompile Include="WaitChain.cpp" />
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="Zombies.cpp" />
