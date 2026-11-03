@@ -195,6 +195,7 @@
     <ClInclude Include="Packages.h" />
     <ClInclude Include="UnloadedModules.h" />
     <ClInclude Include="Firewall.h" />
+    <ClInclude Include="Com.h" />
     <ClInclude Include="Battery.h" />
     <ClInclude Include="ThermalZones.h" />
     <ClInclude Include="Wsl.h" />
@@ -274,6 +275,7 @@
     <ClCompile Include="Packages.cpp" />
     <ClCompile Include="UnloadedModules.cpp" />
     <ClCompile Include="Firewall.cpp" />
+    <ClCompile Include="Com.cpp" />
     <ClCompile Include="Battery.cpp" />
     <ClCompile Include="ThermalZones.cpp" />
     <ClCompile Include="Wsl.cpp" />

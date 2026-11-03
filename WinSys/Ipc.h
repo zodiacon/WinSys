@@ -71,6 +71,10 @@ namespace WinSys {
 		// a well-known RPC interface's name (the SCM, LSA, the endpoint mapper...), else a COM interface's from the
 		// registry (HKCR\Interface); empty if neither knows it. Reads the registry: callers should cache
 		[[nodiscard]] static std::wstring GetInterfaceName(GUID const& iface);
+		// a COM call: RPC to a COM apartment's endpoint (ncalrpc "OLE" and hex digits, 28 of them here, which the server's object
+		// exporter listens on), or to COM's activation and OXID resolution in rpcss (ISCMLocalActivator,
+		// IRemoteSCMActivator, IActivation, IObjectExporter, ILocalObjectExporter)
+		[[nodiscard]] static bool IsComCall(IpcLink const& link);
 
 	private:
 		struct Counter {
