@@ -83,6 +83,13 @@ namespace WinSys {
 		// rundll32.exe running a DLL of Windows' own (a bare name, or in the Windows folder), as Windows' own local
 		// servers do (shell32.dll,SHCreateLocalServerRunDll)
 		bool InterpreterRunsSystemDll{ false };
+		int64_t LastWrite{ 0 };		// FILETIME: the class's key last written (an install, an update, a hijack)
+		std::wstring TreatAs;		// {...}: COM creates that class instead (TreatAs); empty if none
+		bool ElevationEnabled{ false };	// Elevation\Enabled: the elevation moniker may create it elevated
+		bool AutoApproved{ false };	// in UAC's COMAutoApprovalList: elevated without a prompt
+		// the user's ProgIDs that point at this class where the machine's same ProgIDs point at another: "ProgID (the
+		// machine's: {...})", joined with "; " (a ProgID hijack doesn't touch the class's own key)
+		std::wstring RedirectedProgIds;
 	};
 
 	struct ComRegistry final {

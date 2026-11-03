@@ -6,6 +6,7 @@
 #include <wil/com.h>
 #include <algorithm>
 #include <cwctype>
+#include <unordered_set>
 #include <appmodel.h>
 #include <authz.h>
 #include <aclapi.h>
@@ -677,6 +678,11 @@ namespace WinSys {
 		void ReadClass(HKEY key, ComClassRegistration& c, std::unordered_map<std::wstring, AppIdInfo> const& appIds) {
 			c.Name = ResolveIndirect(ReadString(key, nullptr, nullptr));
 			c.ProgId = ReadString(key, L"ProgID", nullptr);
+			FILETIME written{};
+			if (::RegQueryInfoKey(key, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &written) == ERROR_SUCCESS)
+				c.LastWrite = ((int64_t)written.dwHighDateTime << 32) | written.dwLowDateTime;
+			c.TreatAs = Upper(ReadString(key, L"TreatAs", nullptr));
+			c.ElevationEnabled = ReadDword(key, L"Elevation", L"Enabled", 0) != 0;
 			// RegGetValue would expand REG_EXPAND_SZ: the values as registered are read without that
 			auto inproc = ReadString(key, L"InprocServer32", nullptr, RRF_NOEXPAND);
 			auto local = ReadString(key, L"LocalServer32", nullptr, RRF_NOEXPAND);
@@ -824,6 +830,48 @@ namespace WinSys {
 		ReadClasses(HKEY_CURRENT_USER, wow64, true, appIds, classes, byClsid);
 		if (!wow64)
 			ReadPackagedClasses(classes);
+		// the classes UAC elevates without a prompt (its list is in the 64-bit view only, for both)
+		if (auto list = OpenKey(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\UAC\\COMAutoApprovalList", false)) {
+			std::unordered_set<std::wstring> approved;
+			WCHAR name[128];
+			for (DWORD i = 0; ; i++) {
+				DWORD length = _countof(name), type, data = 0, size = sizeof(data);
+				auto error = ::RegEnumValue(list.get(), i, name, &length, nullptr, &type, (BYTE*)&data, &size);
+				if (error == ERROR_MORE_DATA)
+					continue;
+				if (error != ERROR_SUCCESS)
+					break;
+				if (type == REG_DWORD && data)
+					approved.insert(Upper(name));
+			}
+			for (auto& c : classes)
+				c.AutoApproved = c.ElevationEnabled && !c.PerUser && approved.contains(c.Clsid);
+		}
+		// the user's ProgIDs that point elsewhere than the machine's same ProgIDs do (HKCR gives the user's)
+		if (auto user = OpenKey(HKEY_CURRENT_USER, L"Software\\Classes", wow64)) {
+			std::unordered_map<std::wstring, std::vector<size_t>> byClsid;
+			for (size_t i = 0; i < classes.size(); i++)
+				if (!classes[i].OverriddenByUser)
+					byClsid[classes[i].Clsid].push_back(i);
+			auto machine = OpenKey(HKEY_LOCAL_MACHINE, L"Software\\Classes", wow64);
+			for (auto& name : SubKeys(user.get())) {
+				// file extensions, CLSID itself, and the like aren't ProgIDs
+				if (name.empty() || name[0] == L'.' || name[0] == L'{' || ::_wcsicmp(name.c_str(), L"CLSID") == 0
+					|| ::_wcsicmp(name.c_str(), L"WOW6432Node") == 0 || ::_wcsicmp(name.c_str(), L"AppID") == 0)
+					continue;
+				auto target = Upper(ReadString(user.get(), (name + L"\\CLSID").c_str(), nullptr));
+				if (target.empty() || !machine)
+					continue;
+				auto original = Upper(ReadString(machine.get(), (name + L"\\CLSID").c_str(), nullptr));
+				if (original.empty() || original == target)
+					continue;
+				if (auto it = byClsid.find(target); it != byClsid.end())
+					for (auto i : it->second) {
+						auto& text = classes[i].RedirectedProgIds;
+						text += (text.empty() ? L"" : L"; ") + name + L" (the machine's: " + original + L")";
+					}
+			}
+		}
 		// a machine-wide class's server a standard user could replace (a per-user class runs that user's own code
 		// anyway; a package's folder is the system's)
 		StandardUserCheck check;
