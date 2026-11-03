@@ -6,6 +6,7 @@
 #include <wil/com.h>
 #include <algorithm>
 #include <cwctype>
+#include <appmodel.h>
 
 #pragma comment(lib, "shlwapi")
 
@@ -204,6 +205,36 @@ namespace WinSys {
 			return true;
 		}
 
+		// a packaged local server (-RegisterProcessAsComServer and the like): the process's package's server
+		// (HKCR\PackagedCom\Package\<package>\Server\<n>) whose Executable, relative to the package, ends its image path
+		bool FindPackagedServer(ComServerInfo& info, std::wstring const& package, std::wstring_view imagePath, bool wow64) {
+			auto base = L"PackagedCom\\Package\\" + package;
+			auto servers = OpenKey(HKEY_CLASSES_ROOT, base + L"\\Server", wow64);
+			if (!servers)
+				return false;
+			auto image = Lower(imagePath);
+			for (auto& name : SubKeys(servers.get())) {
+				auto executable = Lower(ReadString(servers.get(), name.c_str(), L"Executable"));
+				if (executable.empty() || image.size() <= executable.size() || !image.ends_with(executable)
+					|| image[image.size() - executable.size() - 1] != L'\\')
+					continue;
+				info.Registration = ComRegistration::Packaged;
+				info.Package = package;
+				info.Name = ResolveIndirect(ReadString(servers.get(), name.c_str(), L"DisplayName"));
+				if (info.Name.empty())
+					info.Name = ResolveIndirect(ReadString(servers.get(), name.c_str(), L"ApplicationDisplayName"));
+				if (info.Name.empty())
+					info.Name = package.substr(0, package.find(L'_'));
+				auto server = (DWORD)_wtoi(name.c_str());
+				if (auto classes = OpenKey(HKEY_CLASSES_ROOT, base + L"\\Class", wow64))
+					for (auto& clsid : SubKeys(classes.get()))
+						if (ReadDword(classes.get(), clsid.c_str(), L"ServerId", 0) == server)
+							info.Classes++;
+				return true;
+			}
+			return false;
+		}
+
 		std::wstring VariantText(VARIANT& v) {
 			std::wstring text;
 			if (v.vt == VT_BSTR && v.bstrVal)
@@ -345,7 +376,7 @@ namespace WinSys {
 		return GetIndex(false, false).Classes.size();
 	}
 
-	ComServerInfo ComServers::Identify(std::wstring_view commandLine, std::wstring_view imagePath, bool wow64) {
+	ComServerInfo ComServers::Identify(std::wstring_view commandLine, std::wstring_view imagePath, bool wow64, std::wstring_view packageFullName) {
 		ComServerInfo info;
 		info.Kind = ParseCommandLine(commandLine, info.Id);
 		auto flag = ViewFlag(wow64);
@@ -402,8 +433,11 @@ namespace WinSys {
 				}
 				else {
 					auto classes = FindClasses(wow64, &ClassIndex::ByLocalServer, Lower(imagePath));
-					if (classes.empty())
+					if (classes.empty()) {
+						if (!packageFullName.empty())
+							FindPackagedServer(info, std::wstring(packageFullName), imagePath, wow64);
 						break;
+					}
 					info.Registration = ComRegistration::Classic;
 					info.Classes = (uint32_t)classes.size();
 					// the app ID they share names them, else the class if there's one (which of several started the
@@ -421,5 +455,266 @@ namespace WinSys {
 				break;
 		}
 		return info;
+	}
+}
+
+namespace WinSys {
+	namespace {
+		struct AppIdInfo {
+			std::wstring Name, ServiceName, RunAs;
+			bool Surrogate{ false };	// DllSurrogate is there (empty: dllhost.exe)
+			bool Launch{ false }, Access{ false };
+		};
+
+		bool HasValue(HKEY key, PCWSTR value) {
+			return ::RegQueryValueEx(key, value, nullptr, nullptr, nullptr, nullptr) == ERROR_SUCCESS;
+		}
+
+		// the view's app IDs (HKCR\AppID: the machine's and the user's merged), by upper-case ID
+		std::unordered_map<std::wstring, AppIdInfo> ReadAppIds(bool wow64) {
+			std::unordered_map<std::wstring, AppIdInfo> ids;
+			auto root = OpenKey(HKEY_CLASSES_ROOT, L"AppID", wow64);
+			if (!root)
+				return ids;
+			for (auto& name : SubKeys(root.get())) {
+				if (name.empty() || name[0] != L'{')
+					continue;	// the executables' names (dllhost.exe), which point at an AppID
+				HKEY key;
+				if (::RegOpenKeyEx(root.get(), name.c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS)
+					continue;
+				wil::unique_hkey hold(key);
+				AppIdInfo info;
+				info.Name = ResolveIndirect(ReadString(key, nullptr, nullptr));
+				info.ServiceName = ReadString(key, nullptr, L"LocalService");
+				info.RunAs = ReadString(key, nullptr, L"RunAs");
+				info.Surrogate = HasValue(key, L"DllSurrogate");
+				info.Launch = HasValue(key, L"LaunchPermission");
+				info.Access = HasValue(key, L"AccessPermission");
+				ids[Upper(name)] = std::move(info);
+			}
+			return ids;
+		}
+
+		// a 32-bit class's System32 is SysWOW64 (the file system's redirection, which this 64-bit process doesn't get)
+		std::wstring ViewPath(std::wstring const& path, bool wow64) {
+			if (!wow64)
+				return path;
+			WCHAR system[MAX_PATH];
+			auto length = ::GetSystemDirectory(system, _countof(system));
+			if (length == 0 || path.size() < length || ::_wcsnicmp(path.c_str(), system, length) != 0
+				|| (path.size() > length && path[length] != L'\\'))
+				return path;
+			WCHAR wow[MAX_PATH];
+			if (!::GetSystemWow64Directory(wow, _countof(wow)))
+				return path;
+			return wow + path.substr(length);
+		}
+
+		// environment variables expanded as the view's processes have them: a 32-bit process's %ProgramFiles% and
+		// %CommonProgramFiles% are the (x86) folders (a 32-bit installer's REG_EXPAND_SZ values use them so)
+		std::wstring Expand(std::wstring text, bool wow64) {
+			if (text.find(L'%') == std::wstring::npos)
+				return text;
+			if (wow64) {
+				for (auto [name, x86] : { std::pair{ L"%programfiles%", L"%ProgramFiles(x86)%" },
+					std::pair{ L"%commonprogramfiles%", L"%CommonProgramFiles(x86)%" } }) {
+					auto lower = Lower(text);
+					if (auto at = lower.find(name); at != std::wstring::npos)
+						text.replace(at, wcslen(name), x86);
+				}
+			}
+			WCHAR expanded[MAX_PATH * 2];
+			auto length = ::ExpandEnvironmentStrings(text.c_str(), expanded, _countof(expanded));
+			return length > 0 && length <= _countof(expanded) ? expanded : text;
+		}
+
+		// a DLL's file (quotes taken off); its existence checked only for a full path (a bare name is searched for)
+		void SetServerFile(ComClassRegistration& c, std::wstring file) {
+			if (file.size() >= 2 && file.front() == L'"') {
+				auto end = file.find(L'"', 1);
+				file = file.substr(1, end == std::wstring::npos ? std::wstring::npos : end - 1);
+			}
+			c.ServerFile = Expand(file, c.Wow64);
+			bool full = c.ServerFile.size() > 2 && (c.ServerFile[1] == L':' || c.ServerFile.starts_with(L"\\\\"));
+			c.ServerMissing = full && ::GetFileAttributes(ViewPath(c.ServerFile, c.Wow64).c_str()) == INVALID_FILE_ATTRIBUTES;
+		}
+
+		void ReadClass(HKEY key, ComClassRegistration& c, std::unordered_map<std::wstring, AppIdInfo> const& appIds) {
+			c.Name = ResolveIndirect(ReadString(key, nullptr, nullptr));
+			c.ProgId = ReadString(key, L"ProgID", nullptr);
+			// RegGetValue would expand REG_EXPAND_SZ: the values as registered are read without that
+			auto inproc = ReadString(key, L"InprocServer32", nullptr, RRF_NOEXPAND);
+			auto local = ReadString(key, L"LocalServer32", nullptr, RRF_NOEXPAND);
+			auto handler = ReadString(key, L"InprocHandler32", nullptr, RRF_NOEXPAND);
+			c.AppId = Upper(ReadString(key, nullptr, L"AppID"));
+			AppIdInfo const* app = nullptr;
+			if (!c.AppId.empty())
+				if (auto it = appIds.find(c.AppId); it != appIds.end())
+					app = &it->second;
+			if (app) {
+				c.AppIdName = app->Name;
+				c.ServiceName = app->ServiceName;
+				c.RunAs = app->RunAs;
+				c.HasLaunchPermission = app->Launch;
+				c.HasAccessPermission = app->Access;
+			}
+			if (!local.empty()) {
+				c.Type = ComServerType::LocalServer;
+				c.Server = local;
+				c.ServerFile = ComServers::ServerPath(Expand(local, c.Wow64));
+				// rpcss (64-bit) starts it: its System32 isn't redirected, as a 32-bit DLL's is
+				bool full = c.ServerFile.size() > 2 && c.ServerFile[1] == L':';
+				c.ServerMissing = full && ::GetFileAttributes(c.ServerFile.c_str()) == INVALID_FILE_ATTRIBUTES;
+			}
+			else if (app && !app->ServiceName.empty()) {
+				c.Type = ComServerType::Service;
+				c.Server = app->ServiceName;
+			}
+			else if (!inproc.empty()) {
+				c.Type = app && app->Surrogate ? ComServerType::Surrogate : ComServerType::InProc;
+				c.Server = inproc;
+				SetServerFile(c, inproc);
+			}
+			else if (!handler.empty()) {
+				c.Type = ComServerType::Handler;
+				c.Server = handler;
+				SetServerFile(c, handler);
+			}
+			if (!inproc.empty() || !handler.empty())
+				c.ThreadingModel = ReadString(key, inproc.empty() ? L"InprocHandler32" : L"InprocServer32", L"ThreadingModel");
+		}
+
+		// a root's CLSID key's classes (HKLM\Software\Classes or HKCU\Software\Classes)
+		void ReadClasses(HKEY root, bool wow64, bool perUser, std::unordered_map<std::wstring, AppIdInfo> const& appIds,
+			std::vector<ComClassRegistration>& classes, std::unordered_map<std::wstring, size_t>& byClsid) {
+			auto clsid = OpenKey(root, L"Software\\Classes\\CLSID", wow64);
+			if (!clsid)
+				return;
+			for (auto& name : SubKeys(clsid.get())) {
+				if (name.empty() || name[0] != L'{')
+					continue;	// CLSID's own values' keys (none usually)
+				HKEY key;
+				if (::RegOpenKeyEx(clsid.get(), name.c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS)
+					continue;
+				wil::unique_hkey hold(key);
+				ComClassRegistration c;
+				c.Clsid = Upper(name);
+				c.Wow64 = wow64;
+				c.PerUser = perUser;
+				ReadClass(key, c, appIds);
+				if (auto it = byClsid.find(c.Clsid); it != byClsid.end()) {
+					// the user's replaces the machine's (as HKCR merges them)
+					c.OverridesMachine = true;
+					classes[it->second] = std::move(c);
+				}
+				else {
+					byClsid[c.Clsid] = classes.size();
+					classes.push_back(std::move(c));
+				}
+			}
+		}
+
+		// HKCR\PackagedCom\Package\<package>: each class, with its server (a surrogate's or an executable)
+		void ReadPackagedClasses(std::vector<ComClassRegistration>& classes) {
+			auto packages = OpenKey(HKEY_CLASSES_ROOT, L"PackagedCom\\Package", false);
+			if (!packages)
+				return;
+			for (auto& package : SubKeys(packages.get())) {
+				WCHAR path[MAX_PATH * 2];
+				UINT32 length = _countof(path);
+				std::wstring folder = ::GetPackagePathByFullName(package.c_str(), &length, path) == ERROR_SUCCESS ? path : L"";
+				struct Server {
+					std::wstring Name, Executable, SurrogateAppId;
+				};
+				std::unordered_map<DWORD, Server> servers;
+				if (auto key = OpenKey(packages.get(), package + L"\\Server", false))
+					for (auto& n : SubKeys(key.get())) {
+						Server s;
+						s.Name = ResolveIndirect(ReadString(key.get(), n.c_str(), L"DisplayName"));
+						s.Executable = ReadString(key.get(), n.c_str(), L"Executable");
+						s.SurrogateAppId = ReadString(key.get(), n.c_str(), L"SurrogateAppId");
+						servers[(DWORD)_wtoi(n.c_str())] = std::move(s);
+					}
+				auto key = OpenKey(packages.get(), package + L"\\Class", false);
+				if (!key)
+					continue;
+				for (auto& clsid : SubKeys(key.get())) {
+					ComClassRegistration c;
+					c.Clsid = Upper(clsid);
+					c.Package = package;
+					auto dll = ReadString(key.get(), clsid.c_str(), L"DllPath");
+					auto it = servers.find(ReadDword(key.get(), clsid.c_str(), L"ServerId", 0));
+					auto server = it != servers.end() ? &it->second : nullptr;
+					if (server) {
+						c.Name = server->Name;
+						c.AppId = Upper(server->SurrogateAppId);
+					}
+					std::wstring file;
+					if (server && !server->Executable.empty()) {
+						c.Type = ComServerType::LocalServer;
+						file = server->Executable;
+					}
+					else if (!dll.empty()) {
+						c.Type = server && !server->SurrogateAppId.empty() ? ComServerType::Surrogate : ComServerType::InProc;
+						file = dll;
+					}
+					c.Server = file;
+					// relative to the package's folder
+					if (!file.empty() && !folder.empty() && !(file.size() > 2 && file[1] == L':'))
+						file = folder + L"\\" + file;
+					if (!file.empty())
+						SetServerFile(c, file);
+					if (c.Name.empty())
+						c.Name = package.substr(0, package.find(L'_'));
+					classes.push_back(std::move(c));
+				}
+			}
+		}
+	}
+
+	std::vector<ComClassRegistration> ComRegistry::EnumClasses(bool wow64) {
+		auto appIds = ReadAppIds(wow64);
+		std::vector<ComClassRegistration> classes;
+		std::unordered_map<std::wstring, size_t> byClsid;
+		classes.reserve(10000);
+		ReadClasses(HKEY_LOCAL_MACHINE, wow64, false, appIds, classes, byClsid);
+		ReadClasses(HKEY_CURRENT_USER, wow64, true, appIds, classes, byClsid);
+		if (!wow64)
+			ReadPackagedClasses(classes);
+		return classes;
+	}
+
+	PCWSTR ComRegistry::TypeText(ComServerType type) {
+		switch (type) {
+			case ComServerType::InProc: return L"In-process";
+			case ComServerType::Handler: return L"In-process handler";
+			case ComServerType::LocalServer: return L"Local server";
+			case ComServerType::Surrogate: return L"Surrogate (dllhost)";
+			case ComServerType::Service: return L"Service";
+		}
+		return L"Other";
+	}
+
+	std::vector<uint8_t> ComRegistry::GetPermission(std::wstring const& appId, bool launch, bool wow64, bool& isDefault) {
+		auto read = [](HKEY root, std::wstring const& path, PCWSTR value, bool wow64) {
+			std::vector<uint8_t> data;
+			auto key = OpenKey(root, path, wow64);
+			DWORD size = 0;
+			if (!key || ::RegQueryValueEx(key.get(), value, nullptr, nullptr, nullptr, &size) != ERROR_SUCCESS || size == 0)
+				return data;
+			data.resize(size);
+			if (::RegQueryValueEx(key.get(), value, nullptr, nullptr, data.data(), &size) != ERROR_SUCCESS
+				|| !::IsValidSecurityDescriptor(data.data()))
+				data.clear();
+			return data;
+		};
+		isDefault = false;
+		if (!appId.empty()) {
+			auto sd = read(HKEY_CLASSES_ROOT, L"AppID\\" + appId, launch ? L"LaunchPermission" : L"AccessPermission", wow64);
+			if (!sd.empty())
+				return sd;
+		}
+		isDefault = true;
+		return read(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Ole", launch ? L"DefaultLaunchPermission" : L"DefaultAccessPermission", false);
 	}
 }
