@@ -33,6 +33,15 @@ namespace WinSys {
 		[[nodiscard]] int64_t StartTime(double uptimeSeconds, int64_t readTime, uint32_t clockTicks) const;
 	};
 
+	// a thread of a Linux process, from /proc/<pid>/task/<tid>/stat (the main thread's ID is the process's)
+	struct WslThread {
+		uint32_t Tid{ 0 }, Pid{ 0 };
+		std::wstring Name;		// its comm (the process's unless the thread named itself)
+		wchar_t State{ L'?' };
+		uint64_t UserTicks{ 0 }, SystemTicks{ 0 };
+		uint64_t StartTicks{ 0 };
+	};
+
 	// what the helper says once, when it starts
 	struct WslSystem {
 		uint32_t ClockTicks{ 100 }, Processors{ 1 }, PageSize{ 4096 };
@@ -47,6 +56,9 @@ namespace WinSys {
 		uint64_t MemTotal{ 0 }, MemAvailable{ 0 };	// bytes (the VM's, shared by its distributions)
 		int64_t ReadTime{ 0 };	// FILETIME, when the frame arrived
 		std::vector<WslProcess> Processes;
+		// the processes' threads, when the request asked for them (HasThreads)
+		bool HasThreads{ false };
+		std::vector<WslThread> Threads;
 	};
 
 	//
@@ -54,7 +66,8 @@ namespace WinSys {
 	// system's constants and users once ("#K <clock ticks> <processors> <page size> <its PID>", "#P" and /etc/passwd,
 	// "#R"), then a frame for every line it reads ("#F" uptime, /proc/stat's cpu line, MemTotal and MemAvailable; "#S"
 	// every /proc/<pid>/stat; "#U" every Uid line of /proc/<pid>/status, by grep -H; "#C" every cmdline by head -c 512,
-	// with head's "==> file <==" headers and the NULs made spaces; "#E"). It ends when its input closes.
+	// with head's "==> file <==" headers and the NULs made spaces; for a request line "t", "#T" and every
+	// /proc/<pid>/task/<tid>/stat by head -n 1, with its headers; "#E"). It ends when its input closes.
 	//
 	struct WslProtocol final {
 		// the script for /bin/sh -c: one line without double quotes, so it goes through wsl.exe's command line as one
@@ -108,8 +121,8 @@ namespace WinSys {
 		}
 		// the start's constants and users; nothing until the helper said them
 		[[nodiscard]] std::optional<WslSystem> GetSystem() const;
-		// asks the helper for a frame
-		void Request();
+		// asks the helper for a frame, with the processes' threads or not
+		void Request(bool threads = false);
 		// the last frame that arrived since the last call; nothing if none did
 		[[nodiscard]] std::optional<WslFrame> TakeFrame();
 

@@ -150,6 +150,7 @@ namespace WinSys {
 			L"echo '#S'; cat /proc/[0-9]*/stat 2>/dev/null; "
 			L"echo '#U'; grep -H '^Uid' /proc/[0-9]*/status 2>/dev/null; "
 			L"echo '#C'; head -c 512 /proc/[0-9]*/cmdline 2>/dev/null | tr '\\0' ' '; echo; "
+			L"case $x in t) echo '#T'; head -n 1 /proc/[0-9]*/task/[0-9]*/stat 2>/dev/null;; esac; "
 			L"echo '#E'; done";
 	}
 
@@ -212,10 +213,10 @@ namespace WinSys {
 		WslFrame frame;
 		std::unordered_map<uint32_t, uint32_t> uids;
 		std::unordered_map<uint32_t, std::wstring> commandLines;
-		enum class Section { None, Header, Stat, Uid, Cmdline } section = Section::None;
+		enum class Section { None, Header, Stat, Uid, Cmdline, Thread } section = Section::None;
 		std::string_view line;
 		bool ended = false, header = false;
-		uint32_t cmdlinePid = 0;
+		uint32_t cmdlinePid = 0, threadPid = 0;
 		std::string cmdline;
 		auto flushCmdline = [&] {
 			if (cmdlinePid) {
@@ -232,10 +233,13 @@ namespace WinSys {
 				header = true;
 				continue;
 			}
-			if (line == "#S" || line == "#U" || line == "#C" || line == "#E") {
+			if (line == "#S" || line == "#U" || line == "#C" || line == "#T" || line == "#E") {
 				if (section == Section::Cmdline)
 					flushCmdline();
-				section = line == "#S" ? Section::Stat : line == "#U" ? Section::Uid : line == "#C" ? Section::Cmdline : Section::None;
+				section = line == "#S" ? Section::Stat : line == "#U" ? Section::Uid : line == "#C" ? Section::Cmdline
+					: line == "#T" ? Section::Thread : Section::None;
+				if (line == "#T")
+					frame.HasThreads = true;
 				if (line == "#E") {
 					ended = true;
 					break;
@@ -293,6 +297,16 @@ namespace WinSys {
 						cmdline += line;
 					}
 					break;
+				case Section::Thread:
+					// "==> /proc/123/task/456/stat <==", then the thread's stat line (its first field the thread's ID)
+					if (line.starts_with("==> /proc/") && line.ends_with(" <=="))
+						threadPid = PidOfPath(line.substr(4));
+					else if (threadPid) {
+						if (auto t = ParseStat(line, system.PageSize))
+							frame.Threads.push_back({ t->Pid, threadPid, std::move(t->Name), t->State, t->UserTicks, t->SystemTicks, t->StartTicks });
+						threadPid = 0;
+					}
+					break;
 			}
 		}
 		if (!ended || !header)
@@ -317,6 +331,7 @@ namespace WinSys {
 			}
 		}
 		std::erase_if(frame.Processes, [&](auto& p) { return hidden.contains(p.Pid); });
+		std::erase_if(frame.Threads, [&](auto& t) { return hidden.contains(t.Pid); });
 		for (auto& p : frame.Processes) {
 			if (auto it = uids.find(p.Pid); it != uids.end()) {
 				p.Uid = it->second;
@@ -486,11 +501,11 @@ namespace WinSys {
 		return m_System;
 	}
 
-	void WslProcessMonitor::Request() {
+	void WslProcessMonitor::Request(bool threads) {
 		if (!m_Input)
 			return;
 		DWORD written;
-		if (!::WriteFile(m_Input.get(), "\n", 1, &written, nullptr))
+		if (!::WriteFile(m_Input.get(), threads ? "t\n" : "\n", threads ? 2 : 1, &written, nullptr))
 			m_Input.reset();
 	}
 
