@@ -184,6 +184,7 @@
     <ClInclude Include="EtwSession.h" />
     <ClInclude Include="Ipc.h" />
     <ClInclude Include="FileIo.h" />
+    <ClInclude Include="RegistryIo.h" />
     <ClInclude Include="ProcessorFrequency.h" />
     <ClInclude Include="MemoryLists.h" />
     <ClInclude Include="PhysicalMemory.h" />
@@ -262,6 +263,7 @@
     <ClCompile Include="ProcessNetwork.cpp" />
     <ClCompile Include="Ipc.cpp" />
     <ClCompile Include="FileIo.cpp" />
+    <ClCompile Include="RegistryIo.cpp" />
     <ClCompile Include="ProcessorFrequency.cpp" />
     <ClCompile Include="MemoryLists.cpp" />
     <ClCompile Include="PhysicalMemory.cpp" />
