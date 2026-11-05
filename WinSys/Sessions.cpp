@@ -31,7 +31,7 @@ std::vector<SessionInfo> SessionManager::EnumSessions(bool details) {
 	PWTS_SESSION_INFO_1 info = nullptr;
 	if (!::WTSEnumerateSessionsEx(WTS_CURRENT_SERVER_HANDLE, &level, 0, &info, &count))
 		return sessions;
-
+	
 	sessions.reserve(count);
 	for (DWORD i = 0; i < count; i++) {
 		auto& s = info[i];

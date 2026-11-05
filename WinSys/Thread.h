@@ -95,7 +95,20 @@ namespace WinSys {
 		[[nodiscard]] void* GetStartAddress() const noexcept;
 		size_t GetSubProcessTag() const noexcept;
 		std::wstring GetServiceNameByTag(uint32_t pid) const noexcept;
+		// COM's flags for the thread (OLETLS_*: its apartment and more): None if it never used COM, Error if they can't be
+		// read; opens its process each time (a list of threads: the static, with GetTebAddress once per thread)
 		ComFlags GetComFlags() const noexcept;
+		// the thread's TEB (ThreadBasicInformation: THREAD_QUERY_LIMITED_INFORMATION); 0 on failure. A WOW64 thread's
+		// 32-bit TEB is two pages after it
+		[[nodiscard]] static uint64_t GetTebAddress(HANDLE hThread) noexcept;
+		// a 32-bit process on a 64-bit Windows (its COM is in its 32-bit TEB)
+		[[nodiscard]] static bool IsWow64(HANDLE hProcess) noexcept;
+		// from the thread's TEB, read in its process (PROCESS_VM_READ)
+		[[nodiscard]] static ComFlags GetComFlags(HANDLE hProcess, uint64_t teb, bool wow64) noexcept;
+		// "STA", "ASTA" (an application STA: a UWP app's UI thread), "MTA", with " (WinRT)", ", in the NTA" (calling into
+		// the neutral apartment now) and ", uninitializing"; a thread that didn't initialize COM is "Implicit MTA" in a
+		// process that has an MTA, else empty, as for Error
+		[[nodiscard]] static std::wstring ComApartmentText(ComFlags flags, bool processHasMta);
 
 	private:
 		HANDLE m_handle{ nullptr };

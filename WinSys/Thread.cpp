@@ -101,40 +101,72 @@ std::wstring Thread::GetServiceNameByTag(uint32_t pid) const noexcept {
 }
 
 ComFlags Thread::GetComFlags() const noexcept {
-	THREAD_BASIC_INFORMATION tbi;
-	auto status = ::NtQueryInformationThread(m_handle, ThreadBasicInformation, &tbi, sizeof(tbi), nullptr);
-	if (!NT_SUCCESS(status))
+	auto teb = GetTebAddress(m_handle);
+	if (teb == 0)
 		return ComFlags::Error;
-
-	if (tbi.TebBaseAddress == 0)
-		return ComFlags::Error;
-
-	bool is64bit = SystemInformation::GetBasicSystemInfo().MaximumAppAddress > (void*)(1LL << 32);
-	auto pid = ::GetProcessIdOfThread(m_handle);
-	auto process = Process::OpenById(pid, ProcessAccessMask::QueryLimitedInformation | ProcessAccessMask::VmRead);
+	auto process = Process::OpenById(::GetProcessIdOfThread(m_handle), ProcessAccessMask::QueryLimitedInformation | ProcessAccessMask::VmRead);
 	if (!process)
 		return ComFlags::Error;
+	return GetComFlags(process->Handle(), teb, IsWow64(process->Handle()));
+}
 
-	void* ole = nullptr;
-	bool wow = false;
-	auto teb = tbi.TebBaseAddress;
-	if (!is64bit || process->IsWow64Process()) {
-		wow = true;
-		auto offset = offsetof(TEB32, ReservedForOle);
-		::ReadProcessMemory(process->Handle(), (BYTE*)teb + offset, &ole, sizeof(ULONG), nullptr);
-	}
-	else {
-		::ReadProcessMemory(process->Handle(), (BYTE*)teb + offsetof(TEB, ReservedForOle), &ole, sizeof(ole), nullptr);
-	}
-	if(ole == nullptr)
-		return ComFlags::None;
+uint64_t Thread::GetTebAddress(HANDLE hThread) noexcept {
+	THREAD_BASIC_INFORMATION tbi;
+	if (!NT_SUCCESS(::NtQueryInformationThread(hThread, ThreadBasicInformation, &tbi, sizeof(tbi), nullptr)))
+		return 0;
+	return (uint64_t)tbi.TebBaseAddress;
+}
 
-	BYTE buffer[32];
-	if(!::ReadProcessMemory(process->Handle(), ole, buffer, sizeof(buffer), nullptr))
+bool Thread::IsWow64(HANDLE hProcess) noexcept {
+	// a 32-bit Windows runs 32-bit processes natively: their TEB is the only one
+	static const bool is64bit = SystemInformation::GetBasicSystemInfo().MaximumAppAddress > (void*)(1LL << 32);
+	BOOL wow = FALSE;
+	return is64bit && ::IsWow64Process(hProcess, &wow) && wow;
+}
+
+ComFlags Thread::GetComFlags(HANDLE hProcess, uint64_t teb, bool wow64) noexcept {
+	if (teb == 0)
 		return ComFlags::Error;
+	// COM's per-thread data (ole32's SOleTlsData) is TEB.ReservedForOle; its flags (OLETLS_*) come after the thread base
+	// and the allocator pointers and the apartment ID: at 0x14 in a 64-bit process, 0xC in a 32-bit one, whose code
+	// uses the 32-bit TEB, two pages after the 64-bit one in a WOW64 process (as in GetSubProcessTag)
+	uint64_t ole = 0;
+	if (wow64) {
+		ULONG ole32 = 0;
+		if (!::ReadProcessMemory(hProcess, (BYTE*)teb + 0x2000 + offsetof(TEB32, ReservedForOle), &ole32, sizeof(ole32), nullptr))
+			return ComFlags::Error;
+		ole = ole32;
+	}
+	else if (!::ReadProcessMemory(hProcess, (BYTE*)teb + offsetof(TEB, ReservedForOle), &ole, sizeof(PVOID), nullptr))
+		return ComFlags::Error;
+	// COM was never used on the thread
+	if (ole == 0)
+		return ComFlags::None;
+	DWORD flags = 0;
+	if (!::ReadProcessMemory(hProcess, (BYTE*)ole + (wow64 ? 0xC : 0x14), &flags, sizeof(flags), nullptr))
+		return ComFlags::Error;
+	return ComFlags(flags);
+}
 
-	auto flags = wow ? (buffer + 12) : (buffer + 20);
-	return ComFlags(*(DWORD*)flags);
+std::wstring Thread::ComApartmentText(ComFlags flags, bool processHasMta) {
+	if (flags == ComFlags::Error)
+		return L"";
+	auto has = [&](ComFlags f) { return (flags & f) == f; };
+	std::wstring text;
+	if (has(ComFlags::STA))
+		text = has(ComFlags::ASTA) ? L"ASTA" : L"STA";
+	else if (has(ComFlags::MTA))
+		text = L"MTA";
+	else
+		// not initialized: a thread of a process with an MTA is in it, implicitly
+		return processHasMta ? L"Implicit MTA" : L"";
+	if (has(ComFlags::WinRTInitialize))
+		text += L" (WinRT)";
+	if (has(ComFlags::InNeutralApartment))
+		text += L", in the NTA";
+	if (has(ComFlags::ThreadUninitializing))
+		text += L", uninitializing";
+	return text;
 }
 
 bool Thread::IsValid() const noexcept {
