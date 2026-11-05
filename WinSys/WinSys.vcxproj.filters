@@ -180,6 +180,12 @@
     <ClInclude Include="ProcessIntegrity.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ProcessCreation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Certificates.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="FileVersion.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -405,6 +411,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ProcessIntegrity.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessCreation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Certificates.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FileVersion.cpp">
