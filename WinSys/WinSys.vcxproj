@@ -214,6 +214,7 @@
     <ClInclude Include="FileSignature.h" />
     <ClInclude Include="AccessMask.h" />
     <ClInclude Include="KernelModules.h" />
+    <ClInclude Include="KernelCallbacks.h" />
     <ClInclude Include="Connections.h" />
     <ClInclude Include="Http.h" />
     <ClInclude Include="ZipArchive.h" />
@@ -295,6 +296,7 @@
     <ClCompile Include="FileSignature.cpp" />
     <ClCompile Include="AccessMask.cpp" />
     <ClCompile Include="KernelModules.cpp" />
+    <ClCompile Include="KernelCallbacks.cpp" />
     <ClCompile Include="Connections.cpp" />
     <ClCompile Include="Http.cpp" />
     <ClCompile Include="ZipArchive.cpp" />
