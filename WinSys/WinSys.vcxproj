@@ -209,6 +209,7 @@
     <ClInclude Include="ProcessWindows.h" />
     <ClInclude Include="ObjectDetails.h" />
     <ClInclude Include="ProcessMemory.h" />
+    <ClInclude Include="ProcessIntegrity.h" />
     <ClInclude Include="FileVersion.h" />
     <ClInclude Include="FileSignature.h" />
     <ClInclude Include="AccessMask.h" />
@@ -289,6 +290,7 @@
     <ClCompile Include="ProcessWindows.cpp" />
     <ClCompile Include="ObjectDetails.cpp" />
     <ClCompile Include="ProcessMemory.cpp" />
+    <ClCompile Include="ProcessIntegrity.cpp" />
     <ClCompile Include="FileVersion.cpp" />
     <ClCompile Include="FileSignature.cpp" />
     <ClCompile Include="AccessMask.cpp" />

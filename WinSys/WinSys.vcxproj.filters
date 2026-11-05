@@ -177,6 +177,9 @@
     <ClInclude Include="ProcessMemory.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ProcessIntegrity.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="FileVersion.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -396,6 +399,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ProcessMemory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessIntegrity.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FileVersion.cpp">
