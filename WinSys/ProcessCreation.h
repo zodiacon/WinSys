@@ -18,6 +18,10 @@ struct _EVENT_RECORD;	// evntcons.h
 // behalf: the Application Information service (Appinfo) for an elevation, Secondary Logon (seclogon) for Run As; the
 // creator's being one of those is recorded with the event. Only processes created while the session runs are known.
 //
+// The exits (ProcessStop, event 2) are recorded too, with their exit times and codes: a process that lived between
+// two snapshots of the system is known only from these (TakeExited, the History recorder's). The events' image names
+// and the stops' fields are read by name (TDH), as their layouts differ between versions.
+//
 namespace WinSys {
 	enum class ProcessCreator : uint8_t {
 		Parent,		// the parent created it
@@ -33,6 +37,11 @@ namespace WinSys {
 		ProcessCreator Creator{ ProcessCreator::Parent };
 		std::wstring CreatorService;	// OnBehalf: "Appinfo" or "seclogon"
 		std::wstring CreatorName;		// the creator's image name, when it isn't the parent (read as the event arrives)
+		std::wstring ImagePath;			// the start's (an NT path, "\Device\HarddiskVolume3\..."), else the stop's file name
+		bool Started{ false };			// its start was seen (else only its stop: it ran before the session)
+		int64_t ExitTime{ 0 };			// FILETIME; 0 while it runs
+		std::optional<uint32_t> ExitCode;
+		bool Taken{ false };			// TakeExited returned it
 
 		[[nodiscard]] ProcessOrThreadKey Key() const {
 			return { CreateTime, Pid };
@@ -70,6 +79,10 @@ namespace WinSys {
 		[[nodiscard]] std::vector<ProcessCreation> GetMismatches() const;
 		// a process that exited: its ID may be reused
 		void Remove(ProcessOrThreadKey const& key);
+		// the processes that exited since the last call (each once), whose starts were seen; the exited ones are kept for
+		// ExitedKept after they exit, taken or not
+		[[nodiscard]] std::vector<ProcessCreation> TakeExited();
+		static constexpr int64_t ExitedKept = 10LL * 60 * 10000000;	// 10 minutes
 
 	private:
 		static void WINAPI OnEvent(_EVENT_RECORD* record);

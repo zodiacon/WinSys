@@ -1,9 +1,12 @@
 #include "pch.h"
 #include <evntrace.h>
 #include <evntcons.h>
+#include <tdh.h>
 #include "ProcessCreation.h"
 #include "EtwSession.h"
 #include "ServiceManager.h"
+
+#pragma comment(lib, "tdh")
 
 using namespace WinSys;
 
@@ -11,7 +14,39 @@ namespace {
 	// Microsoft-Windows-Kernel-Process
 	const GUID KernelProcessProvider = { 0x22fb2cd6, 0x0e7b, 0x422b, { 0xa0, 0xc7, 0x2f, 0xad, 0x1f, 0xd0, 0xe7, 0x16 } };
 	const ULONGLONG ProcessKeyword = 0x10;	// WINEVENT_KEYWORD_PROCESS
-	const uint16_t ProcessStartId = 1;
+	const uint16_t ProcessStartId = 1, ProcessStopId = 2;
+
+	// an event's property by name (TDH: the layouts differ between versions); false if it has none
+	bool GetProperty(PEVENT_RECORD record, PCWSTR name, std::vector<BYTE>& value) {
+		PROPERTY_DATA_DESCRIPTOR descriptor{ (ULONGLONG)name, ULONG_MAX };
+		ULONG size = 0;
+		if (::TdhGetPropertySize(record, 0, nullptr, 1, &descriptor, &size) != ERROR_SUCCESS || size == 0)
+			return false;
+		value.resize(size);
+		return ::TdhGetProperty(record, 0, nullptr, 1, &descriptor, size, value.data()) == ERROR_SUCCESS;
+	}
+
+	template<typename T>
+	std::optional<T> GetValue(PEVENT_RECORD record, PCWSTR name) {
+		std::vector<BYTE> value;
+		if (!GetProperty(record, name, value) || value.size() < sizeof(T))
+			return {};
+		T result;
+		memcpy(&result, value.data(), sizeof(T));
+		return result;
+	}
+
+	// a UnicodeString's or an AnsiString's text
+	std::wstring GetText(PEVENT_RECORD record, PCWSTR name, bool ansi) {
+		std::vector<BYTE> value;
+		if (!GetProperty(record, name, value))
+			return L"";
+		if (ansi) {
+			std::string text((char const*)value.data(), strnlen((char const*)value.data(), value.size()));
+			return std::wstring(text.begin(), text.end());
+		}
+		return std::wstring((PCWSTR)value.data(), wcsnlen((PCWSTR)value.data(), value.size() / sizeof(WCHAR)));
+	}
 
 	// the services that create processes for someone else: elevations and Run As
 	const PCWSTR OnBehalfServices[] = { L"Appinfo", L"seclogon" };
@@ -151,11 +186,31 @@ std::optional<ProcessCreation> ProcessCreationTracker::Get(ProcessOrThreadKey co
 	return it->second;
 }
 
+std::vector<ProcessCreation> ProcessCreationTracker::TakeExited() {
+	std::vector<ProcessCreation> result;
+	int64_t now;
+	::GetSystemTimeAsFileTime((FILETIME*)&now);
+	auto lock = m_Lock.lock_exclusive();
+	for (auto it = m_Creations.begin(); it != m_Creations.end();) {
+		auto& c = it->second;
+		if (c.ExitTime && !c.Taken && c.Started) {
+			c.Taken = true;
+			result.push_back(c);
+		}
+		// kept a while after their exit, for Get
+		if (c.ExitTime && now - c.ExitTime > ExitedKept)
+			it = m_Creations.erase(it);
+		else
+			++it;
+	}
+	return result;
+}
+
 std::vector<ProcessCreation> ProcessCreationTracker::GetMismatches() const {
 	std::vector<ProcessCreation> result;
 	auto lock = m_Lock.lock_shared();
 	for (auto& [key, c] : m_Creations)
-		if (c.Creator != ProcessCreator::Parent)
+		if (c.Creator != ProcessCreator::Parent && !c.ExitTime)
 			result.push_back(c);
 	return result;
 }
@@ -175,6 +230,25 @@ void WINAPI ProcessCreationTracker::OnEvent(PEVENT_RECORD record) {
 	auto& header = record->EventHeader;
 	if (header.ProviderId != KernelProcessProvider)
 		return;
+	auto tracker = static_cast<ProcessCreationTracker*>(record->UserContext);
+	if (header.EventDescriptor.Id == ProcessStopId) {
+		auto pid = GetValue<uint32_t>(record, L"ProcessID");
+		auto created = GetValue<int64_t>(record, L"CreateTime");
+		auto exited = GetValue<int64_t>(record, L"ExitTime");
+		if (!pid || !created || !exited)
+			return;
+		auto code = GetValue<uint32_t>(record, L"ExitCode");
+		auto name = GetText(record, L"ImageName", true);
+		auto lock = tracker->m_Lock.lock_exclusive();
+		auto& c = tracker->m_Creations[{ *created, *pid }];
+		c.Pid = *pid;
+		c.CreateTime = *created;
+		c.ExitTime = *exited;
+		c.ExitCode = code;
+		if (c.ImagePath.empty())
+			c.ImagePath = name;
+		return;
+	}
 	auto c = ProcessCreationParser::Parse(header.EventDescriptor.Id, header.EventDescriptor.Version, record->UserData, record->UserDataLength);
 	if (!c)
 		return;
@@ -187,7 +261,12 @@ void WINAPI ProcessCreationTracker::OnEvent(PEVENT_RECORD record) {
 		c->CreatorName = ImageName(c->CreatorPid);
 	}
 	c->Creator = ProcessCreationParser::Classify(c->CreatorPid, c->ParentPid, c->CreatorService);
-	auto tracker = static_cast<ProcessCreationTracker*>(record->UserContext);
+	c->ImagePath = GetText(record, L"ImageName", false);
+	c->Started = true;
 	auto lock = tracker->m_Lock.lock_exclusive();
-	tracker->m_Creations[c->Key()] = std::move(*c);
+	// a stop can't come first: the start's fields go in a record that may have its stop already (a very short process)
+	auto& existing = tracker->m_Creations[c->Key()];
+	c->ExitTime = existing.ExitTime;
+	c->ExitCode = existing.ExitCode;
+	existing = std::move(*c);
 }
