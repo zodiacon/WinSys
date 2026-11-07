@@ -2,19 +2,30 @@
 #include "Autoruns.h"
 #include "KernelModules.h"
 #include "ServiceManager.h"
+#include "Packages.h"
 #include <taskschd.h>
 #include <ShlObj.h>
 #include <Shlwapi.h>
+#include <xmllite.h>
+#include <ctime>
 #include <wil/com.h>
 #include <wil/resource.h>
 
 #pragma comment(lib, "taskschd")
 #pragma comment(lib, "shlwapi")
+#pragma comment(lib, "xmllite")
 
 using namespace WinSys;
 
 namespace {
 	constexpr PCWSTR ApprovedKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\";
+	// a package's state per user (HKCU): a startup task's under <family name>\<task ID>
+	constexpr PCWSTR AppDataKey = L"Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\SystemAppData\\";
+
+	// Windows.ApplicationModel.StartupTaskState, the State value
+	enum StartupTaskState : DWORD {
+		TaskDisabled = 0, TaskDisabledByUser = 1, TaskEnabled = 2, TaskDisabledByPolicy = 3, TaskEnabledByPolicy = 4,
+	};
 
 	std::wstring Lowercase(std::wstring text) {
 		::CharLowerBuffW(text.data(), (DWORD)text.size());
@@ -356,6 +367,104 @@ namespace {
 				auto title = ReadValue(component.get(), nullptr);
 				e.Name = title && !title->String().empty() ? title->String() : name;
 				e.Details = name;
+				entries.push_back(std::move(e));
+			}
+		}
+	}
+
+	std::string ReadFileText(std::wstring const& path) {
+		wil::unique_hfile file(::CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+		LARGE_INTEGER size{};
+		if (!file || !::GetFileSizeEx(file.get(), &size) || size.QuadPart > 16 << 20)
+			return {};
+		std::string text((size_t)size.QuadPart, '\0');
+		DWORD read = 0;
+		if (!::ReadFile(file.get(), text.data(), (DWORD)text.size(), &read, nullptr))
+			return {};
+		text.resize(read);
+		return text;
+	}
+
+	// a manifest's "ms-resource:..." string through the package's resources; empty if it can't be
+	std::wstring LoadPackageString(PackageInfo const& package, std::wstring const& text) {
+		constexpr PCWSTR scheme = L"ms-resource:";
+		if (_wcsnicmp(text.c_str(), scheme, 12) != 0)
+			return text;
+		auto rest = text.substr(12);
+		std::vector<std::wstring> uris;
+		if (rest.starts_with(L"//"))
+			uris.push_back(text);
+		else if (rest.starts_with(L"/"))
+			uris.push_back(L"ms-resource://" + package.Name + rest);
+		else {
+			// a bare name is in the Resources map; a path may name its own map
+			uris.push_back(L"ms-resource://" + package.Name + L"/Resources/" + rest);
+			if (rest.find(L'/') != std::wstring::npos)
+				uris.push_back(L"ms-resource://" + package.Name + L"/" + rest);
+		}
+		for (auto& uri : uris) {
+			auto indirect = L"@{" + package.FullName + L"?" + uri + L"}";
+			WCHAR result[512]{};
+			if (SUCCEEDED(::SHLoadIndirectString(indirect.c_str(), result, _countof(result), nullptr)) && *result)
+				return result;
+		}
+		return {};
+	}
+
+	PCWSTR StartupTaskStateText(DWORD state) {
+		switch (state) {
+			case TaskDisabled: return L"disabled";
+			case TaskDisabledByUser: return L"disabled by the user";
+			case TaskEnabled: return L"enabled";
+			case TaskDisabledByPolicy: return L"disabled by policy";
+			case TaskEnabledByPolicy: return L"enabled by policy";
+		}
+		return L"unknown state";
+	}
+
+	// the current user's packaged apps' startup tasks (Store and MSIX apps: Spotify, Teams...), as Task Manager lists them
+	void AddPackageTasks(std::vector<AutorunEntry>& entries) {
+		auto packages = Packages::Enum();
+		if (!packages)
+			return;
+		for (auto& p : *packages) {
+			if (p.Framework || p.Resource || p.Bundle || p.InstalledPath.empty())
+				continue;
+			auto manifestPath = p.InstalledPath + L"\\AppxManifest.xml";
+			auto manifest = ReadFileText(manifestPath);
+			// most packages have none: skip the parse
+			if (manifest.find("StartupTask") == std::string::npos)
+				continue;
+			for (auto& t : Autoruns::ParseStartupTasks(manifest)) {
+				AutorunEntry e;
+				e.Category = AutorunCategory::Logon;
+				e.Store = AutorunStore::PackageTask;
+				e.Root = HKEY_CURRENT_USER;
+				e.SubKey = std::wstring(AppDataKey) + p.FamilyName + L"\\" + t.TaskId;
+				e.ValueName = L"State";
+				e.Location = p.FullName;
+				e.Name = LoadPackageString(p, t.DisplayName);
+				if (e.Name.empty())
+					e.Name = !p.DisplayName.empty() ? p.DisplayName : t.TaskId;
+				if (!t.Executable.empty()) {
+					e.ImagePath = p.InstalledPath + L"\\" + t.Executable;
+					e.Command = L"\"" + e.ImagePath + L"\"";
+				}
+				// the manifest's default until the user or the app sets it
+				DWORD state = t.Enabled ? TaskEnabled : TaskDisabled;
+				if (auto key = OpenKey(HKEY_CURRENT_USER, e.SubKey)) {
+					if (auto value = ReadDword(key.get(), L"State"))
+						state = *value;
+					e.LastModified = KeyTime(key.get());
+				}
+				if (e.LastModified == 0) {
+					WIN32_FILE_ATTRIBUTE_DATA data;
+					if (::GetFileAttributesExW(manifestPath.c_str(), GetFileExInfoStandard, &data))
+						e.LastModified = ToInt64(data.ftLastWriteTime);
+				}
+				e.Enabled = state == TaskEnabled || state == TaskEnabledByPolicy;
+				e.Details = L"Startup task " + t.TaskId + L" (" + StartupTaskStateText(state) + L") of " +
+					(p.DisplayName.empty() ? p.Name : p.DisplayName);
 				entries.push_back(std::move(e));
 			}
 		}
@@ -844,12 +953,67 @@ std::wstring Autoruns::ResolveImage(std::wstring const& command) {
 	return image;
 }
 
+std::vector<PackageStartupTask> Autoruns::ParseStartupTasks(std::string_view manifest) {
+	std::vector<PackageStartupTask> tasks;
+	wil::com_ptr_nothrow<IStream> stream;
+	stream.attach(::SHCreateMemStream((BYTE const*)manifest.data(), (UINT)manifest.size()));
+	wil::com_ptr_nothrow<IXmlReader> reader;
+	if (!stream || FAILED(::CreateXmlReader(IID_PPV_ARGS(&reader), nullptr)))
+		return tasks;
+	reader->SetProperty(XmlReaderProperty_DtdProcessing, DtdProcessing_Prohibit);
+	if (FAILED(reader->SetInput(stream.get())))
+		return tasks;
+
+	auto attribute = [&](PCWSTR name) {
+		std::wstring text;
+		PCWSTR value = nullptr;
+		if (reader->MoveToAttributeByName(name, nullptr) == S_OK && SUCCEEDED(reader->GetValue(&value, nullptr)) && value)
+			text = value;
+		reader->MoveToElement();
+		return text;
+	};
+
+	// a StartupTask is in an Extension (desktop:, uap5:), in an Application: its executable is the extension's, else the
+	// application's (a UWP app's task)
+	std::wstring appExecutable, extensionExecutable;
+	XmlNodeType type;
+	while (reader->Read(&type) == S_OK) {
+		if (type != XmlNodeType_Element)
+			continue;
+		PCWSTR name = nullptr;
+		if (FAILED(reader->GetLocalName(&name, nullptr)) || !name)
+			continue;
+		if (wcscmp(name, L"Application") == 0) {
+			appExecutable = attribute(L"Executable");
+			extensionExecutable.clear();
+		}
+		else if (wcscmp(name, L"Extension") == 0)
+			extensionExecutable = attribute(L"Executable");
+		else if (wcscmp(name, L"StartupTask") == 0) {
+			PackageStartupTask task;
+			task.TaskId = attribute(L"TaskId");
+			if (task.TaskId.empty())
+				continue;
+			task.DisplayName = attribute(L"DisplayName");
+			auto enabled = attribute(L"Enabled");
+			task.Enabled = _wcsicmp(enabled.c_str(), L"true") == 0 || enabled == L"1";
+			task.Executable = !extensionExecutable.empty() ? extensionExecutable : appExecutable;
+			for (auto& c : task.Executable)
+				if (c == L'/')
+					c = L'\\';
+			tasks.push_back(std::move(task));
+		}
+	}
+	return tasks;
+}
+
 std::vector<AutorunEntry> Autoruns::Enum() {
 	std::vector<AutorunEntry> entries;
 	entries.reserve(1024);
 	AddRunKeys(entries);
 	AddStartupFolders(entries);
 	AddActiveSetup(entries);
+	AddPackageTasks(entries);
 	AddTasks(entries);
 	AddServices(entries);
 	AddWinlogon(entries);
@@ -897,6 +1061,24 @@ bool Autoruns::SetEnabled(AutorunEntry const& entry, bool enable) {
 			if (FAILED(hr = root->GetTask(path.get(), &task)))
 				return SetHResult(hr);
 			return SetHResult(task->put_Enabled(enable ? VARIANT_TRUE : VARIANT_FALSE));
+		}
+		case AutorunStore::PackageTask:
+		{
+			HKEY key = nullptr;
+			auto error = ::RegCreateKeyExW(HKEY_CURRENT_USER, entry.SubKey.c_str(), 0, nullptr, 0,
+				KEY_QUERY_VALUE | KEY_SET_VALUE | KEY_WOW64_64KEY, nullptr, &key, nullptr);
+			if (error != ERROR_SUCCESS)
+				return SetError(error);
+			wil::unique_hkey hold(key);
+			if (auto state = ReadDword(key, L"State"); state && (*state == TaskDisabledByPolicy || *state == TaskEnabledByPolicy))
+				return SetError(ERROR_ACCESS_DISABLED_BY_POLICY);
+			// as Task Manager writes it: enabled, or disabled by the user with when (seconds since 1970)
+			DWORD state = enable ? TaskEnabled : TaskDisabledByUser;
+			if (error = ::RegSetValueExW(key, L"State", 0, REG_DWORD, (BYTE const*)&state, sizeof(state)); error != ERROR_SUCCESS)
+				return SetError(error);
+			DWORD value = enable ? 1 : (DWORD)::_time64(nullptr);
+			::RegSetValueExW(key, enable ? L"UserEnabledStartupOnce" : L"LastDisabledTime", 0, REG_DWORD, (BYTE const*)&value, sizeof(value));
+			return SetError(ERROR_SUCCESS);
 		}
 	}
 	return SetError(ERROR_NOT_SUPPORTED);

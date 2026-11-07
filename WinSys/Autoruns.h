@@ -3,12 +3,14 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 //
 // What starts by itself, as Sysinternals' Autoruns lists it (a subset of its locations):
 // - Logon: the Run and RunOnce keys (HKLM, HKCU, WOW6432Node, the Explorer policies' Run), the startup folders (the
-//   user's and all users'; shortcuts resolved to their targets) and Active Setup's StubPath commands.
+//   user's and all users'; shortcuts resolved to their targets), Active Setup's StubPath commands and the current user's
+//   packaged apps' startup tasks (windows.startupTask in each package's AppxManifest.xml, as Task Manager lists them).
 // - Scheduled tasks: every task in every folder (hidden ones too) through the Task Scheduler's COM API, with its
 //   actions, triggers, account, state and last and next runs. The caller initializes COM.
 // - Services and drivers that start at boot, system start or automatically (the Services key read directly: Start
@@ -19,7 +21,8 @@
 // Each entry has its command as stored and the image it runs, resolved: quotes, environment variables, unquoted
 // paths with spaces (tried word by word), the search path, rundll32's DLL, a COM handler's InprocServer32, \SystemRoot\.
 // Run keys and startup items are enabled and disabled as Task Manager's Startup apps page does it (the StartupApproved
-// keys); tasks through the Task Scheduler. Writing HKLM, all users' folder, and most tasks needs elevation.
+// keys); packaged startup tasks as Task Manager does it too (the State value under the package's SystemAppData key); tasks
+// through the Task Scheduler. Writing HKLM, all users' folder, and most tasks needs elevation.
 //
 
 namespace WinSys {
@@ -41,6 +44,7 @@ namespace WinSys {
 		StartupFile,		// a file in a startup folder
 		Task,
 		Service,			// the Services key's subkey
+		PackageTask,		// a packaged app's startup task: its state is the State value of SubKey (HKCU), Location the package
 	};
 
 	enum class AutorunTaskState {
@@ -78,6 +82,14 @@ namespace WinSys {
 		std::wstring Author;
 	};
 
+	// a StartupTask element of a package's manifest
+	struct PackageStartupTask {
+		std::wstring TaskId;
+		std::wstring Executable;	// relative to the package's folder: the extension's, else its application's
+		std::wstring DisplayName;	// as written: may be "ms-resource:..."
+		bool Enabled{ false };		// the manifest's default, before the user or the app changes it
+	};
+
 	struct Autoruns final {
 		// every location; the caller initializes COM (for the tasks and shortcuts)
 		[[nodiscard]] static std::vector<AutorunEntry> Enum();
@@ -87,6 +99,8 @@ namespace WinSys {
 		static bool Delete(AutorunEntry const& entry);
 		// the file a command line runs (see above), or empty
 		[[nodiscard]] static std::wstring ResolveImage(std::wstring const& command);
+		// the startup tasks in a package's AppxManifest.xml (UTF-8 or with a BOM)
+		[[nodiscard]] static std::vector<PackageStartupTask> ParseStartupTasks(std::string_view manifest);
 		// "HKLM", "HKCU"...
 		[[nodiscard]] static PCWSTR RootName(void* root);
 		[[nodiscard]] static PCWSTR CategoryName(AutorunCategory category);
