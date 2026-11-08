@@ -179,6 +179,7 @@
     <ClInclude Include="ServiceManager.h" />
     <ClInclude Include="Sid.h" />
     <ClInclude Include="Disk.h" />
+    <ClInclude Include="DiskHealth.h" />
     <ClInclude Include="Network.h" />
     <ClInclude Include="ProcessNetwork.h" />
     <ClInclude Include="EtwSession.h" />
@@ -265,6 +266,7 @@
     <ClCompile Include="ServiceManager.cpp" />
     <ClCompile Include="Sid.cpp" />
     <ClCompile Include="Disk.cpp" />
+    <ClCompile Include="DiskHealth.cpp" />
     <ClCompile Include="Network.cpp" />
     <ClCompile Include="ProcessNetwork.cpp" />
     <ClCompile Include="Ipc.cpp" />

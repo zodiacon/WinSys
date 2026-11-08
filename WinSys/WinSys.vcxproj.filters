@@ -87,6 +87,9 @@
     <ClInclude Include="Disk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DiskHealth.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Network.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -324,6 +327,9 @@
       <Filter>VirtualDiskService</Filter>
     </ClCompile>
     <ClCompile Include="Disk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DiskHealth.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Network.cpp">
