@@ -177,8 +177,11 @@ PCWSTR EventLog::LevelName(uint8_t level) {
 }
 
 std::optional<std::vector<EventLogEntry>> EventLog::Query(std::wstring const& channel, uint8_t maxLevel, uint32_t hours, size_t maxEvents,
-	EventDataRead data) {
-	auto query = L"*[System[" + LevelsXPath(maxLevel) + L" and TimeCreated[timediff(@SystemTime) <= "
+	EventDataRead data, std::wstring const& provider) {
+	// a provider's name has no quotes in it
+	auto providerPath = provider.empty() || provider.find_first_of(L"'\"") != std::wstring::npos ? std::wstring()
+		: L"Provider[@Name='" + provider + L"'] and ";
+	auto query = L"*[System[" + providerPath + LevelsXPath(maxLevel) + L" and TimeCreated[timediff(@SystemTime) <= "
 		+ std::to_wstring((uint64_t)hours * 3600000) + L"]]]";
 	auto hQuery = ::EvtQuery(nullptr, channel.c_str(), query.c_str(), EvtQueryChannelPath | EvtQueryReverseDirection);
 	if (!hQuery)

@@ -941,3 +941,389 @@ namespace WinSys {
 		return read(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Ole", launch ? L"DefaultLaunchPermission" : L"DefaultAccessPermission", false);
 	}
 }
+
+namespace WinSys {
+	namespace {
+		// COM_RIGHTS_* (objbase.h)
+		constexpr uint32_t RightExecute = 1, RightExecuteLocal = 2, RightExecuteRemote = 4, RightActivateLocal = 8,
+			RightActivateRemote = 16;
+
+		std::vector<uint8_t> ReadBinary(HKEY key, PCWSTR value) {
+			std::vector<uint8_t> data;
+			DWORD size = 0, type = 0;
+			if (::RegQueryValueEx(key, value, nullptr, &type, nullptr, &size) != ERROR_SUCCESS || type != REG_BINARY || size == 0)
+				return data;
+			data.resize(size);
+			if (::RegQueryValueEx(key, value, nullptr, nullptr, data.data(), &size) != ERROR_SUCCESS)
+				data.clear();
+			return data;
+		}
+
+		bool ReadDwordValue(HKEY key, PCWSTR value, DWORD& result) {
+			DWORD size = sizeof(result), type = 0;
+			return ::RegQueryValueEx(key, value, nullptr, &type, (BYTE*)&result, &size) == ERROR_SUCCESS && type == REG_DWORD;
+		}
+
+		bool ReadStringValue(HKEY key, PCWSTR value, std::wstring& result) {
+			if (!HasValue(key, value))
+				return false;
+			result = ReadString(key, nullptr, value);
+			return true;
+		}
+
+		int64_t LastWriteOf(HKEY key) {
+			FILETIME ft{};
+			if (::RegQueryInfoKey(key, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &ft) != ERROR_SUCCESS)
+				return 0;
+			return (int64_t)ULARGE_INTEGER{ ft.dwLowDateTime, ft.dwHighDateTime }.QuadPart;
+		}
+
+		std::wstring AccountName(PSID sid) {
+			WCHAR name[256], domain[256];
+			DWORD nameSize = _countof(name), domainSize = _countof(domain);
+			SID_NAME_USE use;
+			if (!::LookupAccountSid(nullptr, sid, name, &nameSize, domain, &domainSize, &use))
+				return L"";
+			return *domain ? std::wstring(domain) + L"\\" + name : std::wstring(name);
+		}
+
+		std::wstring SidText(PSID sid) {
+			PWSTR text = nullptr;
+			if (!::ConvertSidToStringSid(sid, &text))
+				return L"";
+			std::wstring result(text);
+			::LocalFree(text);
+			return result;
+		}
+
+		// the permission's entries summed up: "Set (5 entries)", with the broad accounts' remote rights named
+		std::wstring PermissionSummary(std::vector<uint8_t> const& sd) {
+			auto entries = ComSecurity::ParsePermission(sd.data());
+			auto text = L"Set (" + std::to_wstring(entries.size()) + (entries.size() == 1 ? L" entry)" : L" entries)");
+			return text;
+		}
+
+		// an access limit grants remote access to Anonymous (Windows' own grants it to Everyone, and local access to
+		// Anonymous); a launch limit grants a remote right to anyone who can log on (Windows' own: Administrators,
+		// Distributed COM Users and Performance Log Users only)
+		bool LimitIsWeak(std::vector<uint8_t> const& sd, bool launch) {
+			for (auto& e : ComSecurity::ParsePermission(sd.data())) {
+				if (!ComSecurity::GrantsRemote(e))
+					continue;
+				if (launch ? ComSecurity::IsBroadAccount(e.Sid) : e.Sid == L"S-1-5-7")
+					return true;
+			}
+			return false;
+		}
+	}
+
+	std::vector<ComPermissionEntry> ComSecurity::ParsePermission(void const* sd) {
+		std::vector<ComPermissionEntry> entries;
+		if (!sd || !::IsValidSecurityDescriptor((PSECURITY_DESCRIPTOR)sd))
+			return entries;
+		BOOL present = FALSE, defaulted = FALSE;
+		PACL dacl = nullptr;
+		if (!::GetSecurityDescriptorDacl((PSECURITY_DESCRIPTOR)sd, &present, &dacl, &defaulted) || !present || !dacl)
+			return entries;
+		for (DWORD i = 0; i < dacl->AceCount; i++) {
+			ACE_HEADER* header;
+			if (!::GetAce(dacl, i, (void**)&header))
+				continue;
+			if (header->AceType != ACCESS_ALLOWED_ACE_TYPE && header->AceType != ACCESS_DENIED_ACE_TYPE)
+				continue;
+			// the two have the same layout
+			auto ace = reinterpret_cast<ACCESS_ALLOWED_ACE*>(header);
+			auto sid = (PSID)&ace->SidStart;
+			ComPermissionEntry entry;
+			entry.Allow = header->AceType == ACCESS_ALLOWED_ACE_TYPE;
+			entry.Rights = ace->Mask;
+			entry.Sid = SidText(sid);
+			entry.Account = AccountName(sid);
+			if (entry.Account.empty())
+				entry.Account = entry.Sid;
+			entries.push_back(std::move(entry));
+		}
+		return entries;
+	}
+
+	std::wstring ComSecurity::RightsText(uint32_t rights, bool launch) {
+		// an old-style entry: COM_RIGHTS_EXECUTE alone grants every right
+		if ((rights & ~RightExecute) == 0 && (rights & RightExecute))
+			rights |= RightExecuteLocal | RightExecuteRemote | (launch ? RightActivateLocal | RightActivateRemote : 0);
+		std::wstring text;
+		auto add = [&](uint32_t right, PCWSTR name) {
+			if (rights & right)
+				text += (text.empty() ? L"" : L", ") + std::wstring(name);
+		};
+		if (launch) {
+			add(RightExecuteLocal, L"Local Launch");
+			add(RightExecuteRemote, L"Remote Launch");
+			add(RightActivateLocal, L"Local Activation");
+			add(RightActivateRemote, L"Remote Activation");
+		}
+		else {
+			add(RightExecuteLocal, L"Local Access");
+			add(RightExecuteRemote, L"Remote Access");
+		}
+		return text.empty() ? L"None" : text;
+	}
+
+	bool ComSecurity::GrantsRemote(ComPermissionEntry const& entry) {
+		if (!entry.Allow)
+			return false;
+		if ((entry.Rights & ~RightExecute) == 0 && (entry.Rights & RightExecute))
+			return true;
+		return (entry.Rights & (RightExecuteRemote | RightActivateRemote)) != 0;
+	}
+
+	bool ComSecurity::IsBroadAccount(std::wstring const& sid) {
+		static const PCWSTR broad[] = {
+			L"S-1-1-0",			// Everyone
+			L"S-1-5-7",			// Anonymous Logon
+			L"S-1-5-11",		// Authenticated Users
+			L"S-1-5-32-545",	// Users
+			L"S-1-5-32-546",	// Guests
+		};
+		for (auto s : broad)
+			if (::_wcsicmp(sid.c_str(), s) == 0)
+				return true;
+		return false;
+	}
+
+	std::wstring ComSecurity::AuthenticationLevelText(int level) {
+		static const PCWSTR names[] = { L"Default", L"None", L"Connect", L"Call", L"Packet", L"Packet Integrity", L"Packet Privacy" };
+		if (level < 0 || level >= (int)_countof(names))
+			return std::to_wstring(level);
+		return std::wstring(names[level]) + L" (" + std::to_wstring(level) + L")";
+	}
+
+	std::wstring ComSecurity::ImpersonationLevelText(int level) {
+		static const PCWSTR names[] = { L"Default", L"Anonymous", L"Identify", L"Impersonate", L"Delegate" };
+		if (level < 0 || level >= (int)_countof(names))
+			return std::to_wstring(level);
+		return std::wstring(names[level]) + L" (" + std::to_wstring(level) + L")";
+	}
+
+	std::vector<DcomMachineSetting> ComSecurity::GetMachineSettings() {
+		std::vector<DcomMachineSetting> settings;
+		static const PCWSTR OleKey = L"SOFTWARE\\Microsoft\\Ole", AppCompatKey = L"SOFTWARE\\Microsoft\\Ole\\AppCompat";
+		auto ole = OpenKey(HKEY_LOCAL_MACHINE, OleKey, false);
+		auto appCompat = OpenKey(HKEY_LOCAL_MACHINE, AppCompatKey, false);
+
+		auto flag = [&](PCWSTR name, PCWSTR description, bool defaultOn, PCWSTR on, PCWSTR off) {
+			DcomMachineSetting s;
+			s.Name = name;
+			s.Key = OleKey;
+			s.Description = description;
+			std::wstring value;
+			s.Present = ole && ReadStringValue(ole.get(), name, value);
+			bool yes = s.Present ? (!value.empty() && (value[0] == L'Y' || value[0] == L'y')) : defaultOn;
+			s.Value = (s.Present ? value : std::wstring(L"Not set")) + L": " + (yes ? on : off);
+			settings.push_back(std::move(s));
+		};
+		auto level = [&](PCWSTR name, PCWSTR description, int fallback, bool impersonation) {
+			DcomMachineSetting s;
+			s.Name = name;
+			s.Key = OleKey;
+			s.Description = description;
+			DWORD value = 0;
+			s.Present = ole && ReadDwordValue(ole.get(), name, value);
+			int v = s.Present ? (int)value : fallback;
+			auto text = impersonation ? ImpersonationLevelText(v) : AuthenticationLevelText(v);
+			s.Value = s.Present ? text : L"Not set: " + text;
+			// no authentication at all, or servers allowed to use the callers' credentials on other computers
+			s.Weak = impersonation ? v == 4 : v == 1;
+			settings.push_back(std::move(s));
+		};
+		auto permission = [&](PCWSTR name, PCWSTR description, bool launch, bool limit, PCWSTR notSet) {
+			DcomMachineSetting s;
+			s.Name = name;
+			s.Key = OleKey;
+			s.Description = description;
+			s.IsPermission = true;
+			s.Launch = launch;
+			if (ole) {
+				s.SecurityDescriptor = ReadBinary(ole.get(), name);
+				if (!s.SecurityDescriptor.empty() && !::IsValidSecurityDescriptor(s.SecurityDescriptor.data()))
+					s.SecurityDescriptor.clear();
+			}
+			s.Present = !s.SecurityDescriptor.empty();
+			s.Value = s.Present ? PermissionSummary(s.SecurityDescriptor) : std::wstring(L"Not set: ") + notSet;
+			s.Weak = limit && s.Present && LimitIsWeak(s.SecurityDescriptor, launch);
+			settings.push_back(std::move(s));
+		};
+		auto logging = [&](PCWSTR name, PCWSTR description, DWORD fallback, PCWSTR const* meanings, int count) {
+			DcomMachineSetting s;
+			s.Name = name;
+			s.Key = OleKey;
+			s.Description = description;
+			DWORD value = 0;
+			s.Present = ole && ReadDwordValue(ole.get(), name, value);
+			auto v = s.Present ? value : fallback;
+			std::wstring meaning = v < (DWORD)count ? meanings[v] : L"Unknown";
+			s.Value = (s.Present ? std::to_wstring(v) : L"Not set (" + std::to_wstring(v) + L")") + L": " + meaning;
+			settings.push_back(std::move(s));
+		};
+
+		flag(L"EnableDCOM", L"Distributed COM on this computer (off: other computers can't reach its COM servers)",
+			true, L"enabled", L"disabled");
+		flag(L"EnableRemoteConnect", L"Remote clients may launch servers and connect to objects (Windows Server's default)",
+			false, L"remote connections allowed", L"remote connections not allowed");
+		level(L"LegacyAuthenticationLevel", L"The authentication level of processes that don't set their own "
+			L"(CoInitializeSecurity) and of app IDs without one", 2, false);
+		level(L"LegacyImpersonationLevel", L"The impersonation level clients grant servers when they don't set their own",
+			2, true);
+		flag(L"LegacySecureReferences", L"Reference counting calls (AddRef, Release) secured for processes that don't call "
+			L"CoInitializeSecurity", false, L"secured", L"not secured");
+		permission(L"DefaultLaunchPermission", L"Who may launch and activate servers whose app ID sets no LaunchPermission",
+			true, false, L"COM's built-in default (SYSTEM, Administrators and Interactive)");
+		permission(L"DefaultAccessPermission", L"Who may call servers whose app ID sets no AccessPermission and that don't "
+			L"call CoInitializeSecurity", false, false, L"COM's built-in default (SYSTEM and the server's own user)");
+		permission(L"MachineLaunchRestriction", L"The limit: launch and activation rights no app ID can grant beyond, "
+			L"for every server", true, true, L"no limit");
+		permission(L"MachineAccessRestriction", L"The limit: access rights no server can grant beyond", false, true,
+			L"no limit");
+		{
+			// KB5004442 (CVE-2021-26414): activation requests below Packet Integrity are refused; since the March 2023
+			// updates it's always on and the value is ignored
+			DcomMachineSetting s;
+			s.Name = L"RequireIntegrityActivationAuthenticationLevel";
+			s.Key = AppCompatKey;
+			s.Description = L"DCOM hardening (KB5004442): remote activations below Packet Integrity are refused; "
+				L"Windows enforces it since the March 2023 updates, whatever the value";
+			DWORD value = 0;
+			s.Present = appCompat && ReadDwordValue(appCompat.get(), s.Name.c_str(), value);
+			s.Value = !s.Present ? L"Not set: enforced" : value ? std::to_wstring(value) + L": enforced"
+				: L"0: asked to be off (ignored by updated systems)";
+			s.Weak = s.Present && value == 0;
+			settings.push_back(std::move(s));
+		}
+		static const PCWSTR activation[] = { L"discretionary (errors logged by default)", L"always logged", L"never logged" };
+		logging(L"ActivationFailureLoggingLevel", L"Activation failures in the System log (DistributedCOM events)", 0,
+			activation, _countof(activation));
+		static const PCWSTR call[] = { L"discretionary", L"always logged", L"never logged" };
+		logging(L"CallFailureLoggingLevel", L"Failed calls in the System log", 2, call, _countof(call));
+		static const PCWSTR invalid[] = { L"discretionary", L"always logged", L"never logged" };
+		logging(L"InvalidSecurityDescriptorLoggingLevel", L"Invalid permissions found by COM in the System log", 1,
+			invalid, _countof(invalid));
+		return settings;
+	}
+
+	std::vector<ComAppIdRegistration> ComRegistry::EnumAppIds() {
+		std::vector<ComAppIdRegistration> ids;
+		std::unordered_map<std::wstring, size_t> machine;	// upper-case ID to its index
+		auto read = [&](HKEY hive, bool perUser) {
+			auto root = OpenKey(hive, L"Software\\Classes\\AppID", false);
+			if (!root)
+				return;
+			std::unordered_map<std::wstring, std::vector<std::wstring>> executables;	// upper-case ID to the names
+			std::vector<size_t> added;
+			for (auto& name : SubKeys(root.get())) {
+				HKEY key;
+				if (::RegOpenKeyEx(root.get(), name.c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS)
+					continue;
+				wil::unique_hkey hold(key);
+				if (name.empty() || name[0] != L'{') {
+					// an executable's name, which points at its app ID
+					auto id = Upper(ReadString(key, nullptr, L"AppID"));
+					if (!id.empty())
+						executables[id].push_back(name);
+					continue;
+				}
+				ComAppIdRegistration a;
+				a.AppId = Upper(name);
+				a.Name = ResolveIndirect(ReadString(key, nullptr, nullptr));
+				a.RunAs = ReadString(key, nullptr, L"RunAs");
+				a.ServiceName = ReadString(key, nullptr, L"LocalService");
+				a.ServiceParameters = ReadString(key, nullptr, L"ServiceParameters");
+				a.Surrogate = HasValue(key, L"DllSurrogate");
+				a.DllSurrogate = ReadString(key, nullptr, L"DllSurrogate");
+				a.RemoteServerName = ReadString(key, nullptr, L"RemoteServerName");
+				auto storage = ReadString(key, nullptr, L"ActivateAtStorage");
+				a.ActivateAtStorage = !storage.empty() && (storage[0] == L'Y' || storage[0] == L'y');
+				DWORD level = 0;
+				if (ReadDwordValue(key, L"AuthenticationLevel", level))
+					a.AuthenticationLevel = (int)level;
+				a.LaunchPermission = ReadBinary(key, L"LaunchPermission");
+				if (!a.LaunchPermission.empty() && !::IsValidSecurityDescriptor(a.LaunchPermission.data()))
+					a.LaunchPermission.clear();
+				a.AccessPermission = ReadBinary(key, L"AccessPermission");
+				if (!a.AccessPermission.empty() && !::IsValidSecurityDescriptor(a.AccessPermission.data()))
+					a.AccessPermission.clear();
+				a.PerUser = perUser;
+				a.LastWrite = LastWriteOf(key);
+				if (perUser) {
+					if (auto it = machine.find(a.AppId); it != machine.end())
+						a.OverridesMachine = true;
+				}
+				else
+					machine[a.AppId] = ids.size();
+				added.push_back(ids.size());
+				ids.push_back(std::move(a));
+			}
+			for (auto i : added)
+				if (auto it = executables.find(ids[i].AppId); it != executables.end())
+					ids[i].Executables = std::move(it->second);
+		};
+		read(HKEY_LOCAL_MACHINE, false);
+		read(HKEY_CURRENT_USER, true);
+		return ids;
+	}
+
+	std::optional<std::vector<RunningObject>> ComSecurity::EnumRunningObjects() {
+		wil::com_ptr_nothrow<IRunningObjectTable> rot;
+		auto hr = ::GetRunningObjectTable(0, &rot);
+		if (FAILED(hr)) {
+			::SetLastError((DWORD)hr);
+			return std::nullopt;
+		}
+		wil::com_ptr_nothrow<IEnumMoniker> monikers;
+		hr = rot->EnumRunning(&monikers);
+		if (FAILED(hr)) {
+			::SetLastError((DWORD)hr);
+			return std::nullopt;
+		}
+		std::vector<RunningObject> objects;
+		wil::com_ptr_nothrow<IBindCtx> ctx;
+		::CreateBindCtx(0, &ctx);
+		for (;;) {
+			wil::com_ptr_nothrow<IMoniker> moniker;
+			if (monikers->Next(1, &moniker, nullptr) != S_OK)
+				break;
+			RunningObject o;
+			PWSTR name = nullptr;
+			if (ctx && SUCCEEDED(moniker->GetDisplayName(ctx.get(), nullptr, &name)) && name) {
+				o.DisplayName = name;
+				::CoTaskMemFree(name);
+			}
+			DWORD kind = 0;
+			if (moniker->IsSystemMoniker(&kind) == S_OK) {
+				switch (kind) {
+					case MKSYS_GENERICCOMPOSITE: o.MonikerType = L"Composite"; break;
+					case MKSYS_FILEMONIKER: o.MonikerType = L"File"; break;
+					case MKSYS_ANTIMONIKER: o.MonikerType = L"Anti"; break;
+					case MKSYS_ITEMMONIKER: o.MonikerType = L"Item"; break;
+					case MKSYS_POINTERMONIKER: o.MonikerType = L"Pointer"; break;
+					case MKSYS_CLASSMONIKER: o.MonikerType = L"Class"; break;
+					case MKSYS_OBJREFMONIKER: o.MonikerType = L"OBJREF"; break;
+					case MKSYS_SESSIONMONIKER: o.MonikerType = L"Session"; break;
+					case MKSYS_LUAMONIKER: o.MonikerType = L"Elevation"; break;
+					default: o.MonikerType = L"System (" + std::to_wstring(kind) + L")"; break;
+				}
+			}
+			else
+				o.MonikerType = L"Custom";
+			CLSID clsid;
+			if (SUCCEEDED(moniker->GetClassID(&clsid))) {
+				WCHAR text[64];
+				if (::StringFromGUID2(clsid, text, _countof(text)))
+					o.MonikerClass = text;
+			}
+			FILETIME ft{};
+			if (rot->GetTimeOfLastChange(moniker.get(), &ft) == S_OK)
+				o.LastChange = (int64_t)ULARGE_INTEGER{ ft.dwLowDateTime, ft.dwHighDateTime }.QuadPart;
+			objects.push_back(std::move(o));
+		}
+		return objects;
+	}
+}

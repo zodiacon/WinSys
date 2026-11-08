@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <optional>
 
 //
 // What a COM server process serves, from its command line and the registry:
@@ -92,6 +93,78 @@ namespace WinSys {
 		std::wstring RedirectedProgIds;
 	};
 
+	// an entry of a COM permission (an app ID's LaunchPermission or AccessPermission, or a machine-wide default or limit)
+	struct ComPermissionEntry {
+		std::wstring Account;	// DOMAIN\user, or the SID when it can't be named
+		std::wstring Sid;		// S-1-...
+		bool Allow{ true };
+		uint32_t Rights{ 0 };	// COM_RIGHTS_* as stored (COM_RIGHTS_EXECUTE alone: an old-style entry, every right)
+	};
+
+	// a machine-wide DCOM setting (HKLM\SOFTWARE\Microsoft\Ole and its AppCompat key), as dcomcnfg's Default Properties
+	// and COM Security pages have them, with DCOM's hardening and logging values
+	struct DcomMachineSetting {
+		std::wstring Name;			// the registry value's name
+		std::wstring Key;			// the key under HKLM it's in
+		bool Present{ false };		// set; else Windows' default applies (Value says which)
+		std::wstring Value;			// the value with its meaning ("Y: DCOM enabled", "Connect (2)", "Set: 5 entries")
+		std::wstring Description;	// what it controls
+		std::vector<uint8_t> SecurityDescriptor;	// a permission's (self-relative); empty if it's not one or not set
+		bool IsPermission{ false };
+		bool Launch{ false };		// a permission's rights are launch and activation's (else access's)
+		bool Weak{ false };			// weaker than Windows' default: no authentication, the hardening turned off, remote
+									// rights for everyone in a limit
+	};
+
+	// an app ID (HKCR\AppID\{...}: the machine's and the user's)
+	struct ComAppIdRegistration {
+		std::wstring AppId;			// {...}, upper case
+		std::wstring Name;			// its default value, indirect strings resolved
+		std::wstring RunAs;			// empty: the launching user
+		std::wstring ServiceName, ServiceParameters;	// LocalService, ServiceParameters
+		bool Surrogate{ false };	// DllSurrogate is there
+		std::wstring DllSurrogate;	// its value: empty for dllhost.exe
+		std::wstring RemoteServerName;
+		bool ActivateAtStorage{ false };
+		int AuthenticationLevel{ -1 };	// RPC_C_AUTHN_LEVEL_*; -1 if not set (the machine's LegacyAuthenticationLevel)
+		std::vector<uint8_t> LaunchPermission, AccessPermission;	// empty: not set (the machine's defaults apply)
+		std::vector<std::wstring> Executables;	// the executables mapped to it (HKCR\AppID\<name>.exe's AppID)
+		bool PerUser{ false };		// in HKCU\Software\Classes
+		bool OverridesMachine{ false };	// per user, and HKLM has it too
+		int64_t LastWrite{ 0 };		// FILETIME: its key last written
+	};
+
+	// an entry of the Running Object Table, as this process can see it (an entry registered without
+	// ROTFLAGS_ALLOWANYCLIENT is seen only by its own user at the same elevation)
+	struct RunningObject {
+		std::wstring DisplayName;
+		std::wstring MonikerType;	// "File", "Item", "Composite", "Class", "Pointer"... or "Custom"
+		std::wstring MonikerClass;	// the moniker's own class ({...}); empty if not known
+		int64_t LastChange{ 0 };	// FILETIME: the object's last change as registered; 0 if not known
+	};
+
+	struct ComSecurity final {
+		// the machine-wide settings, in dcomcnfg's order, then the hardening and the logging levels
+		[[nodiscard]] static std::vector<DcomMachineSetting> GetMachineSettings();
+		// a permission's entries (its DACL's), accounts named; empty if it isn't a valid security descriptor
+		[[nodiscard]] static std::vector<ComPermissionEntry> ParsePermission(void const* sd);
+		// "Local Launch, Remote Activation", "Local Access, Remote Access"; launch: launch and activation rights (else
+		// access's). An old-style entry (COM_RIGHTS_EXECUTE alone) has them all
+		[[nodiscard]] static std::wstring RightsText(uint32_t rights, bool launch);
+		// the entry grants a remote right (Remote Launch, Remote Activation, Remote Access)
+		[[nodiscard]] static bool GrantsRemote(ComPermissionEntry const& entry);
+		// Everyone, Anonymous, Authenticated Users, Users, Guests: anyone who can log on (or no one). Not Interactive: a
+		// remote caller's token (a network logon) never has it, so its remote rights let no one in from outside
+		[[nodiscard]] static bool IsBroadAccount(std::wstring const& sid);
+		// "None (1)", "Packet Privacy (6)"; "Default (0)"
+		[[nodiscard]] static std::wstring AuthenticationLevelText(int level);
+		[[nodiscard]] static std::wstring ImpersonationLevelText(int level);
+		// the Running Object Table's entries (the caller initializes COM); nothing, with the HRESULT as the last error, if
+		// it can't be read. A custom moniker's display name is asked of its object, which may be in another process: call
+		// this off the UI thread
+		[[nodiscard]] static std::optional<std::vector<RunningObject>> EnumRunningObjects();
+	};
+
 	struct ComRegistry final {
 		// every registered class of the view: the machine's and the user's (both when they have the same CLSID, marked:
 		// HKCR shows the user's), then (the 64-bit view) the packaged ones. Reads the registry and the machine-wide
@@ -111,6 +184,9 @@ namespace WinSys {
 		// default (HKLM\Software\Microsoft\Ole DefaultLaunchPermission, DefaultAccessPermission: isDefault); empty if
 		// neither is set (COM's built-in default applies)
 		[[nodiscard]] static std::vector<uint8_t> GetPermission(std::wstring const& appId, bool launch, bool wow64, bool& isDefault);
+		// every app ID: the machine's and the user's (both when they have the same ID, the user's marked). HKLM's AppID
+		// key is shared by the 64-bit and the 32-bit views (WOW64 doesn't redirect it): one set for both
+		[[nodiscard]] static std::vector<ComAppIdRegistration> EnumAppIds();
 	};
 
 	struct ComServers final {

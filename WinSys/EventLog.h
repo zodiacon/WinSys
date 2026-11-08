@@ -57,9 +57,10 @@ namespace WinSys {
 		// warnings, so the Security log's failures come with the warnings and its successes with the information) from
 		// the last hours, in reverse log order (by record ID: newest first unless the clock was set back, as a new VM does
 		// when it syncs), at most maxEvents; nothing, with the last error set, if the channel can't be read (Security
-		// without elevation: ERROR_ACCESS_DENIED... or ERROR_PRIVILEGE_NOT_HELD)
+		// without elevation: ERROR_ACCESS_DENIED... or ERROR_PRIVILEGE_NOT_HELD). provider: only its events (its
+		// name as the events have it, "Microsoft-Windows-DistributedCOM"); empty: all
 		[[nodiscard]] static std::optional<std::vector<EventLogEntry>> Query(std::wstring const& channel, uint8_t maxLevel,
-			uint32_t hours, size_t maxEvents, EventDataRead data = EventDataRead::None);
+			uint32_t hours, size_t maxEvents, EventDataRead data = EventDataRead::None, std::wstring const& provider = {});
 		[[nodiscard]] static PCWSTR LevelName(uint8_t level);
 		// the level's name, or Audit Failure / Audit Success for the Security log's events
 		[[nodiscard]] static PCWSTR LevelText(EventLogEntry const& entry);
