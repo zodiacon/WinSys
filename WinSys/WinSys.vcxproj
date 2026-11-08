@@ -194,6 +194,7 @@
     <ClInclude Include="Heaps.h" />
     <ClInclude Include="Packages.h" />
     <ClInclude Include="UnloadedModules.h" />
+    <ClInclude Include="VirtualMachines.h" />
     <ClInclude Include="Firewall.h" />
     <ClInclude Include="Com.h" />
     <ClInclude Include="Battery.h" />
@@ -278,6 +279,10 @@
     <ClCompile Include="Heaps.cpp" />
     <ClCompile Include="Packages.cpp" />
     <ClCompile Include="UnloadedModules.cpp" />
+    <ClCompile Include="VirtualMachines.cpp">
+      <!-- not pch.h: compiled with the standard library's exceptions on, as nlohmann::json's parse errors hold a std::runtime_error, whose vtable must match the app's (C4743 under LTCG otherwise) -->
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="Firewall.cpp" />
     <ClCompile Include="Com.cpp" />
     <ClCompile Include="Battery.cpp" />
