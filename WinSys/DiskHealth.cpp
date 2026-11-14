@@ -261,11 +261,17 @@ std::optional<DiskHealth> DiskHealthReader::Read(uint32_t diskNumber) {
 	DiskHealth health;
 	health.DiskNumber = diskNumber;
 	auto bus = ReadDescriptor(hDisk.get(), health);
+	// the model and bus type only, for a bus whose health isn't asked for
+	health.NotRead = WhyNotRead(bus);
+	if (!health.NotRead.empty()) {
+		Evaluate(health);
+		return health;
+	}
 
 	std::vector<BYTE> data;
 	// NVMe: the health log for the whole controller (namespace FFFFFFFF), the thresholds from Identify Controller
 	// (refused by some drivers through the device: the adapter's then)
-	if ((bus == BusTypeNvme || bus == BusTypeUnknown)
+	if (bus == BusTypeNvme
 		&& QueryNvme(hDisk.get(), StorageDeviceProtocolSpecificProperty, NVMeDataTypeLogPage, NVME_LOG_PAGE_HEALTH_INFO, 0, data, sizeof(NVME_HEALTH_INFO_LOG)))
 		ParseNvmeHealthLog(data.data(), data.size(), health);
 	if (health.Source == DiskHealthSource::Nvme
@@ -291,6 +297,21 @@ std::optional<DiskHealth> DiskHealthReader::Read(uint32_t diskNumber) {
 	}
 	Evaluate(health);
 	return health;
+}
+
+std::wstring DiskHealthReader::WhyNotRead(uint32_t busType) {
+	switch (busType) {
+		case BusTypeNvme:
+		case BusTypeAta:
+		case BusTypeSata:
+			return {};
+		case BusTypeRAID:
+			return L"behind a RAID controller";
+		case BusTypeUnknown:
+			return L"on an unknown bus";
+	}
+	auto name = BusTypeName((STORAGE_BUS_TYPE)busType);
+	return *name ? std::wstring(L"on a ") + name + L" bus" : std::wstring(L"on an unknown bus");
 }
 
 bool DiskHealthReader::IsPoweredOn(uint32_t diskNumber) {

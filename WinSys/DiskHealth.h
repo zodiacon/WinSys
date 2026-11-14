@@ -10,6 +10,8 @@
 // drive's SMART attributes (IOCTL_STORAGE_PREDICT_FAILURE's vendor data, with the drive's failure prediction) and the
 // temperature Windows reads from it. Every query goes through IOCTL_STORAGE_QUERY_PROPERTY or another FILE_ANY_ACCESS
 // control code on a handle opened with no access, so none needs elevation. USB bridges mostly pass none of this on.
+// Only NVMe, ATA and SATA disks are asked: a RAID controller's driver (Intel RST's) passes the queries to the drive in
+// its own way, and a laptop with RST froze, its system disk with it, soon after the reads started.
 //
 
 namespace WinSys {
@@ -35,6 +37,7 @@ namespace WinSys {
 		DiskHealthSource Source{ DiskHealthSource::None };
 		DiskHealthState State{ DiskHealthState::Unknown };
 		std::vector<std::wstring> Problems;	// why it isn't Good ("2 media errors", "SMART predicts a failure")
+		std::wstring NotRead;	// why its health wasn't asked for ("behind a RAID controller"); empty when it was
 
 		std::optional<int> Temperature;			// Celsius
 		std::optional<int> TemperatureWarning;	// the drive's warning threshold (NVMe WCTEMP, the temperature property's)
@@ -56,8 +59,12 @@ namespace WinSys {
 
 	struct DiskHealthReader final {
 		// the disk's health, read now; nothing if the disk can't be opened (the last error set). A disk that reports
-		// nothing is returned with Source None and State Unknown (its model and bus type only)
+		// nothing is returned with Source None and State Unknown (its model and bus type only), as is one on a bus
+		// whose health isn't asked for (NotRead says why)
 		[[nodiscard]] static std::optional<DiskHealth> Read(uint32_t diskNumber);
+		// why a disk on this bus (a STORAGE_BUS_TYPE) isn't asked for its health; empty for NVMe, ATA and SATA, the
+		// only ones that are (not RAID, a controller's driver in between; SCSI, SAS, USB, virtual or unknown buses)
+		[[nodiscard]] static std::wstring WhyNotRead(uint32_t busType);
 		// whether the disk is spinning (GetDevicePowerState): a sleeping hard disk would be woken by the SMART query;
 		// true if it can't be told (an SSD always is)
 		[[nodiscard]] static bool IsPoweredOn(uint32_t diskNumber);
