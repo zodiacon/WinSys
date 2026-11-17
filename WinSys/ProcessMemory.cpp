@@ -233,6 +233,38 @@ bool ProcessMemory::Write(HANDLE hProcess, uint64_t address, void const* data, s
 	return true;
 }
 
+bool ProcessMemory::IsWritableProtection(DWORD protect) {
+	switch (protect & 0xff) {
+		case PAGE_READWRITE:
+		case PAGE_WRITECOPY:
+		case PAGE_EXECUTE_READWRITE:
+		case PAGE_EXECUTE_WRITECOPY:
+			return true;
+	}
+	return false;
+}
+
+DWORD ProcessMemory::WritableProtection(DWORD protect) {
+	auto modifiers = protect & ~0xff & ~PAGE_GUARD;
+	if (IsWritableProtection(protect))
+		return (protect & 0xff) | modifiers;
+	switch (protect & 0xff) {
+		case PAGE_EXECUTE:
+		case PAGE_EXECUTE_READ:
+			return PAGE_EXECUTE_READWRITE | modifiers;
+	}
+	return PAGE_READWRITE | modifiers;
+}
+
+bool ProcessMemory::Protect(HANDLE hProcess, uint64_t address, size_t size, DWORD protect, DWORD* old) {
+	DWORD before = 0;
+	if (!::VirtualProtectEx(hProcess, (void*)address, size, protect, &before))
+		return false;
+	if (old)
+		*old = before;
+	return true;
+}
+
 std::wstring ProcessMemory::GetMappedFileName(HANDLE hProcess, void const* address) {
 	// a UNICODE_STRING followed by its characters; a longer name than fits reports the size it needs
 	ULONG size = 1024;

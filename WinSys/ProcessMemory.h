@@ -52,6 +52,16 @@ namespace WinSys {
 		// hProcess has PROCESS_VM_WRITE and PROCESS_VM_OPERATION (WriteProcessMemory makes a read-only or executable page
 		// writable for the write); false with the last error on failure
 		static bool Write(HANDLE hProcess, uint64_t address, void const* data, size_t size);
+		// a page protection (PAGE_*) allows writing: read/write or write-copy, executable or not (PAGE_GUARD and the
+		// caching modifiers aside)
+		[[nodiscard]] static bool IsWritableProtection(DWORD protect);
+		// the protection that makes pages of the given one writable, keeping whether they're executable (code made
+		// read/write only would crash the process when it runs): PAGE_READWRITE, or PAGE_EXECUTE_READWRITE for an
+		// executable one; a writable one is kept as it is; the caching modifiers are kept, PAGE_GUARD dropped
+		[[nodiscard]] static DWORD WritableProtection(DWORD protect);
+		// changes the protection of the pages in [address, address + size) (VirtualProtectEx); hProcess has
+		// PROCESS_VM_OPERATION. old: the protection of the first page before. False with the last error on failure
+		static bool Protect(HANDLE hProcess, uint64_t address, size_t size, DWORD protect, DWORD* old = nullptr);
 		// the highest user-mode address
 		[[nodiscard]] static uint64_t MaxAddress();
 		// the NT path of the file mapped at the address (an image or a data file), whatever its length (GetMappedFileName
