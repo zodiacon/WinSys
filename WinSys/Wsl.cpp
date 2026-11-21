@@ -75,11 +75,14 @@ namespace WinSys {
 					handles[count++] = h;
 			SIZE_T size = 0;
 			::InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
-			std::vector<BYTE> buffer(size);
-			auto attributes = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(buffer.data());
+			auto buffer = std::make_unique<BYTE[]>(size);
+			if (!buffer)
+				return false;
+
+			auto attributes = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(buffer.get());
 			if (!::InitializeProcThreadAttributeList(attributes, 1, 0, &size))
 				return false;
-			bool ok = ::UpdateProcThreadAttribute(attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, handles, count * sizeof(HANDLE), nullptr, nullptr);
+			auto ok = ::UpdateProcThreadAttribute(attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, handles, count * sizeof(HANDLE), nullptr, nullptr);
 			if (ok) {
 				STARTUPINFOEX si{ { sizeof(si) } };
 				si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
